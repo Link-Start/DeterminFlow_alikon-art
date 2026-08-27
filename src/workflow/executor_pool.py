@@ -44,6 +44,11 @@ def executor_lease_path(data_dir: Path, executor_id: str) -> Path:
     return Path(data_dir) / "system" / filename
 
 
+def executor_init_lease_path(data_dir: Path) -> Path:
+    """Serialize instance-directory writes while members boot in parallel."""
+    return Path(data_dir) / "system" / "workflow-executor-init.lock"
+
+
 def _pool_state_path(data_dir: Path) -> Path:
     return Path(data_dir) / "system" / POOL_STATE_FILENAME
 
@@ -215,13 +220,25 @@ class WorkflowExecutorPool:
                     event_handler=self.event_handler,
                 )
                 self._supervisors[executor_id] = supervisor
-                await supervisor.start()
+            # Keep sibling starts running so stop() can reap every created member.
+            results = await asyncio.gather(
+                *(
+                    self._supervisors[executor_id].start()
+                    for executor_id in self.executor_ids
+                ),
+                return_exceptions=True,
+            )
+            failures = [
+                result for result in results if isinstance(result, BaseException)
+            ]
+            if failures:
+                raise failures[0]
             _save_pool_state(self.data_dir, self.executor_ids)
             self._started = True
             return self
-        except Exception:
-            await self.stop()
-            raise
+        finally:
+            if not self._started:
+                await self.stop()
 
     async def stop(self) -> None:
         self._started = False

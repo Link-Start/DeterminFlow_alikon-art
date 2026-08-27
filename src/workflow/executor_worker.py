@@ -37,10 +37,12 @@ async def _run(args: argparse.Namespace) -> None:
     # Import only after the role is fixed. web_server creates its application at
     # module import time and the lifespan uses this role to disable Controller
     # responsibilities.
+    from src.config import DATA_DIR
     from src.web_server import app, lifespan
-    from src.workflow.executor_lease import ExecutorProcessLease
-    from src.workflow.executor_events import ExecutorEventForwarder
     from src.web.event_bus import event_bus
+    from src.workflow.executor_events import ExecutorEventForwarder
+    from src.workflow.executor_lease import ExecutorProcessLease
+    from src.workflow.executor_pool import executor_init_lease_path
     from src.workflow.executor_server import WorkflowExecutorServer
 
     identity = ExecutorIdentity(args.executor_id, args.executor_epoch)
@@ -59,7 +61,10 @@ async def _run(args: argparse.Namespace) -> None:
         event_endpoint, identity, auth_token=auth_token,
     )
     event_bus.set_process_forwarder(event_forwarder.emit)
+    # Shared DATA_DIR writes are not process-safe; overlap spawn/import only.
+    init_lease = ExecutorProcessLease(executor_init_lease_path(DATA_DIR))
     try:
+        await asyncio.to_thread(init_lease.acquire, 60.0)
         async with lifespan(app):
             manager = app.state.workflow_manager
             manager.set_local_executor_identity(identity)
@@ -72,6 +77,7 @@ async def _run(args: argparse.Namespace) -> None:
                 event_forwarder=event_forwarder,
             )
             await server.start()
+            init_lease.release()
             parent_watch = asyncio.create_task(
                 watch_parent_exit(args.parent_pid, stop_event),
                 name="workflow-executor-parent-watch",
@@ -89,6 +95,7 @@ async def _run(args: argparse.Namespace) -> None:
                 await asyncio.gather(parent_watch, return_exceptions=True)
                 await server.close()
     finally:
+        init_lease.release()
         event_bus.set_process_forwarder(None)
         await event_forwarder.close()
         lease.release()
