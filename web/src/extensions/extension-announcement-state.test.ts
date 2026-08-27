@@ -206,7 +206,7 @@ test("merges confirmations that arrive while desktop state is still loading", as
   await remembered;
 
   assert.deepEqual([...state.snapshot()], ["public-api:notice-0", "public-api:notice-1"]);
-  assert.deepEqual(saves.at(-1), ["public-api:notice-0", "public-api:notice-1"]);
+  assert.deepEqual(saves[saves.length - 1], ["public-api:notice-0", "public-api:notice-1"]);
 });
 
 test("serializes overlapping writes so the latest snapshot keeps every key", async () => {
@@ -227,7 +227,7 @@ test("serializes overlapping writes so the latest snapshot keeps every key", asy
     state.remember("public-api:notice-2"),
   ]);
 
-  assert.deepEqual(saves.at(-1), ["public-api:notice-1", "public-api:notice-2"]);
+  assert.deepEqual(saves[saves.length - 1], ["public-api:notice-1", "public-api:notice-2"]);
 });
 
 test("load failures fail open without dropping in-session confirmations", async () => {
@@ -246,7 +246,7 @@ test("load failures fail open without dropping in-session confirmations", async 
   await state.remember("public-api:notice-1");
 
   assert.deepEqual([...state.snapshot()], ["public-api:notice-1"]);
-  assert.deepEqual(saves.at(-1), ["public-api:notice-1"]);
+  assert.deepEqual(saves[saves.length - 1], ["public-api:notice-1"]);
 });
 
 test("save failures keep the current session from showing the same announcement", async () => {
