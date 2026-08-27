@@ -87,7 +87,7 @@ export default function ConversationTimeline({
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${className}`} aria-busy={loading || isStreaming}>
-      <div ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div ref={viewportRef} className="conversation-output-scroll min-h-0 flex-1 overflow-y-auto">
         {isInitialLoading && <ConversationAsyncState kind="loading" />}
         {isInitialError && (
           <ConversationAsyncState

@@ -29,8 +29,11 @@ export type {
   ToolStatusInput,
 } from "./conversationTypes";
 export {
+  applyFollowOutputScroll,
   distanceFromBottom,
+  followStateAfterScroll,
   isNearBottom,
+  maxScrollTop,
   useAutoFollowOutput,
 } from "./useAutoFollowOutput";
 export type {

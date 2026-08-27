@@ -10,13 +10,32 @@ export function distanceFromBottom(metrics: ScrollMetrics): number {
   return Math.max(0, metrics.scrollHeight - metrics.scrollTop - metrics.clientHeight);
 }
 
+export function maxScrollTop(metrics: Pick<ScrollMetrics, "scrollHeight" | "clientHeight">): number {
+  return Math.max(0, metrics.scrollHeight - metrics.clientHeight);
+}
+
 export function isNearBottom(metrics: ScrollMetrics, threshold = 160): boolean {
   return distanceFromBottom(metrics) <= threshold;
 }
 
+export function followStateAfterScroll(args: {
+  wasFollowing: boolean;
+  programmatic: boolean;
+  metrics: ScrollMetrics;
+  threshold?: number;
+}): boolean {
+  if (args.programmatic) return args.wasFollowing;
+  return isNearBottom(args.metrics, args.threshold);
+}
+
+export function applyFollowOutputScroll<T extends ScrollMetrics>(viewport: T): number {
+  const nextTop = maxScrollTop(viewport);
+  viewport.scrollTop = nextTop;
+  return nextTop;
+}
+
 export interface UseAutoFollowOutputOptions {
   threshold?: number;
-  behavior?: ScrollBehavior;
 }
 
 export interface UseAutoFollowOutputReturn {
@@ -27,9 +46,10 @@ export interface UseAutoFollowOutputReturn {
 
 export function useAutoFollowOutput<T extends HTMLElement>(
   viewportRef: RefObject<T | null>,
-  { threshold = 160, behavior = "auto" }: UseAutoFollowOutputOptions = {},
+  { threshold = 160 }: UseAutoFollowOutputOptions = {},
 ): UseAutoFollowOutputReturn {
   const shouldFollowRef = useRef(true);
+  const programmaticScrollRef = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
 
   const cancelScheduledScroll = useCallback(() => {
@@ -47,11 +67,13 @@ export function useAutoFollowOutput<T extends HTMLElement>(
     animationFrameRef.current = requestAnimationFrame(() => {
       animationFrameRef.current = null;
       const currentViewport = viewportRef.current;
-      if (!currentViewport) return;
-      currentViewport.scrollTo({ top: currentViewport.scrollHeight, behavior });
+      if (!currentViewport || (!force && !shouldFollowRef.current)) return;
+      programmaticScrollRef.current = true;
+      applyFollowOutputScroll(currentViewport);
+      programmaticScrollRef.current = false;
       if (force) shouldFollowRef.current = true;
     });
-  }, [behavior, viewportRef]);
+  }, [viewportRef]);
 
   const resetAutoFollow = useCallback(() => {
     shouldFollowRef.current = true;
@@ -65,7 +87,12 @@ export function useAutoFollowOutput<T extends HTMLElement>(
     if (!viewport) return;
 
     const handleScroll = () => {
-      shouldFollowRef.current = isNearBottom(viewport, threshold);
+      shouldFollowRef.current = followStateAfterScroll({
+        wasFollowing: shouldFollowRef.current,
+        programmatic: programmaticScrollRef.current,
+        metrics: viewport,
+        threshold,
+      });
     };
     handleScroll();
     viewport.addEventListener("scroll", handleScroll, { passive: true });

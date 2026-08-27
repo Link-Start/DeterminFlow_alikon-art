@@ -187,6 +187,7 @@ export default function ConversationComposer({
 }: ConversationComposerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editableRef = useRef(editable);
   const expandedRef = useRef(false);
@@ -204,10 +205,11 @@ export default function ConversationComposer({
 
   const refreshContentState = useCallback(() => {
     const editor = editorRef.current;
+    const scroller = scrollRef.current;
     if (!editor) return;
     setHasContent(hasEditorContent(editor));
-    if (!expandedRef.current) {
-      setCanExpand(shouldOfferComposerExpansion(editor.scrollHeight, editor.clientHeight));
+    if (!expandedRef.current && scroller) {
+      setCanExpand(shouldOfferComposerExpansion(editor.scrollHeight, scroller.clientHeight));
     }
   }, []);
 
@@ -385,11 +387,13 @@ export default function ConversationComposer({
 
   useEffect(() => {
     const editor = editorRef.current;
+    const scroller = scrollRef.current;
     if (!editor) return undefined;
     const observer = new ResizeObserver(() => {
       if (!expandedRef.current) refreshContentState();
     });
     observer.observe(editor);
+    if (scroller) observer.observe(scroller);
     return () => observer.disconnect();
   }, [refreshContentState]);
 
@@ -511,42 +515,53 @@ export default function ConversationComposer({
       >
         <div className="relative">
           <div
-            ref={editorRef}
-            role="textbox"
-            aria-label="聊天消息输入"
-            aria-multiline="true"
-            aria-disabled={!editable}
-            aria-describedby={attachmentError ? errorId : undefined}
-            contentEditable={editable}
-            suppressContentEditableWarning
-            data-placeholder={placeholder}
-            onInput={refreshContentState}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            onDragEnter={(event) => {
-              if (!editable || !event.dataTransfer.types.includes("Files")) return;
-              event.preventDefault();
-              dragDepthRef.current += 1;
-              setDragActive(true);
-            }}
-            onDragOver={(event) => {
-              if (!editable || !event.dataTransfer.types.includes("Files")) return;
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "copy";
-            }}
-            onDragLeave={() => {
-              dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-              if (dragDepthRef.current === 0) setDragActive(false);
-            }}
-            onDrop={handleBrowserDrop}
-            className={`conversation-composer-editor w-full overflow-y-auto whitespace-pre-wrap break-words rounded-lg border-none bg-transparent px-2 py-1 text-sm text-foreground outline-none ${
+            ref={scrollRef}
+            className={`conversation-composer-scroll w-full overflow-y-auto ${
               expanded
-                ? "h-[calc(50vh-4.25rem)] min-h-48 max-h-none"
+                ? "h-[calc(50vh-4.25rem)] min-h-48"
                 : isCompact
-                  ? "max-h-[200px] min-h-11"
-                  : "max-h-32 min-h-12"
-            } ${canExpand || expanded ? "pr-11" : ""} ${editable ? "" : "cursor-not-allowed"}`}
-          />
+                  ? "max-h-[200px]"
+                  : "max-h-32"
+            }`}
+          >
+            <div
+              ref={editorRef}
+              role="textbox"
+              aria-label="聊天消息输入"
+              aria-multiline="true"
+              aria-disabled={!editable}
+              aria-describedby={attachmentError ? errorId : undefined}
+              contentEditable={editable}
+              suppressContentEditableWarning
+              data-placeholder={placeholder}
+              onInput={refreshContentState}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              onDragEnter={(event) => {
+                if (!editable || !event.dataTransfer.types.includes("Files")) return;
+                event.preventDefault();
+                dragDepthRef.current += 1;
+                setDragActive(true);
+              }}
+              onDragOver={(event) => {
+                if (!editable || !event.dataTransfer.types.includes("Files")) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
+              }}
+              onDragLeave={() => {
+                dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+                if (dragDepthRef.current === 0) setDragActive(false);
+              }}
+              onDrop={handleBrowserDrop}
+              className={`conversation-composer-editor w-full overflow-hidden whitespace-pre-wrap break-words rounded-lg border-none bg-transparent px-2 py-1 text-sm text-foreground outline-none ${
+                expanded
+                  ? "min-h-full"
+                  : isCompact
+                    ? "min-h-11"
+                    : "min-h-12"
+              } ${canExpand || expanded ? "pr-11" : ""} ${editable ? "" : "cursor-not-allowed"}`}
+            />
+          </div>
           {canExpand || expanded ? (
             <button
               type="button"

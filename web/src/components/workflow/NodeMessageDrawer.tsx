@@ -9,7 +9,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { X, Loader, Bot, Wrench, MessageSquare, GripVertical, Play, Terminal, CheckCircle, XCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ConversationComposer, ConversationTimeline } from "../conversation";
+import { ConversationComposer, ConversationTimeline, useAutoFollowOutput } from "../conversation";
 import type { NodeExecutionInfo, NodeMessageResponse, Message, MessageAttachment } from "../../types";
 import type { StreamingSegment } from "../../hooks/useNodeStreaming";
 import NodeFailureRuntimePanel from "./NodeFailureRuntimePanel";
@@ -56,14 +56,23 @@ export default function NodeMessageDrawer({
 }: NodeMessageDrawerProps) {
   const [width, setWidth] = useState(560);
   const [isResizing, setIsResizing] = useState(false);
-  const reasoningEndRef = useRef<HTMLDivElement>(null);
+  const reasoningViewportRef = useRef<HTMLDivElement>(null);
   const displayMessages = conversationMessages ?? messages?.messages ?? [];
-  const msgCount = displayMessages.length + streamingSegments.length;
+  const { scrollToBottom: scrollReasoning, resetAutoFollow: resetReasoningFollow } =
+    useAutoFollowOutput(reasoningViewportRef);
+  const reasoningVersion = `${displayMessages.length}:${streamingSegments.length}:${isStreaming}:${streamingSegments.map((segment) => (
+    segment.type === "tool"
+      ? `${segment.tool.status}:${segment.tool.args?.length ?? 0}:${segment.tool.result?.length ?? 0}`
+      : segment.content.length
+  )).join(",")}`;
 
-  // 推理链路变化时也滚动
   useEffect(() => {
-    reasoningEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgCount, isStreaming]);
+    scrollReasoning();
+  }, [reasoningVersion, scrollReasoning]);
+
+  useEffect(() => {
+    resetReasoningFollow();
+  }, [conversationId, nodeId, resetReasoningFollow]);
 
   const isRunning = nodeState?.status === "running" || messages?.node_status === "running";
   const isScript = nodeType === "script";
@@ -188,7 +197,7 @@ export default function NodeMessageDrawer({
       ) : (
         <div className="flex-1 flex min-h-0">
           {/* Left: Message History */}
-          <div className="flex-1 flex flex-col border-r border-indigo-500/10 min-w-0">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-indigo-500/10">
             <div className="px-3 py-1.5 border-b border-indigo-500/10">
               <span className="text-xs text-slate-400">消息流</span>
             </div>
@@ -249,16 +258,18 @@ export default function NodeMessageDrawer({
           </div>
 
           {/* Right: Reasoning Chain Timeline */}
-          <div className="w-60 flex flex-col">
+          <div className="flex w-60 min-h-0 flex-col overflow-hidden">
             <div className="px-3 py-1.5 border-b border-indigo-500/10">
               <span className="text-xs text-slate-400">推理链路</span>
             </div>
-            <ScrollArea className="flex-1">
+            <div
+              ref={reasoningViewportRef}
+              className="conversation-output-scroll min-h-0 flex-1 overflow-y-auto"
+            >
               <div className="px-3 py-2">
                 <ReasoningChainTimeline messages={displayMessages} streamingSegments={streamingSegments} />
-                <div ref={reasoningEndRef} />
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
       )}

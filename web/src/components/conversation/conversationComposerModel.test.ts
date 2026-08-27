@@ -53,7 +53,8 @@ test("dropped file names support Unix and Windows paths", () => {
   assert.equal(getDroppedFileName("C:\\Users\\me\\report.md"), "report.md");
 });
 
-test("composer expansion is offered only when collapsed content overflows", () => {
+test("composer expansion is offered only when collapsed content overflows the outer viewport", () => {
+  assert.equal(shouldOfferComposerExpansion(128, 128), false);
   assert.equal(shouldOfferComposerExpansion(129, 128), false);
   assert.equal(shouldOfferComposerExpansion(130, 128), true);
   assert.equal(shouldOfferComposerExpansion(80, 128), false);
