@@ -65,8 +65,8 @@ pub fn set_desktop_announcement_state(app: AppHandle, keys: Vec<String>) -> Resu
         .parent()
         .ok_or_else(|| "无法解析桌面公告状态目录".to_string())?;
     fs::create_dir_all(directory).map_err(|error| format!("无法创建桌面公告状态目录: {error}"))?;
-    let payload = serde_json::to_string(&keys)
-        .map_err(|error| format!("无法序列化桌面公告状态: {error}"))?;
+    let payload =
+        serde_json::to_string(&keys).map_err(|error| format!("无法序列化桌面公告状态: {error}"))?;
     fs::write(path, payload).map_err(|error| format!("无法保存桌面公告状态: {error}"))
 }
 
