@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-announcements",
+  "description": "Allow the bundled loopback UI to persist confirmed plugin announcement state.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*/*"]
+  },
+  "permissions": [
+    "allow-get-desktop-announcement-state",
+    "allow-set-desktop-announcement-state"
+  ]
+}

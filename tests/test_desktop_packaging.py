@@ -112,6 +112,36 @@ def test_desktop_update_capability_only_trusts_the_bundled_loopback_ui() -> None
     ]
 
 
+def test_desktop_announcement_capability_allows_only_the_bundled_loopback_ui() -> None:
+    build_script = (REPO_ROOT / "desktop" / "src-tauri" / "build.rs").read_text(
+        encoding="utf-8"
+    )
+    main_source = (REPO_ROOT / "desktop" / "src-tauri" / "src" / "main.rs").read_text(
+        encoding="utf-8"
+    )
+    capability = json.loads(
+        (
+            REPO_ROOT
+            / "desktop"
+            / "src-tauri"
+            / "capabilities"
+            / "desktop-announcements.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert '"get_desktop_announcement_state"' in build_script
+    assert '"set_desktop_announcement_state"' in build_script
+    assert "mod announcements;" in main_source
+    assert "announcements::get_desktop_announcement_state," in main_source
+    assert "announcements::set_desktop_announcement_state," in main_source
+    assert capability["windows"] == ["main"]
+    assert capability["remote"]["urls"] == ["http://127.0.0.1:*/*"]
+    assert capability["permissions"] == [
+        "allow-get-desktop-announcement-state",
+        "allow-set-desktop-announcement-state",
+    ]
+
+
 def test_desktop_onboarding_capability_allows_only_the_bundled_loopback_ui() -> None:
     build_script = (REPO_ROOT / "desktop" / "src-tauri" / "build.rs").read_text(
         encoding="utf-8"

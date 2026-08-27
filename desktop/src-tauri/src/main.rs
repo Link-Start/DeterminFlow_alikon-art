@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod announcements;
 mod backend;
 mod onboarding;
 mod updater;
@@ -73,6 +74,8 @@ fn main() {
         .manage(backend_state)
         .invoke_handler(tauri::generate_handler![
             prepare_for_update,
+            announcements::get_desktop_announcement_state,
+            announcements::set_desktop_announcement_state,
             onboarding::get_desktop_onboarding_status,
             onboarding::set_desktop_onboarding_status,
             updater::check_update_sources,

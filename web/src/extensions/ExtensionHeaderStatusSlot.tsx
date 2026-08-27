@@ -12,10 +12,10 @@ import {
 import { ExtensionAnnouncementDialog } from "./ExtensionAnnouncementDialog";
 import { ExtensionHeaderPagePanel } from "./ExtensionHeaderPagePanel";
 import {
-  browserStorage,
+  collectAnnouncementsToQueue,
+  createSeenAnnouncementState,
   extensionAnnouncementKey,
-  readSeenAnnouncementKeys,
-  rememberAnnouncementKey,
+  resolveAnnouncementStateStore,
   type PendingExtensionAnnouncement,
 } from "./extension-announcement-state";
 import type { ExtensionStatus } from "./types";
@@ -76,7 +76,19 @@ export function ExtensionHeaderStatusSlot({ onManage }: ExtensionHeaderStatusSlo
   const [announcementQueue, setAnnouncementQueue] = useState<PendingExtensionAnnouncement[]>([]);
   const queuedAnnouncementKeys = useRef(new Set<string>());
   const seenThisSession = useRef(new Set<string>());
+  const seenState = useRef(createSeenAnnouncementState(resolveAnnouncementStateStore())).current;
+  const [seenReady, setSeenReady] = useState(false);
   const closePage = useCallback(() => setPage(null), []);
+
+  useEffect(() => {
+    let active = true;
+    void seenState.whenReady().then(() => {
+      if (active) setSeenReady(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [seenState]);
 
   const load = useCallback(async (source: ExtensionStatus, refresh = false) => {
     try {
@@ -134,31 +146,29 @@ export function ExtensionHeaderStatusSlot({ onManage }: ExtensionHeaderStatusSlo
   }, [load, sources]);
 
   useEffect(() => {
-    const storedSeen = readSeenAnnouncementKeys(browserStorage());
-    const additions: PendingExtensionAnnouncement[] = [];
-    for (const entry of Object.values(entries)) {
-      for (const announcement of entry.payload.announcements) {
-        const key = extensionAnnouncementKey(entry.source.id, announcement.id);
-        if (
-          storedSeen.has(key)
-          || seenThisSession.current.has(key)
-          || queuedAnnouncementKeys.current.has(key)
-        ) {
-          continue;
-        }
-        queuedAnnouncementKeys.current.add(key);
-        additions.push({
-          ...announcement,
-          extensionId: entry.source.id,
-          extensionName: entry.source.name,
-        });
-      }
+    const items = Object.values(entries).flatMap((entry) => (
+      entry.payload.announcements.map((announcement) => ({
+        ...announcement,
+        extensionId: entry.source.id,
+        extensionName: entry.source.name,
+      }))
+    ));
+    const additions = collectAnnouncementsToQueue(
+      items,
+      seenState.snapshot(),
+      new Set([
+        ...seenThisSession.current,
+        ...queuedAnnouncementKeys.current,
+      ]),
+      seenReady,
+    );
+    for (const item of additions) {
+      queuedAnnouncementKeys.current.add(extensionAnnouncementKey(item.extensionId, item.id));
     }
     if (additions.length > 0) {
-      additions.sort((left, right) => Date.parse(right.published_at) - Date.parse(left.published_at));
       setAnnouncementQueue((current) => [...current, ...additions]);
     }
-  }, [entries]);
+  }, [entries, seenReady, seenState]);
 
   const closeAnnouncement = useCallback(() => {
     setAnnouncementQueue((current) => {
@@ -167,10 +177,10 @@ export function ExtensionHeaderStatusSlot({ onManage }: ExtensionHeaderStatusSlo
       const key = extensionAnnouncementKey(active.extensionId, active.id);
       seenThisSession.current.add(key);
       queuedAnnouncementKeys.current.delete(key);
-      rememberAnnouncementKey(browserStorage(), key);
+      void seenState.remember(key);
       return current.slice(1);
     });
-  }, []);
+  }, [seenState]);
 
   const visible = sources
     .map((source) => entries[source.id])
