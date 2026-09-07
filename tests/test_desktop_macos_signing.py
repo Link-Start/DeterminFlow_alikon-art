@@ -30,3 +30,29 @@ def test_signing_failure_stops_packaging(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr("desktop.scripts.sign_macos_backend.subprocess.run", fail)
     with pytest.raises(subprocess.CalledProcessError):
         sign_macos_backend(tmp_path)
+
+
+def test_final_app_seals_resources_before_envelope(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from desktop.scripts import build_macos
+    events = []
+    monkeypatch.setattr(build_macos, "sign_macos_backend", lambda path: events.append(("nested", path)))
+    monkeypatch.setattr(build_macos.subprocess, "run", lambda cmd, **kw: events.append(("outer", cmd)))
+    monkeypatch.setattr(build_macos, "verify_macos_app_bundle", lambda app, **kw: events.append(("verify", kw)))
+    build_macos.seal_app(tmp_path)
+    assert events[0] == ("nested", tmp_path / "Contents/Resources/runtime/backend")
+    assert events[1][0] == "outer"
+    assert "--deep" not in events[1][1]
+    assert events[2] == ("verify", {"verify_signatures": True})
+
+
+def test_invalid_app_never_reaches_dmg_creation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from desktop.scripts import build_macos
+    calls = []
+    monkeypatch.setattr(build_macos.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
+    def fail(app):
+        raise RuntimeError("signature verification failed")
+    monkeypatch.setattr(build_macos, "seal_app", fail)
+    with pytest.raises(RuntimeError, match="signature verification"):
+        build_macos.build_macos(tmp_path)
+    assert len(calls) == 1
+    assert calls[0][-2:] == ["--bundles", "app"]

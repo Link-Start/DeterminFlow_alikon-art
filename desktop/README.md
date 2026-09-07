@@ -41,7 +41,7 @@ GitHub 临时分支 `codex/desktop-tauri-poc` 会运行 `.github/workflows/deskt
 
 ## macOS Apple Silicon 候选包
 
-macOS 打包与 Windows 正式发行链路独立，不改变 NSIS、Updater、Tag 或 GitHub Release 行为。当前只提供 **Apple Silicon（arm64）Core 候选**，不是已签名、已公证的正式桌面版。私有仓库不新增 `.github` 公开发行工作流。
+macOS 打包与 Windows 正式发行链路独立，不改变 NSIS、Updater、Tag 或 GitHub Release 行为。当前提供 **Apple Silicon（arm64）Core / Full 候选**，采用 ad-hoc 签名，尚未经过 Developer ID 签名与 Apple 公证。私有仓库不新增 `.github` 公开发行工作流。
 
 | 部分 | 实现 |
 |---|---|
@@ -53,7 +53,7 @@ macOS 打包与 Windows 正式发行链路独立，不改变 NSIS、Updater、Ta
 | 范围 | 只构建 Core，不构建 Full |
 | 发布 | 本地候选验证，不创建 Tag 或 Release |
 
-图标由 `desktop/scripts/generate_macos_icon.py` 从 `web/public/brand/determinflow-mark.svg` 生成 `desktop/src-tauri/icons/icon.icns`。Tauri 会自动合并 `tauri.macos.conf.json`；macOS 必须使用 `npm run build:macos`，不要直接运行 Windows 使用的 `npm run build`。
+图标由 `desktop/scripts/generate_macos_icon.py` 从 `web/public/brand/determinflow-mark.svg` 生成 `desktop/src-tauri/icons/icon.icns`。Tauri 会自动合并 `tauri.macos.conf.json`；macOS 必须使用 `npm run build:macos`，不要直接运行 Windows 使用的 `npm run build`。该命令先由 Tauri 生成应用，再对最终路径中的冻结后端二进制及完整应用签名、严格验证，最后生成 DMG，避免 Python 框架别名在资源复制后签名失效。
 
 未签名候选包在本机打开时，可能需要在 Finder 中右键打开，或先清除隔离属性。这不表示已经完成 Apple 代码签名或公证。
 

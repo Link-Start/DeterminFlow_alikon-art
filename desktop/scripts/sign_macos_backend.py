@@ -1,4 +1,4 @@
-"""Seal frozen Mach-O files before Tauri copies them into the application."""
+"""Seal frozen Mach-O files at their final paths inside the application."""
 
 from __future__ import annotations
 
@@ -10,9 +10,8 @@ MACHO_MAGICS = {b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xca\xfe\xba\xbe", b
 
 
 def sign_macos_backend(backend: Path) -> None:
-    # PyInstaller's Python framework can retain a resource-bound signature.
-    # Tauri copies its aliases as standalone files, so seal each actual binary
-    # without the original framework's resource envelope before that copy.
+    # Tauri dereferences Python framework aliases. Sign the final copies,
+    # deepest first, so each file has the correct local resource envelope.
     for path in sorted(backend.rglob("*"), key=lambda item: (-len(item.parts), str(item))):
         if path.is_symlink() or not path.is_file():
             continue

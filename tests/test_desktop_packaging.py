@@ -717,7 +717,7 @@ def test_macos_overlay_keeps_windows_nsis_and_updater_contract() -> None:
     assert macos["bundle"]["macOS"]["minimumSystemVersion"] == "11.0"
     assert package["scripts"]["build"] == "tauri build"
     assert "--config" not in package["scripts"]["build:macos"]
-    assert "--bundles app,dmg" in package["scripts"]["build:macos"]
+    assert package["scripts"]["build:macos"] == "python3 scripts/build_macos.py"
     assert "--no-sign" not in package["scripts"]["build:macos"]
     assert macos["bundle"]["macOS"]["signingIdentity"] == "-"
     assert macos["bundle"]["macOS"]["hardenedRuntime"] is False

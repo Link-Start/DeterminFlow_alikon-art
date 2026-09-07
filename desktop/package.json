@@ -6,7 +6,7 @@
     "test": "node --test ui/desktop-adapter.test.mjs",
     "tauri": "tauri",
     "build": "tauri build",
-    "build:macos": "tauri build --bundles app,dmg"
+    "build:macos": "python3 scripts/build_macos.py"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.4"

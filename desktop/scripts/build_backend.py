@@ -14,7 +14,6 @@ if __package__ in {None, ""}:
 
 from desktop.scripts.stage_defaults import stage_defaults
 from desktop.scripts.stage_official_plugins import stage_official_plugins
-from desktop.scripts.sign_macos_backend import sign_macos_backend
 
 
 LOGGER = logging.getLogger("desktop.build_backend")
@@ -60,8 +59,6 @@ def build_backend(repo_root: Path, *, flavor: str = "core") -> Path:
 
     python_alias = backend_dir / ("python.exe" if sys.platform == "win32" else "python")
     shutil.copy2(executable, python_alias)
-    if sys.platform == "darwin":
-        sign_macos_backend(backend_dir)
     LOGGER.info("桌面后端已生成: %s", backend_dir)
     return backend_dir
 
