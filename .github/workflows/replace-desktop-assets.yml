@@ -1,0 +1,129 @@
+name: Replace desktop release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      windows_run:
+        description: Successful Windows build run from this exact commit
+        required: true
+      macos_run:
+        description: Successful macOS build run from this exact commit
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: replace-desktop-release-assets
+  cancel-in-progress: false
+
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify exact build provenance and download artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WINDOWS_RUN: ${{ inputs.windows_run }}
+          MACOS_RUN: ${{ inputs.macos_run }}
+        run: |
+          mkdir -p release-assets
+          python - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          repo, sha = os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_SHA']
+          records = {}
+          for platform, key, workflow, artifacts in (
+              ('windows', 'WINDOWS_RUN', '.github/workflows/desktop-windows.yml',
+               ['DeterminFlow-Windows-x64-core', 'DeterminFlow-Windows-x64-full']),
+              ('macos', 'MACOS_RUN', '.github/workflows/desktop-macos.yml',
+               ['DeterminFlow-macOS-arm64-core-adhoc-candidate', 'DeterminFlow-macOS-arm64-full-adhoc-candidate']),
+          ):
+              run_id = os.environ[key]
+              if not re.fullmatch(r'[0-9]+', run_id):
+                  raise SystemExit('Invalid build run ID')
+              run = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/actions/runs/{run_id}']))
+              if (run['conclusion'] != 'success' or run['head_sha'] != sha
+                  or run['path'] != workflow or run['repository']['full_name'] != repo
+                  or run['event'] not in ('push', 'workflow_dispatch')):
+                  raise SystemExit(f'{platform}: build must be successful and match exact source/workflow')
+              for artifact in artifacts:
+                  subprocess.run(['gh', 'run', 'download', run_id, '--repo', repo,
+                                  '--name', artifact, '--dir', 'release-assets'], check=True)
+              records[platform] = run['html_url']
+          Path('build-runs.json').write_text(json.dumps(records))
+          PY
+      - name: Verify installers and prepare release metadata
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          from desktop.scripts.create_update_manifest import create_manifest
+          assets = Path('release-assets')
+          version = json.loads(Path('desktop/src-tauri/tauri.conf.json').read_text())['version']
+          tag = f'v{version}'
+          subprocess.run(['gh', 'release', 'view', tag, '--repo', os.environ['GITHUB_REPOSITORY']], check=True)
+          expected = set()
+          for suffix in ('x64-setup.exe', 'x64-full-setup.exe', 'aarch64.dmg', 'aarch64-full.dmg'):
+              name = f'DeterminFlow_{version}_{suffix}'
+              expected.update((name, name + '.sha256'))
+              path = assets / name
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              parts = (assets / (name + '.sha256')).read_text().split()
+              if len(parts) != 2 or parts[0] != digest or parts[1].lstrip('*') != name:
+                  raise SystemExit(f'Checksum mismatch: {name}')
+              if suffix.endswith('.exe'):
+                  expected.add(name + '.sig')
+                  if not (assets / (name + '.sig')).read_text().strip():
+                      raise SystemExit(f'Missing updater signature: {name}')
+          if {p.name for p in assets.iterdir()} != expected:
+              raise SystemExit('Unexpected or missing release assets')
+          stamp = subprocess.check_output(['git', 'show', '-s', '--format=%cI', 'HEAD'], text=True).strip()
+          notes = Path(f'desktop/release-notes/{tag}.md').read_text()
+          manifest = create_manifest(version=version,
+              installer=assets / f'DeterminFlow_{version}_x64-setup.exe',
+              signature=assets / f'DeterminFlow_{version}_x64-setup.exe.sig',
+              base_url=f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/releases/download/{tag}',
+              notes=notes, pub_date=stamp)
+          (assets / 'latest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+          provenance = {'version': version, 'source_commit': os.environ['GITHUB_SHA'],
+              'original_tag_commit': subprocess.check_output(['gh', 'api', f'repos/{os.environ["GITHUB_REPOSITORY"]}/commits/{tag}', '--jq', '.sha'], text=True).strip(),
+              'build_runs': json.loads(Path('build-runs.json').read_text()),
+              'plugins': json.loads(Path('desktop/official-plugins.lock.json').read_text()),
+              'sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in assets.iterdir()}}
+          (assets / 'build-source.json').write_text(json.dumps(provenance, indent=2) + '\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'version={version}\ntag={tag}\npub_date={stamp}\n')
+          PY
+      - name: Replace GitHub assets and release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$RELEASE_TAG" --notes-file "desktop/release-notes/$RELEASE_TAG.md" --repo "$GITHUB_REPOSITORY"
+      - name: Publish rebuild to R2 and switch stable manifest
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_ENDPOINT_URL: ${{ vars.R2_ENDPOINT_URL }}
+          VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          PUB_DATE: ${{ steps.release.outputs.pub_date }}
+        run: |
+          python desktop/scripts/publish_r2_release.py \
+            --assets-dir release-assets --version "$VERSION" --revision "$GITHUB_SHA" \
+            --notes-file "desktop/release-notes/$RELEASE_TAG.md" --pub-date "$PUB_DATE" \
+            --bucket "$R2_BUCKET" --endpoint-url "$R2_ENDPOINT_URL" \
+            --public-base-url "https://downloads.determinflow.com"

@@ -627,7 +627,8 @@ def test_r2_publisher_rejects_changed_immutable_objects(tmp_path: Path) -> None:
         publisher.publish_immutable(asset, "desktop/releases/v1.2.3/asset.exe")
 
 
-def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path) -> None:
+@pytest.mark.parametrize("revision", [None, "a" * 40])
+def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path, revision: str | None) -> None:
     assets = tmp_path / "assets"
     assets.mkdir()
     installer = assets / "DeterminFlow_1.2.3_x64-setup.exe"
@@ -655,6 +656,7 @@ def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path) 
         notes_file=notes,
         pub_date="2026-08-29T00:00:00Z",
         publisher=RecordingPublisher(),  # type: ignore[arg-type]
+        revision=revision,
     )
 
     assert {key.rsplit("/", 1)[-1] for _, key, _ in calls} >= {
@@ -666,6 +668,9 @@ def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path) 
     assert json.loads(calls[-1][2])["platforms"]["windows-x86_64"][
         "url"
     ].startswith("https://downloads.determinflow.com/desktop/releases/v1.2.3/")
+    prefix = "desktop/releases/v1.2.3" + (f"/rebuilds/{revision}" if revision else "")
+    assert all(key.startswith(prefix + "/") for _, key, _ in calls[:-1])
+    assert f"/{prefix}/" in json.loads(calls[-1][2])["platforms"]["windows-x86_64"]["url"]
     assert IMMUTABLE_CACHE_CONTROL.endswith("immutable")
     assert LATEST_CACHE_CONTROL.startswith("no-cache")
 

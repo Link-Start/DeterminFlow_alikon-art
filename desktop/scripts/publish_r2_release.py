@@ -147,6 +147,7 @@ def publish_release(
     notes_file: Path,
     pub_date: str,
     publisher: R2Publisher,
+    revision: str | None = None,
 ) -> None:
     if not SEMVER_PATTERN.fullmatch(version):
         raise ValueError(f"invalid release version: {version}")
@@ -156,6 +157,10 @@ def publish_release(
         raise FileNotFoundError("Core installer or updater signature is missing")
 
     version_prefix = f"desktop/releases/v{version}"
+    if revision is not None:
+        if not re.fullmatch(r"[0-9a-f]{40}", revision):
+            raise ValueError("rebuild revision must be a full Git commit SHA")
+        version_prefix += f"/rebuilds/{revision}"
     assets = sorted(
         path
         for path in assets_dir.iterdir()
@@ -190,6 +195,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--assets-dir", type=Path, required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--revision", help="Publish a same-version rebuild without overwriting immutable assets")
     parser.add_argument("--notes-file", type=Path, required=True)
     parser.add_argument("--pub-date", required=True)
     parser.add_argument("--bucket", required=True)
@@ -201,6 +207,7 @@ def main() -> int:
     publish_release(
         assets_dir=options.assets_dir.resolve(),
         version=options.version,
+        revision=options.revision,
         notes_file=options.notes_file.resolve(),
         pub_date=options.pub_date,
         publisher=R2Publisher(

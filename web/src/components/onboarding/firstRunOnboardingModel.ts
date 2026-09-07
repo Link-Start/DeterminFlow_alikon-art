@@ -24,6 +24,8 @@ export interface PluginChange {
 
 export interface ManagedModelStatus {
   serviceEnabled: boolean;
+  state: string | null;
+  lastError: string | null;
   signedIn: boolean;
   loginPending: boolean;
   loginEnabled: boolean;
@@ -162,6 +164,8 @@ export function parseManagedModelStatus(
 
   return {
     serviceEnabled: ui.service_enabled,
+    state: typeof body.state === "string" ? body.state : null,
+    lastError: typeof body.last_error === "string" ? body.last_error.trim() || null : null,
     signedIn: body.signed_in,
     loginPending: body.login_pending,
     loginEnabled: ui.login_enabled,
@@ -235,4 +239,14 @@ export function normalizeApiError(reason: unknown, fallback: string): string {
 export function managedModelChoices(status: ManagedModelStatus | null): string[] {
   if (status?.models.length) return status.models;
   return status?.signedIn ? [] : ["auto"];
+}
+
+export function managedModelError(status: ManagedModelStatus): string {
+  if (!status.serviceEnabled) return status.lastError || "公益模型服务暂时不可用";
+  if (status.lastError) return status.lastError;
+  if (status.signedIn && (
+    !status.providerId || !status.models.length
+    || (status.state !== null && status.state !== "active")
+  )) return "账号已登录，但公益模型尚未就绪，请重试";
+  return "";
 }
