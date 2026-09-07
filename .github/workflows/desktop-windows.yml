@@ -76,6 +76,34 @@ jobs:
             tests/test_workflow_executor_pool_scenarios.py `
             tests/test_workflow_script_reject.py
 
+      - name: Resolve locked Plugin for native login regression
+        if: matrix.flavor == 'full'
+        id: plugin
+        shell: python
+        run: |
+          import json, os
+          from pathlib import Path
+          commit = json.loads(Path('desktop/official-plugins.lock.json').read_text())['source']['commit']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'commit={commit}\n')
+      - uses: actions/checkout@v4
+        if: matrix.flavor == 'full'
+        with:
+          repository: alikon-art/DeterminFlow-Plugins
+          ref: ${{ steps.plugin.outputs.commit }}
+          path: plugin-regression-source
+      - name: Test fresh account login on native platform
+        if: matrix.flavor == 'full'
+        shell: python
+        run: |
+          import os, sys
+          from pathlib import Path
+          import pytest
+          root = Path.cwd()
+          plugin = root / 'plugin-regression-source/plugins/public-api'
+          os.environ['DETERMINFLOW_CORE_ROOT'] = str(root)
+          sys.path[:0] = [str(plugin), str(root)]
+          sys.exit(pytest.main([str(plugin / 'tests/test_account_initialization.py'), '-q']))
       - name: Build web application
         working-directory: web
         run: |

@@ -15,6 +15,7 @@ import {
   getPluginChanges,
   normalizeApiError,
   parseManagedModelStatus,
+  managedModelError,
   requiresPluginRiskConfirmation,
   shouldConfirmManagedModelSelection,
   shouldStartFirstRun,
@@ -183,6 +184,8 @@ test("managed model status keeps dynamic copy while allowing an anonymous empty 
     },
   }), {
     serviceEnabled: true,
+    state: "unavailable",
+    lastError: null,
     signedIn: false,
     loginPending: false,
     loginEnabled: true,
@@ -260,4 +263,23 @@ test("anonymous onboarding follows service catalog and defaults to auto before a
   assert.deepEqual(managedModelChoices(status), ["auto"]);
   assert.deepEqual(managedModelChoices({ ...status, models: ["new-server-model"] }), ["new-server-model"]);
   assert.deepEqual(managedModelChoices({ ...status, signedIn: true, models: [] }), []);
+});
+
+
+test("account login is not model readiness and preserves recoverable errors", () => {
+  const parse = (fields: Record<string, unknown>) => parseManagedModelStatus({
+    signed_in: true, login_pending: false, state: "active",
+    provider_id: "public", models: ["model-a"],
+    login_endpoint: "/api/public-api/login",
+    ui: { service_enabled: true, login_enabled: true,
+      provider_display_name: "公益模型", service_notice: "说明" },
+    ...fields,
+  })!;
+  assert.equal(managedModelError(parse({})), "");
+  assert.ok(managedModelError(parse({ models: [] })));
+  assert.ok(managedModelError(parse({ provider_id: null })));
+  assert.ok(managedModelError(parse({ state: "expired" })));
+  assert.equal(managedModelError(parse({ last_error: "模型目录暂时无法读取" })), "模型目录暂时无法读取");
+  // Signed-out users can choose anonymous use before a credential exists.
+  assert.equal(managedModelError(parse({ signed_in: false, models: [], provider_id: null, state: "unavailable" })), "");
 });

@@ -39,6 +39,7 @@ import {
   chooseInitialProviderId,
   findManagedModelExtension,
   managedModelChoices,
+  managedModelError,
   type ManagedModelStatus,
   normalizeApiError,
   parseManagedModelStatus,
@@ -187,21 +188,25 @@ export function FirstRunModelScreen({
   const publicModels = managedModelChoices(managedStatus);
   const publicReady = Boolean(
     managedStatus?.serviceEnabled
+      && !managedModelError(managedStatus)
       && (!managedStatus.signedIn || (
         managedStatus.providerId
         && managedStatus.models.length > 0
       )),
   );
 
-  const loadManagedStatus = useCallback(async (showLoading = true) => {
-    const endpoint = managedExtension?.header_status?.endpoint;
+  const loadManagedStatus = useCallback(async (showLoading = true, renew = false) => {
+    const endpoint = renew
+      ? managedExtension?.header_status?.refresh_endpoint
+      : managedExtension?.header_status?.endpoint;
     if (!endpoint) return;
     if (showLoading) setManagedLoading(true);
     try {
-      const status = await requestManagedModelStatus(endpoint);
+      const status = await requestManagedModelStatus(endpoint, renew ? "POST" : "GET");
       setManagedStatus(status);
-      setError(status.serviceEnabled ? "" : "公益模型服务暂时不可用");
+      setError(managedModelError(status));
     } catch (reason) {
+      setManagedStatus(null);
       setError(normalizeApiError(reason, "公益模型服务暂时无法连接"));
     } finally {
       if (showLoading) setManagedLoading(false);
@@ -455,7 +460,21 @@ export function FirstRunModelScreen({
                 </select>
               </div>
               <div className="first-run-public-model-summary">
-                {managedStatus?.signedIn ? (
+                {managedLoading || loginBusy ? (
+                  <strong>正在更新模型列表…</strong>
+                ) : error ? (
+                  <>
+                    <strong>公益模型暂不可用</strong>
+                    <button
+                      type="button"
+                      className="first-run-public-login"
+                      onClick={() => void loadManagedStatus(true, true)}
+                    >
+                      <RefreshCw size={15} aria-hidden="true" />
+                      重试
+                    </button>
+                  </>
+                ) : managedStatus?.signedIn ? (
                   <>
                     <strong>{publicModels.length} 个模型可用</strong>
                     <small>登录成功，模型列表已更新</small>
