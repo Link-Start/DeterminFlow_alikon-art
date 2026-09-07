@@ -100,6 +100,20 @@ def _request_json(
     return parsed
 
 
+def _assert_public_model_status(status: dict) -> None:
+    header = status.get("header_status")
+    if not isinstance(header, dict) or header.get("visible") is not True:
+        raise RuntimeError("公益 Plugin 未提供首次启动状态入口")
+    if status.get("state") == "disabled" and status.get("ui", {}).get("service_enabled"):
+        raise RuntimeError(f"公益 Plugin 桌面平台不可用: {status.get('last_error')}")
+
+
+def _check_installed_public_model(base_url: str) -> None:
+    plugins = _request_json(f"{base_url}/api/plugins").get("plugins", [])
+    if any(plugin.get("id") == "public-api" and plugin.get("active_enabled") for plugin in plugins):
+        _assert_public_model_status(_request_json(f"{base_url}/api/public-api/status", timeout=30))
+
+
 def _assert_process_pool(status: dict, controller_pid: int) -> list[int]:
     pool = status.get("workflow_executor")
     if not isinstance(pool, dict):
@@ -292,6 +306,7 @@ def smoke_backend(executable: Path, timeout: float = 60.0) -> None:
                         time.sleep(0.25)
                 if member_pids:
                     try:
+                        _check_installed_public_model(base_url)
                         _exercise_workflow_distribution(base_url, user_root)
                     except Exception as exc:
                         log_file.flush()
