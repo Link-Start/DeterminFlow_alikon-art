@@ -56,3 +56,17 @@ def test_invalid_app_never_reaches_dmg_creation(monkeypatch: pytest.MonkeyPatch,
         build_macos.build_macos(tmp_path)
     assert len(calls) == 1
     assert calls[0][-2:] == ["--bundles", "app"]
+
+
+@pytest.mark.parametrize("flavor,suffix", [("core", ""), ("full", "-full")])
+def test_dmg_flavors_have_distinct_release_names(monkeypatch, tmp_path, flavor, suffix):
+    from desktop.scripts import build_macos
+    config = tmp_path / "src-tauri/tauri.conf.json"
+    config.parent.mkdir()
+    config.write_text('{"version":"1.1.0"}')
+    monkeypatch.setattr(build_macos, "seal_app", lambda app: None)
+    calls = []
+    monkeypatch.setattr(build_macos.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
+    dmg = build_macos.build_macos(tmp_path, flavor=flavor)
+    assert dmg.name == f"DeterminFlow_1.1.0_aarch64{suffix}.dmg"
+    assert calls[-1][-1] == str(dmg)

@@ -1,6 +1,7 @@
-"""Build the app, seal final resource copies, then create its candidate DMG."""
+"""Build the app, seal final resource copies, then create its DMG."""
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -22,13 +23,16 @@ def seal_app(app: Path) -> None:
     verify_macos_app_bundle(app, verify_signatures=True)
 
 
-def build_macos(desktop: Path) -> Path:
+def build_macos(desktop: Path, *, flavor: str = "core") -> Path:
+    if flavor not in {"core", "full"}:
+        raise ValueError("Unknown desktop flavor")
     subprocess.run(["npm", "exec", "--", "tauri", "build", "--bundles", "app"], cwd=desktop, check=True)
     bundle = desktop / "src-tauri" / "target" / "release" / "bundle"
     app = bundle / "macos" / "DeterminFlow.app"
     seal_app(app)
     version = json.loads((desktop / "src-tauri" / "tauri.conf.json").read_text())["version"]
-    dmg = bundle / "dmg" / f"DeterminFlow_{version}_aarch64.dmg"
+    suffix = "-full" if flavor == "full" else ""
+    dmg = bundle / "dmg" / f"DeterminFlow_{version}_aarch64{suffix}.dmg"
     dmg.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="df-dmg-") as directory:
         staging = Path(directory)
@@ -44,4 +48,7 @@ def build_macos(desktop: Path) -> Path:
 if __name__ == "__main__":
     if sys.platform != "darwin":
         raise SystemExit("macOS packaging requires macOS")
-    build_macos(Path(__file__).resolve().parents[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--flavor", choices=("core", "full"), default="core")
+    options = parser.parse_args()
+    build_macos(Path(__file__).resolve().parents[1], flavor=options.flavor)

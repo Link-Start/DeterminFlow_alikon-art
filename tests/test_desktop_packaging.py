@@ -286,6 +286,9 @@ def test_desktop_workflow_builds_candidates_and_publishes_tags() -> None:
     assert "softprops/action-gh-release" not in workflow
     assert "gh release create" in workflow.lower()
     assert "contents: write" in workflow
+    assert "needs: [build, build-macos]" in workflow
+    assert "uses: ./.github/workflows/desktop-macos.yml" in workflow
+    assert "pattern: DeterminFlow-*" in workflow
     assert "release-assets/latest.json" in workflow
     assert "desktop/scripts/publish_r2_release.py" in workflow
     assert "R2_DISTRIBUTION_ENABLED" in workflow
@@ -516,7 +519,7 @@ def test_desktop_versions_are_consistent() -> None:
         encoding="utf-8"
     )
 
-    assert tauri["version"] == "1.0.10"
+    assert tauri["version"] == "1.1.0"
     assert package["version"] == tauri["version"]
     assert f'version = "{tauri["version"]}"' in cargo
 
@@ -631,6 +634,8 @@ def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path) 
     installer.write_bytes(b"installer")
     installer.with_suffix(".exe.sig").write_text("signed", encoding="utf-8")
     (assets / "DeterminFlow_1.2.3_x64-full-setup.exe").write_bytes(b"full")
+    (assets / "DeterminFlow_1.2.3_aarch64.dmg").write_bytes(b"mac core")
+    (assets / "DeterminFlow_1.2.3_aarch64-full.dmg").write_bytes(b"mac full")
     notes = tmp_path / "notes.md"
     notes.write_text("R2 release", encoding="utf-8")
     calls: list[tuple[str, str, str]] = []
@@ -652,6 +657,10 @@ def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path) 
         publisher=RecordingPublisher(),  # type: ignore[arg-type]
     )
 
+    assert {key.rsplit("/", 1)[-1] for _, key, _ in calls} >= {
+        "DeterminFlow_1.2.3_aarch64.dmg", "DeterminFlow_1.2.3_aarch64-full.dmg"
+    }
+    assert set(json.loads(calls[-1][2])["platforms"]) == {"windows-x86_64"}
     assert calls[-1][0:2] == ("latest", "desktop/stable/latest.json")
     assert all(call[0] == "immutable" for call in calls[:-1])
     assert json.loads(calls[-1][2])["platforms"]["windows-x86_64"][

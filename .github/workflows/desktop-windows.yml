@@ -145,10 +145,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-macos:
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/desktop-macos.yml
+
   release:
     name: Publish GitHub Release
     if: github.ref_type == 'tag'
-    needs: build
+    needs: [build, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -157,9 +161,21 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: DeterminFlow-Windows-x64-*
+          pattern: DeterminFlow-*
           path: release-assets
           merge-multiple: true
+
+      - name: Verify all release installers and checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          cd release-assets
+          for suffix in x64-setup.exe x64-full-setup.exe aarch64.dmg aarch64-full.dmg; do
+            test -f "DeterminFlow_${version}_${suffix}"
+            test -f "DeterminFlow_${version}_${suffix}.sha256"
+          done
+          sha256sum --check ./*.sha256
 
       - name: Create updater manifest
         env:
@@ -173,7 +189,7 @@ jobs:
             --signature "$installer.sig" \
             --base-url "https://github.com/alikon-art/DeterminFlow/releases/download/$RELEASE_TAG" \
             --notes-file "desktop/release-notes/$RELEASE_TAG.md" \
-            --pub-date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --pub-date "$(git show -s --format=%cI "$GITHUB_SHA")" \
             --output release-assets/latest.json
 
       - name: Publish release assets
@@ -207,7 +223,7 @@ jobs:
             --assets-dir release-assets \
             --version "$version" \
             --notes-file "desktop/release-notes/$RELEASE_TAG.md" \
-            --pub-date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --pub-date "$(git show -s --format=%cI "$GITHUB_SHA")" \
             --bucket "$R2_BUCKET" \
             --endpoint-url "$R2_ENDPOINT_URL" \
             --public-base-url "https://downloads.determinflow.com"

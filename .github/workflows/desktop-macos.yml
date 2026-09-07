@@ -1,7 +1,8 @@
-name: Desktop macOS candidate
+name: Desktop macOS
 
 on:
   workflow_dispatch:
+  workflow_call:
   pull_request:
     paths:
       - desktop/**
@@ -54,7 +55,7 @@ jobs:
           python desktop/scripts/generate_macos_icon.py
           cd desktop
           npm ci
-          npm run build:macos
+          npm run build:macos -- --flavor ${{ matrix.flavor }}
       - name: Verify app, DMG and bundled backend
         run: |
           python desktop/scripts/verify_bundle.py --expected-flavor ${{ matrix.flavor }} \
