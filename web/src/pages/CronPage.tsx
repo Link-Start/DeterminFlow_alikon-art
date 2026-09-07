@@ -45,11 +45,11 @@ function statusBadge(status: string | null) {
   if (!status) return null;
   switch (status) {
     case 'success':
-      return <Badge className="bg-green-500/20 text-green-400 border-green-500/30" aria-label="执行成功"><CheckCircle className="w-3 h-3 mr-1" aria-hidden="true" />成功</Badge>;
+      return <Badge className="bg-success/20 text-success border-success/30" aria-label="执行成功"><CheckCircle className="w-3 h-3 mr-1" aria-hidden="true" />成功</Badge>;
     case 'error':
-      return <Badge className="bg-red-500/20 text-red-400 border-red-500/30" aria-label="执行出错"><XCircle className="w-3 h-3 mr-1" aria-hidden="true" />错误</Badge>;
+      return <Badge className="bg-destructive/20 text-destructive border-destructive/30" aria-label="执行出错"><XCircle className="w-3 h-3 mr-1" aria-hidden="true" />错误</Badge>;
     case 'silent':
-      return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30" aria-label="静默执行">静默</Badge>;
+      return <Badge className="bg-muted-foreground/20 text-muted-foreground border-border/30" aria-label="静默执行">静默</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
@@ -200,7 +200,7 @@ export default function CronPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto min-w-0 p-6 space-y-6">
       <section aria-label="页面标题" className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Cron 定时任务</h1>
@@ -222,12 +222,12 @@ export default function CronPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${status.running ? 'bg-green-500' : 'bg-gray-500'}`} aria-hidden="true" />
+                <div className={`w-2 h-2 rounded-full ${status.running ? 'bg-success' : 'bg-muted-foreground'}`} aria-hidden="true" />
                 调度器状态
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${status.running ? 'text-green-500' : 'text-gray-400'}`}>
+              <div className={`text-2xl font-bold ${status.running ? 'text-success' : 'text-muted-foreground'}`}>
                 {status.running ? '运行中' : '已停止'}
                 <span className="sr-only">{status.running ? '调度器正在运行' : '调度器已停止'}</span>
               </div>
@@ -239,12 +239,12 @@ export default function CronPage() {
           </Card>
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">已启用</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-500 tabular-nums">{status.enabled_jobs}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-success tabular-nums">{status.enabled_jobs}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm">待执行</CardTitle></CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-500 tabular-nums">{status.due_jobs}</div>
+              <div className="text-2xl font-bold text-warning tabular-nums">{status.due_jobs}</div>
             </CardContent>
           </Card>
         </section>
@@ -311,9 +311,9 @@ export default function CronPage() {
                         <div className="flex items-center gap-1">
                           {statusBadge(job.last_status)}
                           {job.enabled ? (
-                            <Power className="w-4 h-4 text-green-500" aria-label="已启用" />
+                            <Power className="w-4 h-4 text-success" aria-label="已启用" />
                           ) : (
-                            <PowerOff className="w-4 h-4 text-gray-400" aria-label="已暂停" />
+                            <PowerOff className="w-4 h-4 text-muted-foreground" aria-label="已暂停" />
                           )}
                         </div>
                       </div>
@@ -339,7 +339,7 @@ export default function CronPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="cron-form-name" className="text-sm font-medium block mb-1">任务名称 <span className="text-red-400" aria-hidden="true">*</span></label>
+                    <label htmlFor="cron-form-name" className="text-sm font-medium block mb-1">任务名称 <span className="text-destructive" aria-hidden="true">*</span></label>
                     <Input
                       ref={formNameRef}
                       id="cron-form-name"
@@ -353,7 +353,7 @@ export default function CronPage() {
                       className="min-h-[44px]"
                     />
                     {formErrors.name && (
-                      <p id="cron-form-name-error" className="text-xs text-red-400 mt-1" role="alert">{formErrors.name}</p>
+                      <p id="cron-form-name-error" className="text-xs text-destructive mt-1" role="alert">{formErrors.name}</p>
                     )}
                   </div>
                   <div>
@@ -372,7 +372,7 @@ export default function CronPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="cron-form-prompt" className="text-sm font-medium block mb-1">提示词 <span className="text-red-400" aria-hidden="true">*</span></label>
+                  <label htmlFor="cron-form-prompt" className="text-sm font-medium block mb-1">提示词 <span className="text-destructive" aria-hidden="true">*</span></label>
                   <Textarea
                     id="cron-form-prompt"
                     value={formPrompt}
@@ -386,7 +386,7 @@ export default function CronPage() {
                     className="resize-none"
                   />
                   {formErrors.prompt && (
-                    <p id="cron-form-prompt-error" className="text-xs text-red-400 mt-1" role="alert">{formErrors.prompt}</p>
+                    <p id="cron-form-prompt-error" className="text-xs text-destructive mt-1" role="alert">{formErrors.prompt}</p>
                   )}
                 </div>
 
@@ -506,7 +506,7 @@ export default function CronPage() {
                     <Button variant="outline" size="sm" type="button" aria-label={`查看任务 ${selectedJob.name} 的输出`} onClick={() => { handleViewOutput(selectedJob.id); }}>
                       <FileText className="w-4 h-4 mr-1" aria-hidden="true" />输出
                     </Button>
-                    <Button variant="outline" size="sm" type="button" className="text-red-400 hover:text-red-300" aria-label={`删除任务 ${selectedJob.name}`} onClick={() => handleDeleteJob(selectedJob)}>
+                    <Button variant="outline" size="sm" type="button" className="text-destructive hover:text-destructive" aria-label={`删除任务 ${selectedJob.name}`} onClick={() => handleDeleteJob(selectedJob)}>
                       <Trash2 className="w-4 h-4 mr-1" aria-hidden="true" />删除
                     </Button>
                   </div>
@@ -518,14 +518,14 @@ export default function CronPage() {
                   <div><div className="font-medium">Agent 类型</div><div className="text-muted-foreground">{selectedJob.agent_type}</div></div>
                   <div><div className="font-medium">状态</div><div className="text-muted-foreground flex items-center gap-1.5">
                     {selectedJob.enabled
-                      ? <><CheckCircle className="w-3.5 h-3.5 text-green-500" aria-hidden="true" />已启用</>
-                      : <><PauseCircle className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />已暂停</>
+                      ? <><CheckCircle className="w-3.5 h-3.5 text-success" aria-hidden="true" />已启用</>
+                      : <><PauseCircle className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />已暂停</>
                     }
                   </div></div>
                   <div><div className="font-medium">静默模式</div><div className="text-muted-foreground flex items-center gap-1.5">
                     {selectedJob.silent_on_empty
-                      ? <><CheckCircle className="w-3.5 h-3.5 text-green-500" aria-hidden="true" />启用</>
-                      : <><XCircle className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />关闭</>
+                      ? <><CheckCircle className="w-3.5 h-3.5 text-success" aria-hidden="true" />启用</>
+                      : <><XCircle className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />关闭</>
                     }
                   </div></div>
                   <div><div className="font-medium">上次状态</div><div>{statusBadge(selectedJob.last_status) || <span className="text-muted-foreground">未执行</span>}</div></div>
@@ -537,7 +537,7 @@ export default function CronPage() {
                 <section aria-label="任务提示词">
                   <div className="text-sm font-medium mb-2">提示词</div>
                   <ScrollArea className="h-[200px] rounded-md border p-4">
-                    <pre className="text-sm whitespace-pre-wrap outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30 rounded" tabIndex={0} role="region" aria-label="任务提示词内容">{selectedJob.prompt}</pre>
+                    <pre className="text-sm whitespace-pre-wrap outline-none focus-visible:ring-2 focus-visible:ring-info/30 rounded" tabIndex={0} role="region" aria-label="任务提示词内容">{selectedJob.prompt}</pre>
                   </ScrollArea>
                 </section>
               </CardContent>
@@ -558,13 +558,13 @@ export default function CronPage() {
 
       {/* Error Banner */}
       {error && (
-        <div className="fixed bottom-4 right-4 z-50 bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg flex items-center gap-3 shadow-lg" role="alert" aria-live="polite">
+        <div className="fixed bottom-4 right-4 z-50 bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg flex items-center gap-3 shadow-lg" role="alert" aria-live="polite">
           <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span className="text-sm">{error}</span>
-          <Button variant="ghost" size="sm" type="button" aria-label="重试加载" className="text-red-400 hover:text-red-300 cursor-pointer min-h-[44px]" onClick={() => { setError(null); loadAll(); }}>
+          <Button variant="ghost" size="sm" type="button" aria-label="重试加载" className="text-destructive hover:text-destructive cursor-pointer min-h-[44px]" onClick={() => { setError(null); loadAll(); }}>
             <RefreshCw className="w-4 h-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" type="button" onClick={() => setError(null)} aria-label="关闭错误提示" className="text-red-400 hover:text-red-300 min-h-[44px]">
+          <Button variant="ghost" size="sm" type="button" onClick={() => setError(null)} aria-label="关闭错误提示" className="text-destructive hover:text-destructive min-h-[44px]">
             <XCircle className="w-4 h-4" aria-hidden="true" />
           </Button>
         </div>
@@ -573,8 +573,8 @@ export default function CronPage() {
       {/* Confirm Dialog */}
       {confirmDialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))} onKeyDown={(e) => { if (e.key === 'Escape') setConfirmDialog(prev => ({ ...prev, open: false })); }}>
-          <div ref={confirmDialogRef} role="dialog" aria-modal="true" aria-label={confirmDialog.title} className="bg-slate-800 border border-border/50 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()} tabIndex={-1}>
-            <h3 className="text-lg font-semibold text-slate-200 mb-2">{confirmDialog.title}</h3>
+          <div ref={confirmDialogRef} role="dialog" aria-modal="true" aria-label={confirmDialog.title} className="bg-secondary border border-border/50 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()} tabIndex={-1}>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{confirmDialog.title}</h3>
             <p className="text-sm text-muted-foreground mb-6">{confirmDialog.message}</p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" type="button" className="min-h-[44px] cursor-pointer" onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>取消</Button>
@@ -587,22 +587,22 @@ export default function CronPage() {
       {/* Output Viewer Modal */}
       {showOutput && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="任务执行输出" onClick={() => { setShowOutput(false); setOutputContent(null); }} onKeyDown={(e) => { if (e.key === 'Escape') { setShowOutput(false); setOutputContent(null); } }}>
-          <div className="bg-slate-800 border border-border/50 rounded-xl p-6 w-full max-w-[700px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-secondary border border-border/50 rounded-xl p-6 w-full max-w-[700px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-200">执行输出</h2>
+              <h2 className="text-lg font-semibold text-foreground">执行输出</h2>
               <Button variant="ghost" size="sm" type="button" onClick={() => { setShowOutput(false); setOutputContent(null); }} aria-label="关闭输出面板" className="min-h-[44px] min-w-[44px]"><XCircle className="w-4 h-4" aria-hidden="true" /></Button>
             </div>
             {outputContent ? (
               <div>
                 <div className="flex items-center gap-2 mb-3"><Button variant="outline" size="sm" type="button" onClick={() => { setOutputContent(null); setOutputFilename(null); }} aria-label="返回文件列表"><ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" />返回列表</Button><span className="text-sm text-muted-foreground">{outputFilename}</span></div>
-                <ScrollArea className="h-[500px] rounded-md border p-4 bg-slate-900"><pre className="text-sm whitespace-pre-wrap font-mono text-slate-300">{outputContent}</pre></ScrollArea>
+                <ScrollArea className="h-[500px] rounded-md border p-4 bg-card"><pre className="text-sm whitespace-pre-wrap font-mono text-foreground">{outputContent}</pre></ScrollArea>
               </div>
             ) : (
               <div className="space-y-2" role="list" aria-label="输出文件列表">
                 {outputFiles.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">暂无输出记录</p>}
                 {outputFiles.map((file) => (
-                  <div key={file.filename} role="listitem" tabIndex={0} className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-border/30 cursor-pointer hover:bg-accent transition-colors duration-200 min-h-[44px]" onClick={() => handleViewFile(file.filename)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewFile(file.filename); } }} aria-label={'查看文件 ' + file.filename}>
-                    <div className="flex items-center gap-3"><FileText className="w-4 h-4 text-muted-foreground" aria-hidden="true" /><div><div className="text-sm font-medium text-slate-200">{file.filename}</div><div className="text-xs text-muted-foreground">{new Date(file.created_at).toLocaleString()} · {(file.size / 1024).toFixed(1)} KB</div></div></div>
+                  <div key={file.filename} role="listitem" tabIndex={0} className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg border border-border/30 cursor-pointer hover:bg-accent transition-colors duration-200 min-h-[44px]" onClick={() => handleViewFile(file.filename)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewFile(file.filename); } }} aria-label={'查看文件 ' + file.filename}>
+                    <div className="flex items-center gap-3"><FileText className="w-4 h-4 text-muted-foreground" aria-hidden="true" /><div><div className="text-sm font-medium text-foreground">{file.filename}</div><div className="text-xs text-muted-foreground">{new Date(file.created_at).toLocaleString()} · {(file.size / 1024).toFixed(1)} KB</div></div></div>
                     <Eye className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
                   </div>
                 ))}

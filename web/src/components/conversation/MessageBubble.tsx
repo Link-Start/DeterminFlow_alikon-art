@@ -49,10 +49,10 @@ export default function MessageBubble({
             <ReasoningDisclosure content={message.reasoning_content} streaming={streaming && !message.content} />
           )}
           {message.content && (
-            <div className="rounded-2xl rounded-bl-md border border-slate-700/50 bg-slate-800/50 px-4 py-3">
+            <div className="rounded-2xl rounded-bl-md border border-border/50 bg-secondary/50 px-4 py-3">
               <MarkdownContent content={message.content} className="text-sm" />
               {streaming && (
-                <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-indigo-400 align-middle motion-reduce:animate-none" aria-hidden="true" />
+                <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-primary align-middle motion-reduce:animate-none" aria-hidden="true" />
               )}
             </div>
           )}

@@ -49,7 +49,7 @@ def get_json_policy(output_file_path: str, node_params: dict | None = None) -> s
 
 
 def get_json_retry_count(node_params: dict | None = None) -> int:
-    """读取 JSON 重试次数，默认 1。"""
+    """读取历史 JSON 重试次数字段；统一输出修复路径不再消费此预算。"""
     params = node_params or {}
     raw = params.get("json_retry_count", 1)
     try:

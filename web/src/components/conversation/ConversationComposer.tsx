@@ -246,9 +246,9 @@ export default function ConversationComposer({
     if (absolutePath) token.dataset.absolutePath = absolutePath;
     token.className = [
       "mx-1 inline-flex max-w-[min(18rem,75vw)] items-center gap-1 rounded-full",
-      "border border-indigo-400/35 bg-indigo-500/15 px-2 py-0.5 align-baseline",
-      "text-xs leading-5 text-indigo-100 outline-none transition-colors",
-      "focus-visible:ring-2 focus-visible:ring-indigo-400/60",
+      "border border-primary/35 bg-primary/15 px-2 py-0.5 align-baseline",
+      "text-xs leading-5 text-primary outline-none transition-colors",
+      "focus-visible:ring-2 focus-visible:ring-primary/60",
     ].join(" ");
     token.setAttribute(
       "aria-label",
@@ -259,8 +259,8 @@ export default function ConversationComposer({
     const status = document.createElement("span");
     status.dataset.fileStatus = "";
     status.className = absolutePath
-      ? "h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-300"
-      : "h-3 w-3 shrink-0 animate-spin rounded-full border border-indigo-200/30 border-t-indigo-200 motion-reduce:animate-none";
+      ? "h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+      : "h-3 w-3 shrink-0 animate-spin rounded-full border border-primary/30 border-t-indigo-200 motion-reduce:animate-none";
     status.setAttribute("aria-hidden", "true");
 
     const label = document.createElement("span");
@@ -271,7 +271,7 @@ export default function ConversationComposer({
     const remove = document.createElement("button");
     remove.type = "button";
     remove.tabIndex = -1;
-    remove.className = "ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-indigo-200/70 hover:bg-indigo-200/15 hover:text-white";
+    remove.className = "ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-primary/70 hover:bg-primary/10 hover:text-white";
     remove.setAttribute("aria-label", `移除文件 ${name}`);
     remove.textContent = "×";
     remove.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -424,7 +424,7 @@ export default function ConversationComposer({
           token.title = attachment.absolute_path;
           const status = token.querySelector<HTMLElement>("[data-file-status]");
           if (status) {
-            status.className = "h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-300";
+            status.className = "h-1.5 w-1.5 shrink-0 rounded-full bg-primary";
           }
           const label = token.querySelector<HTMLElement>("[data-file-name]");
           if (label) label.textContent = attachment.name;
@@ -507,9 +507,9 @@ export default function ConversationComposer({
   return (
     <div ref={rootRef} className={className}>
       <div
-        className={`${isCompact ? "rounded-lg bg-slate-950" : "rounded-2xl bg-slate-800/80"} border p-2.5 transition-[border-color,box-shadow] duration-200 focus-within:border-indigo-500/60 focus-within:ring-2 focus-within:ring-indigo-500/35 ${
+        className={`${isCompact ? "rounded-lg bg-background" : "rounded-2xl bg-secondary/80"} border p-2.5 transition-[border-color,box-shadow] duration-200 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/35 ${
           dragActive
-            ? "border-indigo-400 ring-2 ring-indigo-400/25"
+            ? "border-primary ring-2 ring-primary/25"
             : "border-border/60"
         } ${editable ? "" : "opacity-50"}`}
       >
@@ -574,7 +574,7 @@ export default function ConversationComposer({
               aria-label={expanded ? "收起输入框" : "展开输入框"}
               aria-pressed={expanded}
               title={expanded ? "收起输入框" : "展开输入框"}
-              className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-lg bg-slate-700/70 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+              className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-lg bg-muted/70 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               {expanded ? <Minimize2 size={15} aria-hidden="true" /> : <Maximize2 size={15} aria-hidden="true" />}
             </button>
@@ -604,7 +604,7 @@ export default function ConversationComposer({
               disabled={!editable || !sessionId}
               title="添加文件"
               aria-label="添加文件"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-indigo-500/10 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Paperclip size={17} aria-hidden="true" />
             </button>
@@ -617,7 +617,7 @@ export default function ConversationComposer({
               onClick={onAbort}
               title="中止输出"
               aria-label="中止输出"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/20 text-red-400 transition-colors duration-200 hover:bg-red-500/40"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/20 text-destructive transition-colors duration-200 hover:bg-destructive/40"
             >
               <Square size={17} className="fill-current" aria-hidden="true" />
             </button>
@@ -629,8 +629,8 @@ export default function ConversationComposer({
               aria-label={pendingUploads > 0 ? "正在添加文件" : "发送消息"}
               className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-200 ${
                 canSubmit
-                  ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                  : "cursor-not-allowed bg-slate-700 text-muted-foreground"
+                  ? "bg-primary text-white hover:bg-primary"
+                  : "cursor-not-allowed bg-muted text-muted-foreground"
               }`}
             >
               {pendingUploads > 0 ? (
@@ -644,7 +644,7 @@ export default function ConversationComposer({
         </div>
       </div>
       {attachmentError ? (
-        <p id={errorId} className="mt-1 text-xs text-red-400" role="alert">
+        <p id={errorId} className="mt-1 text-xs text-destructive" role="alert">
           {attachmentError}
         </p>
       ) : null}

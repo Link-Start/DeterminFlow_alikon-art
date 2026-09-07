@@ -3,6 +3,8 @@ from __future__ import annotations
 import pytest
 
 from src.core.provider_errors import (
+    classify_provider_error_code,
+    is_permanent_provider_error,
     normalize_provider_error_messages,
     present_session_error,
 )
@@ -24,7 +26,7 @@ class _ProviderFailure(Exception):
 
 
 @pytest.mark.parametrize(
-    ("error", "expected_code"),
+    ("error", "expected_code", "expected_provider_code", "permanent"),
     [
         (
             _ProviderFailure(
@@ -33,6 +35,8 @@ class _ProviderFailure(Exception):
                 status_code=403,
             ),
             "quota_exhausted",
+            "provider_quota_exhausted",
+            True,
         ),
         (
             _ProviderFailure(
@@ -41,16 +45,47 @@ class _ProviderFailure(Exception):
                 status_code=403,
             ),
             "quota_exhausted",
+            "provider_quota_exhausted",
+            True,
         ),
-        (_ProviderFailure("limited", status_code=429), "rate_limited"),
-        (_ProviderFailure("unauthorized", status_code=401), "authentication_failed"),
-        (_ProviderFailure("upstream failed", status_code=503), "service_unavailable"),
-        (_ProviderFailure("unrecognized provider failure"), "unknown"),
+        (
+            _ProviderFailure("forbidden", status_code=403),
+            "authentication_failed",
+            "provider_permission_denied",
+            True,
+        ),
+        (
+            _ProviderFailure("bad request", status_code=400),
+            "unknown",
+            "provider_bad_request",
+            True,
+        ),
+        (_ProviderFailure("limited", status_code=429), "rate_limited", None, False),
+        (
+            _ProviderFailure("unauthorized", status_code=401),
+            "authentication_failed",
+            "provider_auth_failed",
+            True,
+        ),
+        (
+            _ProviderFailure("upstream failed", status_code=503),
+            "service_unavailable",
+            None,
+            False,
+        ),
+        (
+            _ProviderFailure("unrecognized provider failure"),
+            "unknown",
+            None,
+            False,
+        ),
     ],
 )
 def test_provider_failures_are_classified_without_exposing_raw_messages(
     error: Exception,
     expected_code: str,
+    expected_provider_code: str | None,
+    permanent: bool,
 ) -> None:
     provider = {
         "error_messages": {
@@ -62,7 +97,11 @@ def test_provider_failures_are_classified_without_exposing_raw_messages(
 
     assert presented.code == expected_code
     assert presented.message == f"display:{expected_code}"
+    assert presented.provider_error_code == expected_provider_code
+    assert classify_provider_error_code(error) == expected_provider_code
+    assert is_permanent_provider_error(error) is permanent
     assert "secret-key-123" not in presented.message
+    assert "insufficient_user_quota" not in presented.message
 
 
 def test_non_provider_failure_uses_generic_session_message() -> None:
@@ -70,6 +109,8 @@ def test_non_provider_failure_uses_generic_session_message() -> None:
 
     assert presented.code == "session_failed"
     assert presented.message == "会话运行失败，请稍后再试"
+    assert presented.provider_error_code is None
+    assert is_permanent_provider_error(RuntimeError("private runtime detail")) is False
 
 
 def test_missing_provider_credential_uses_authentication_copy() -> None:

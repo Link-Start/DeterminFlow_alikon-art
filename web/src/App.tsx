@@ -1,8 +1,8 @@
-import { lazy, Suspense, useMemo } from "react";
-import { MessageSquare, LayoutDashboard, GitBranch, Users, Layers, Settings, BookOpen, Wifi, WifiOff, FileText, Workflow, Clock, Boxes, Loader2, type LucideIcon } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { MessageSquare, LayoutDashboard, GitBranch, Users, Layers, Settings, BookOpen, Wifi, WifiOff, FileText, Workflow, Clock, Boxes, Loader2, Store, type LucideIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToastProvider } from "@/components/ui/toast-provider";
-import { CORE_TAB_IDS, isCoreTabId, type CoreTabId } from "@/core-tabs";
+import { CORE_PAGE_SCROLL_MODE, CORE_TAB_IDS, isCoreTabId, type CoreTabId } from "@/core-tabs";
 import { PRODUCT_NAME } from "@/brand";
 import { BrandMark } from "@/components/BrandMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -14,6 +14,7 @@ import { DesktopUpdateProvider } from "./desktop-updater/context";
 import { DesktopUpdateNotice } from "./desktop-updater/DesktopUpdateNotice";
 import { useNavigationSettings } from "./hooks/useNavigationSettings";
 import FirstRunOnboarding from "./components/onboarding/FirstRunOnboarding";
+import { AccountControl } from "./components/AccountControl";
 
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -22,6 +23,7 @@ const RoundtablePage = lazy(() => import("./pages/RoundtablePage"));
 const OrchestrationPage = lazy(() => import("./pages/OrchestrationPage"));
 const WorkflowPage = lazy(() => import("./pages/WorkflowPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ResourceMarketplacePage = lazy(() => import("./pages/ResourceMarketplacePage"));
 const SkillsPage = lazy(() => import("./pages/SkillsPage"));
 const RulesPage = lazy(() => import("./pages/RulesPage"));
 const SystemPromptPage = lazy(() => import("./pages/SystemPromptPage"));
@@ -36,19 +38,22 @@ interface TabConfig {
   activeClass: string;
 }
 
+const CORE_ACTIVE_TAB_CLASS = "data-[state=active]:bg-primary/15 data-[state=active]:text-primary";
+
 const CORE_TAB_METADATA: Record<CoreTabId, Omit<TabConfig, "value">> = {
-  chat: { icon: MessageSquare, label: "对话", activeClass: "data-[state=active]:bg-indigo-500/20 data-[state=active]:text-indigo-400" },
-  dashboard: { icon: LayoutDashboard, label: "看板", activeClass: "data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400" },
-  graph: { icon: GitBranch, label: "图谱", activeClass: "data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400" },
-  roundtable: { icon: Users, label: "圆桌", activeClass: "data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400" },
-  orchestration: { icon: Layers, label: "编排", activeClass: "data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400" },
-  workflow: { icon: Workflow, label: "工作流", activeClass: "data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400" },
-  cron: { icon: Clock, label: "定时", activeClass: "data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400" },
-  skills: { icon: BookOpen, label: "Skills", activeClass: "data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400" },
-  rules: { icon: BookOpen, label: "Rules", activeClass: "data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400" },
-  "system-prompt": { icon: FileText, label: "系统提示词", activeClass: "data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-400" },
-  settings: { icon: Settings, label: "配置", activeClass: "data-[state=active]:bg-indigo-500/20 data-[state=active]:text-indigo-400" },
-  extensions: { icon: Boxes, label: "插件", activeClass: "data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400" },
+  chat: { icon: MessageSquare, label: "对话", activeClass: CORE_ACTIVE_TAB_CLASS },
+  dashboard: { icon: LayoutDashboard, label: "看板", activeClass: CORE_ACTIVE_TAB_CLASS },
+  graph: { icon: GitBranch, label: "图谱", activeClass: CORE_ACTIVE_TAB_CLASS },
+  roundtable: { icon: Users, label: "圆桌", activeClass: CORE_ACTIVE_TAB_CLASS },
+  orchestration: { icon: Layers, label: "编排", activeClass: CORE_ACTIVE_TAB_CLASS },
+  workflow: { icon: Workflow, label: "工作流", activeClass: CORE_ACTIVE_TAB_CLASS },
+  cron: { icon: Clock, label: "定时", activeClass: CORE_ACTIVE_TAB_CLASS },
+  marketplace: { icon: Store, label: "资源广场", activeClass: CORE_ACTIVE_TAB_CLASS },
+  skills: { icon: BookOpen, label: "Skills", activeClass: CORE_ACTIVE_TAB_CLASS },
+  rules: { icon: BookOpen, label: "Rules", activeClass: CORE_ACTIVE_TAB_CLASS },
+  "system-prompt": { icon: FileText, label: "系统提示词", activeClass: CORE_ACTIVE_TAB_CLASS },
+  settings: { icon: Settings, label: "配置", activeClass: CORE_ACTIVE_TAB_CLASS },
+  extensions: { icon: Boxes, label: "插件", activeClass: CORE_ACTIVE_TAB_CLASS },
 };
 
 const CORE_TAB_CONFIG: TabConfig[] = CORE_TAB_IDS.map((value) => ({
@@ -65,6 +70,7 @@ const CORE_PAGE_MAP: Record<CoreTabId, React.ComponentType> = {
   orchestration: OrchestrationPage,
   workflow: WorkflowPage,
   cron: CronPage,
+  marketplace: ResourceMarketplacePage,
   skills: SkillsPage,
   rules: RulesPage,
   "system-prompt": SystemPromptPage,
@@ -79,11 +85,11 @@ function GlobalConnectionStatus() {
     <div className="flex shrink-0 items-center gap-3" aria-live="polite">
       <div className="flex items-center gap-2 text-sm">
         {connected ? (
-          <Wifi size={14} className="text-green-400" aria-hidden="true" />
+          <Wifi size={14} className="text-success" aria-hidden="true" />
         ) : (
-          <WifiOff size={14} className="text-red-400" aria-hidden="true" />
+          <WifiOff size={14} className="text-destructive" aria-hidden="true" />
         )}
-        <span className={`hidden xl:inline ${connected ? "text-green-400" : "text-red-400"}`}>
+        <span className={`hidden xl:inline ${connected ? "text-success" : "text-destructive"}`}>
           {connected ? "已连接" : "断开"}
         </span>
         <span className="sr-only">
@@ -96,8 +102,8 @@ function GlobalConnectionStatus() {
 
 function PageLoadingFallback() {
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center" role="status" aria-live="polite">
-      <div className="flex items-center gap-2 text-sm text-slate-400">
+    <div className="flex h-full min-h-0 items-center justify-center" role="status" aria-live="polite">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         <span>正在加载页面...</span>
       </div>
@@ -108,22 +114,41 @@ function PageLoadingFallback() {
 function App() {
   const extensions = useExtensions();
   const showSystemPromptTab = useNavigationSettings();
+  const [marketplaceAvailable, setMarketplaceAvailable] = useState(false);
   const [requestedTab, setRequestedTab] = useUrlParam("tab");
   const extensionPages = useMemo(() => extensions.flatMap((extension) => extension.pages || []), [extensions]);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/resource-marketplace/status")
+      .then((response) => {
+        if (active) setMarketplaceAvailable(response.ok);
+      })
+      .catch(() => {
+        if (active) setMarketplaceAvailable(false);
+      });
+    return () => { active = false; };
+  }, []);
+
   const tabs = useMemo<TabConfig[]>(() => [
-    ...CORE_TAB_CONFIG.filter((tab) => tab.value !== "system-prompt" || showSystemPromptTab),
+    ...CORE_TAB_CONFIG.filter((tab) => (
+      (tab.value !== "system-prompt" || showSystemPromptTab)
+      && (tab.value !== "marketplace" || marketplaceAvailable)
+    )),
     ...extensionPages.map((page) => ({
       value: page.id,
       icon: page.icon,
       label: page.label,
-      activeClass: page.activeClass,
+      activeClass: CORE_ACTIVE_TAB_CLASS,
     })),
-  ], [extensionPages, showSystemPromptTab]);
+  ], [extensionPages, marketplaceAvailable, showSystemPromptTab]);
   const activeTab = tabs.some((tab) => tab.value === requestedTab)
     ? requestedTab!
     : "chat";
   const ExtensionPage = extensionPages.find((page) => page.id === activeTab)?.component;
-  const CorePage = isCoreTabId(activeTab) ? CORE_PAGE_MAP[activeTab] : undefined;
+  const coreTabId = isCoreTabId(activeTab) ? activeTab : null;
+  const CorePage = coreTabId ? CORE_PAGE_MAP[coreTabId] : undefined;
+  const pageScrollMode = coreTabId ? CORE_PAGE_SCROLL_MODE[coreTabId] : "document";
 
   const handleTabChange = (value: string) => {
     setRequestedTab(value === "chat" ? null : value);
@@ -142,9 +167,9 @@ function App() {
     <DesktopUpdateProvider>
       <ToastProvider>
         <FirstRunOnboarding>
-          <div className="flex h-dvh flex-col overflow-hidden bg-slate-900">
+          <div className="flex h-dvh flex-col overflow-hidden bg-background">
             {/* Top Navigation Bar */}
-            <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-slate-800/80 backdrop-blur-sm border-b border-slate-700/50">
+            <header className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-border bg-card">
               <div className="h-full flex items-center gap-3 px-4">
                 {/* Brand */}
                 <div className="flex shrink-0 items-center gap-3">
@@ -153,7 +178,7 @@ function App() {
                     className="h-8 w-8 shrink-0"
                   />
                   <h1
-                    className="hidden text-lg font-semibold tracking-tight text-slate-100 2xl:block"
+                    className="hidden text-lg font-semibold tracking-tight text-foreground 2xl:block"
                     aria-hidden="true"
                   >
                     {PRODUCT_NAME}
@@ -163,7 +188,7 @@ function App() {
                 {/* Tabs */}
                 <Tabs className="min-w-0 flex-1" value={activeTab} onValueChange={handleTabChange}>
                   <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <TabsList className="w-max justify-start bg-slate-800/80 border border-slate-700/50" role="tablist" aria-label="主导航">
+                    <TabsList className="w-max justify-start border border-border bg-secondary/60" role="tablist" aria-label="主导航">
                       {tabs.map((tab) => {
                         const Icon = tab.icon;
                         return (
@@ -184,16 +209,26 @@ function App() {
                 </Tabs>
 
                 <ExtensionHeaderStatusSlot onManage={handleManageExtension} />
+                <AccountControl />
                 <GlobalConnectionStatus />
                 <ThemeToggle />
               </div>
             </header>
 
             {/* Main Content */}
-            <main className="min-h-0 flex-1 overflow-y-auto overscroll-none pt-14" role="main" aria-label="主内容区域">
-              <Suspense fallback={<PageLoadingFallback />}>
-                {CorePage ? <CorePage /> : ExtensionPage ? <ExtensionPage /> : null}
-              </Suspense>
+            <main className="min-h-0 min-w-0 flex-1 overflow-hidden pt-14" role="main" aria-label="主内容区域">
+              <div
+                className={`h-full min-h-0 min-w-0 ${
+                  pageScrollMode === "document"
+                    ? "overflow-y-auto overscroll-contain"
+                    : "overflow-hidden"
+                }`}
+                data-page-scroll-mode={pageScrollMode}
+              >
+                <Suspense fallback={<PageLoadingFallback />}>
+                  {CorePage ? <CorePage /> : ExtensionPage ? <ExtensionPage /> : null}
+                </Suspense>
+              </div>
             </main>
             <DesktopUpdateNotice onOpenSettings={() => handleTabChange("settings")} />
           </div>

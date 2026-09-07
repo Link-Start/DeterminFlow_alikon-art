@@ -41,10 +41,10 @@ export function ExtensionHeaderPagePanel({
       role="dialog"
       aria-modal="false"
       aria-labelledby="extension-header-page-title"
-      className="fixed bottom-3 right-3 top-16 z-[80] flex w-[calc(100vw-1.5rem)] max-w-[42rem] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/50 lg:max-w-[50vw]"
+      className="fixed bottom-3 right-3 top-16 z-[80] flex w-[calc(100vw-1.5rem)] max-w-[42rem] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl shadow-black/50 lg:max-w-[50vw]"
     >
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4">
-        <h2 id="extension-header-page-title" className="truncate text-sm font-semibold text-slate-100">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
+        <h2 id="extension-header-page-title" className="truncate text-sm font-semibold text-foreground">
           {title}
         </h2>
         <Button
@@ -54,7 +54,7 @@ export function ExtensionHeaderPagePanel({
           size="icon"
           onClick={onClose}
           aria-label={`关闭${title}`}
-          className="h-8 w-8 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+          className="h-8 w-8 text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </Button>
@@ -64,7 +64,7 @@ export function ExtensionHeaderPagePanel({
         src={pageUrl}
         title={title}
         referrerPolicy="no-referrer"
-        className="min-h-0 flex-1 border-0 bg-slate-900"
+        className="min-h-0 flex-1 border-0 bg-card"
       />
     </aside>,
     document.body,

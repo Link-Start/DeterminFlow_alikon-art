@@ -19,7 +19,6 @@ import pytest
 import src.config as config_module
 import src.workflow.executor_supervisor as executor_supervisor_module
 import src.workflow.manager as workflow_manager_module
-import src.workflow.task_recovery as task_recovery_module
 from src.workflow.executor_pool import WorkflowExecutorPool
 from src.workflow.executor_process import force_kill_pid, process_is_alive
 from src.workflow.manager import WorkflowManager
@@ -268,7 +267,6 @@ def isolate_executor_runtime(tmp_path: Path, monkeypatch) -> IsolatedExecutorRun
     )
     monkeypatch.setattr(workflow_manager_module, "DATA_DIR", data_dir)
     monkeypatch.setattr(workflow_manager_module, "WORKFLOWS_DIR", workflows_dir)
-    monkeypatch.setattr(task_recovery_module, "WORKFLOWS_DIR", workflows_dir)
     monkeypatch.setattr(executor_supervisor_module, "DATA_DIR", data_dir)
     return IsolatedExecutorRuntime(
         data_dir=data_dir,

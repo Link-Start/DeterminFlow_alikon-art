@@ -5,8 +5,8 @@ Package 是它的 Git 分发、安装、版本锁定和管理层。
 
 ## 边界
 
-- Plugin 从本地或互联网 Git 仓库安装。官方来源还可以把静态 HTTPS Registry
-  作为传输通道，但持久身份仍是 canonical Git URL。
+- Plugin 从本地或互联网 Git 仓库安装。任意来源都可以把签名静态 HTTPS 分发
+  作为加速通道，但持久身份仍是 canonical Git URL。
 - 每次安装、更新和回退都解析为精确 commit，并记录内容 SHA256。
 - 安装、更新、回退、启用、停用、卸载和配置修改都只改变目标状态，重启主进程后生效。
 - Plugin 与 Core 共享 Python 环境和操作系统权限，不提供进程或权限隔离。
@@ -52,20 +52,21 @@ Core 通过 `config/plugin-sources.json` 中的官方 Git 地址按需读取该�
 只允许返回同一 commit 的镜像参与传输，并按 `mirrors` 配置顺序优先使用镜像，避免镜像
 尚未同步时安装旧版本；首选镜像不可用时再回退其他镜像或主地址。Plugin 锁仍记录主地址，
 镜像只作为传输通道。
-官方来源还可以配置独立的静态 HTTPS Registry v1。Registry 只负责传输，不改变
+任意来源还可以配置独立的签名静态 HTTPS 分发 v1。分发端点只负责传输，不改变
 canonical Git 身份、精确 commit 锁、`restart_required` 或回退语义。清单使用独立
 Ed25519 公钥验签；下载 ZIP 后校验包 SHA256，解压后再校验内容 SHA256。解压会拒绝
-路径穿越、符号链接、加密条目和异常体积。Registry 不可用、签名失败或包校验失败时，
-使用该来源已配置的 Git 主地址与镜像回退。自定义第三方来源保持现有 Git 行为，不能
-配置官方 Registry。
+路径穿越、符号链接、加密条目和异常体积。所有端点不可用、签名失败或包校验失败时，
+使用该来源已配置的 Git 主地址与镜像回退。配置分发端点不会把第三方来源变成官方来源；
+第三方 Plugin 安装仍必须显式确认风险。
 未提供索引的仓库仍可通过 Plugin ID、Git URL、ref 和 subdirectory 手工安装。
 官方来源在主进程启动时完成 canonicalization（规范化）并冻结；运行中修改来源文件
 不会改变信任判断或 Catalog 响应。Catalog 使用 TTL cache（有效期缓存）和
 single-flight（单次并发刷新），避免一次页面刷新触发多个 Git clone。
 
-## 官方 HTTPS Registry v1
+## 签名 HTTPS 分发 v1
 
-官方 Registry 是一组可缓存的静态 HTTPS 对象，通常托管在对象存储上。来源配置示例：
+签名分发是一组可缓存的静态 HTTPS 对象，可以托管在对象存储、CDN（内容分发网络）、
+静态网站或 Nginx 等普通 HTTPS 服务上。来源配置示例：
 
 ```json
 {
@@ -77,14 +78,19 @@ single-flight（单次并发刷新），避免一次页面刷新触发多个 Git
     "https://gitee.com/alikon/DeterminFlow-Plugins.git"
   ],
   "registry": {
-    "url": "https://plugins.example.invalid/v1",
+    "endpoints": [
+      "https://plugins.example.invalid/v1",
+      "https://plugins-backup.example.invalid/v1"
+    ],
     "public_key": "<base64-ed25519-public-key>"
   }
 }
 ```
 
 `url` 仍是锁里的持久身份，必须能规范化为 Git 地址。`registry.public_key` 是独立的
-32 字节 Ed25519 公钥，不复用 Git 托管凭据。Registry 根路径提供：
+32 字节 Ed25519 公钥，不复用 Git 托管凭据。`registry.endpoints` 按顺序尝试，每个端点
+必须是无凭据、query 和 fragment 的 HTTPS 根地址。旧版单个 `registry.url` 配置仍兼容。
+每个分发根路径提供：
 
 ```text
 manifest.json
@@ -111,7 +117,7 @@ manifest.json.sig
       "commit": "0123456789abcdef0123456789abcdef01234567",
       "content_sha256": "<64-hex>",
       "package": {
-        "url": "packages/example-plugin/0123456789abcdef0123456789abcdef01234567.zip",
+        "path": "packages/example-plugin/0123456789abcdef0123456789abcdef01234567.zip",
         "sha256": "<64-hex>"
       }
     }
@@ -119,12 +125,12 @@ manifest.json.sig
 }
 ```
 
-`source` 规范化后必须与官方 Git 身份一致。ZIP 只包含 Plugin 根目录内容，
+`source` 规范化后必须与配置的 Git 身份一致。ZIP 只包含 Plugin 根目录内容，
 `extension.toml` 位于压缩包根；`subdirectory` 写入锁，供 Git 回退时定位同一包。
-相对 `package.url` 相对 Registry 根解析；绝对地址也必须是不含凭据、query 或
-fragment 的 HTTPS。安装和更新在 Registry 命中后仍锁定清单中的精确 commit 与解压后
+`package.path` 必须是安全相对路径，同一份签名清单因而可以原样复制到多个端点。
+旧版绝对或相对 `package.url` 清单仍兼容。安装和更新在签名分发命中后仍锁定清单中的精确 commit 与解压后
 内容 SHA256；请求的 ref 为 `HEAD`、清单 ref 或该 Plugin 的 ref 时使用当前快照，
-请求完整 commit 时只有清单提供同一 commit 的包才会走 Registry。
+请求完整 commit 时只有清单提供同一 commit 的包才会走签名分发。
 
 Core 提供 `registry_release` 构建/发布工具。构建只读取 Git 中的精确 commit，拒绝
 符号链接、非普通文件、Python bytecode 和超限包；ZIP 时间戳与权限固定，因此相同
@@ -136,21 +142,27 @@ python -m src.plugin_system.registry_release build \
   --repository /path/to/DeterminFlow-Plugins \
   --source-url https://github.com/alikon-art/DeterminFlow-Plugins.git \
   --ref main \
-  --output /tmp/determinflow-plugin-registry \
-  --public-base-url https://downloads.determinflow.com/plugins/v1
+  --output /tmp/determinflow-plugin-registry
 ```
 
-发布时先上传并公开校验 `packages/` 和 `snapshots/<commit>/` 不可变对象，再更新
-`manifest.json.sig`，最后更新 `manifest.json`。不可变 Key 已存在但内容不同会失败关闭：
+构建结果不绑定托管商或域名。作者可以把输出目录原样同步到任何静态 HTTPS 服务；必须
+保持字节不变，并确保 `manifest.json.sig` 与 `manifest.json` 来自同一次构建。私钥只放在
+作者自己的 CI（持续集成）secret 中，用户侧只配置公钥。公钥变更应视为显式信任变更。
+
+对 S3-compatible（兼容 S3）对象存储，内置发布适配器会先上传并公开校验
+`packages/` 和 `snapshots/<commit>/` 不可变对象，再更新 `manifest.json.sig`，最后更新
+`manifest.json`。R2、MinIO 和其他兼容服务都使用同一命令；不可变 Key 已存在但内容不同会失败关闭：
 
 ```bash
-python -m src.plugin_system.registry_release publish \
+python -m src.plugin_system.registry_release publish-s3 \
   --registry-dir /tmp/determinflow-plugin-registry \
   --prefix plugins/v1 \
-  --bucket "$R2_BUCKET" \
-  --endpoint-url "$R2_ENDPOINT_URL" \
-  --public-base-url https://downloads.determinflow.com
+  --bucket "$PLUGIN_DISTRIBUTION_BUCKET" \
+  --endpoint-url "$PLUGIN_DISTRIBUTION_S3_ENDPOINT" \
+  --public-base-url https://cdn.example.com
 ```
+
+非 S3 服务不需要专用 SDK（软件开发工具包）：使用服务商自带同步工具上传同一目录即可。
 
 ## extension.toml
 
@@ -284,6 +296,12 @@ alias（别名）。旧 Workflow 目录、Task 和 Run 历史会保留并标记�
 Plugin 根目录；预检会拒绝资源树中的符号链接。`skills`、`rules` 是结构化配置
 JSON，`skill_bundles`、`rule_bundles` 分别是带 `SKILL.md`、`RULE.md` 的完整目录
 资源。Plugin Bundle 在运行时只读，编辑、删除或覆盖请求会被拒绝。
+
+Plugin Script Library 必须在脱离 Core 源码和 Plugin Backend Python 包后仍可运行。
+业务 helper 放在对应 `{group}/{script}` 目录内并随该脚本一起交付；第三方包通过
+`[installation].requirements` 声明。脚本和 helper 都不得导入 `src`、Manifest backend
+package、组级 helper 或兄弟脚本目录。预检只做 AST 静态检查，不 import 或
+执行脚本；Plugin 自身测试仍须从隔离的安装布局实际启动每个入口，覆盖动态导入和路径假设。
 
 Workflow Node 类型不属于 Plugin 扩展面。Plugin 可以捆绑 Workflow 模板并使用
 Core 已提供的 Node，但不能注册新的 Node 类型。

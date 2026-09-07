@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 from collections.abc import Callable, Mapping
 from copy import deepcopy
@@ -41,6 +42,7 @@ _SCHEMA_KEYS = frozenset({
     "format",
     "items",
 })
+_MAX_RUNTIME_SETTING_FILE_BYTES = 1024 * 1024
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:
@@ -284,6 +286,93 @@ def resolve_applied_plugin_settings(
         required = [item for item in required if item != key]
     runtime_schema["required"] = required
     return validate_plugin_settings(runtime_schema, values)
+
+
+def _runtime_environment_value(
+    schema: dict[str, Any],
+    raw: str,
+    key: str,
+) -> Any:
+    if schema.get("type") == "string":
+        return raw
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Plugin 环境配置格式无效: {key}") from exc
+
+
+def _read_runtime_setting_file(path: str, key: str) -> str:
+    try:
+        path_metadata = os.lstat(path)
+    except OSError as exc:
+        raise ValueError(f"Plugin 配置文件不可读: {key}_FILE") from exc
+    if not stat.S_ISREG(path_metadata.st_mode):
+        raise ValueError(f"Plugin 配置文件不安全: {key}_FILE")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise ValueError(f"Plugin 配置文件不可读: {key}_FILE") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_dev != path_metadata.st_dev
+            or metadata.st_ino != path_metadata.st_ino
+            or metadata.st_size > _MAX_RUNTIME_SETTING_FILE_BYTES
+        ):
+            raise ValueError(f"Plugin 配置文件不安全: {key}_FILE")
+        chunks: list[bytes] = []
+        remaining = _MAX_RUNTIME_SETTING_FILE_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, remaining)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        if len(payload) > _MAX_RUNTIME_SETTING_FILE_BYTES or b"\0" in payload:
+            raise ValueError(f"Plugin 配置文件不安全: {key}_FILE")
+        try:
+            return payload.decode("utf-8").rstrip("\r\n")
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"Plugin 配置文件编码无效: {key}_FILE") from exc
+    finally:
+        os.close(descriptor)
+
+
+def runtime_plugin_settings(
+    schema: dict[str, Any],
+    values: dict[str, Any],
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Resolve declared environment settings for an in-process extension.
+
+    Persisted values keep precedence. Environment-backed values are materialized
+    only for the in-memory runtime service; the immutable startup snapshot keeps
+    `_FILE` secrets out of Plugin configuration files.
+    """
+    runtime_environment = os.environ if environ is None else environ
+    merged = deepcopy(values)
+    for key, child in schema.get("properties", {}).items():
+        if key in merged or not isinstance(child, dict):
+            continue
+        file_key = f"{key}_FILE"
+        raw: str | None = None
+        if (
+            child.get("type") == "string"
+            and child.get("format") == "password"
+            and file_key in runtime_environment
+        ):
+            raw = _read_runtime_setting_file(runtime_environment[file_key], key)
+        elif key in runtime_environment:
+            raw = runtime_environment[key]
+        elif file_key in runtime_environment:
+            raw = _read_runtime_setting_file(runtime_environment[file_key], key)
+        if raw is not None:
+            merged[key] = _runtime_environment_value(child, raw, key)
+    return validate_plugin_settings(schema, merged)
 
 
 def redact_plugin_settings(

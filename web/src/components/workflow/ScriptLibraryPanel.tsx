@@ -20,7 +20,7 @@ import {
 } from "../../lib/api";
 import type { ScriptLibraryGroup, ScriptLibraryScript } from "../../types";
 
-const DIALOG_BASE = "p-6 w-full max-w-md rounded-2xl bg-slate-900 border border-indigo-500/20 shadow-2xl";
+const DIALOG_BASE = "p-6 w-full max-w-md rounded-2xl bg-card border border-primary/20 shadow-2xl";
 
 export default function ScriptLibraryPanel() {
   const [groups, setGroups] = useState<ScriptLibraryGroup[]>([]);
@@ -164,20 +164,20 @@ export default function ScriptLibraryPanel() {
   return (
     <div className="flex-1 flex min-h-0">
       {/* Group Sidebar */}
-      <div className="w-56 shrink-0 border-r border-indigo-500/10 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-indigo-500/10">
-          <h3 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">分组</h3>
+      <div className="w-56 shrink-0 border-r border-primary/10 flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10">
+          <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">分组</h3>
           <button
             onClick={() => setShowNewGroup(true)}
             aria-label="新建分组"
-            className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
           >
             <Plus size={14} />
           </button>
         </div>
         <div className="flex-1 overflow-auto py-1">
           {groups.length === 0 ? (
-            <p className="px-4 py-6 text-xs text-slate-500 text-center">暂无分组，点击 + 新建</p>
+            <p className="px-4 py-6 text-xs text-muted-foreground text-center">暂无分组，点击 + 新建</p>
           ) : (
             groups.map((g) => (
               <button
@@ -185,8 +185,8 @@ export default function ScriptLibraryPanel() {
                 onClick={() => handleSelectGroup(g.name)}
                 className={`w-full flex items-center justify-between px-4 py-2 text-sm transition-colors cursor-pointer ${
                   selectedGroup === g.name
-                    ? "bg-indigo-500/10 text-indigo-300 border-l-2 border-indigo-500"
-                    : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 border-l-2 border-transparent"
+                    ? "bg-primary/10 text-primary border-l-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50 border-l-2 border-transparent"
                 }`}
               >
                 <span className="flex items-center gap-2 truncate">
@@ -196,7 +196,7 @@ export default function ScriptLibraryPanel() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g.name); }}
                   aria-label={`删除分组 ${g.name}`}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all cursor-pointer"
                   style={{ opacity: selectedGroup === g.name ? 1 : undefined }}
                 >
                   <Trash2 size={12} />
@@ -208,16 +208,16 @@ export default function ScriptLibraryPanel() {
       </div>
 
       {/* Script List */}
-      <div className="w-56 shrink-0 border-r border-indigo-500/10 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-indigo-500/10">
-          <h3 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+      <div className="w-56 shrink-0 border-r border-primary/10 flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10">
+          <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">
             {selectedGroup ? `${selectedGroup} 脚本` : "脚本"}
           </h3>
           {selectedGroup && (
             <button
               onClick={() => setShowNewScript(true)}
               aria-label="新建脚本"
-              className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
             >
               <Plus size={14} />
             </button>
@@ -225,9 +225,9 @@ export default function ScriptLibraryPanel() {
         </div>
         <div className="flex-1 overflow-auto py-1">
           {!selectedGroup ? (
-            <p className="px-4 py-6 text-xs text-slate-500 text-center">请先选择一个分组</p>
+            <p className="px-4 py-6 text-xs text-muted-foreground text-center">请先选择一个分组</p>
           ) : scripts.length === 0 ? (
-            <p className="px-4 py-6 text-xs text-slate-500 text-center">该分组暂无脚本</p>
+            <p className="px-4 py-6 text-xs text-muted-foreground text-center">该分组暂无脚本</p>
           ) : (
             scripts.map((s) => (
               <button
@@ -235,13 +235,13 @@ export default function ScriptLibraryPanel() {
                 onClick={() => handleSelectScript(s)}
                 className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors cursor-pointer ${
                   selectedScript?.name === s.name && selectedScript?.group === s.group
-                    ? "bg-indigo-500/10 text-indigo-300 border-l-2 border-indigo-500"
-                    : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 border-l-2 border-transparent"
+                    ? "bg-primary/10 text-primary border-l-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50 border-l-2 border-transparent"
                 }`}
               >
                 <FileCode size={14} className="shrink-0" />
                 <span className="truncate">{s.name}</span>
-                <span className="ml-auto text-[10px] text-slate-600 uppercase">{s.script_type === "shell" ? "sh" : "py"}</span>
+                <span className="ml-auto text-[10px] text-muted-foreground uppercase">{s.script_type === "shell" ? "sh" : "py"}</span>
               </button>
             ))
           )}
@@ -251,19 +251,19 @@ export default function ScriptLibraryPanel() {
       {/* Script Editor */}
       <div className="flex-1 flex flex-col min-w-0">
         {!selectedScript ? (
-          <div className="flex-1 flex items-center justify-center text-slate-500">
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <p className="text-sm">选择一个脚本查看或编辑</p>
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-indigo-500/10 shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10 shrink-0">
               <div>
-                <h3 className="text-sm font-medium text-slate-100">
+                <h3 className="text-sm font-medium text-foreground">
                   {selectedScript.group} / {selectedScript.name}
-                  <span className="ml-2 text-xs text-slate-500">.{selectedScript.script_type === "shell" ? "sh" : "py"}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">.{selectedScript.script_type === "shell" ? "sh" : "py"}</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   脚本库路径: data/script-library/{selectedScript.group}/{selectedScript.name}/
                 </p>
               </div>
@@ -272,13 +272,13 @@ export default function ScriptLibraryPanel() {
                   <>
                     <button
                       onClick={handleSave}
-                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       保存
                     </button>
                     <button
                       onClick={() => setEditing(false)}
-                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-secondary hover:bg-muted text-foreground text-xs transition-colors cursor-pointer"
                     >
                       取消
                     </button>
@@ -287,13 +287,13 @@ export default function ScriptLibraryPanel() {
                   <>
                     <button
                       onClick={() => setEditing(true)}
-                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       编辑
                     </button>
                     <button
                       onClick={handleDeleteScript}
-                      className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs transition-colors cursor-pointer"
                     >
                       <Trash2 size={14} className="inline mr-1" />
                       删除
@@ -306,13 +306,13 @@ export default function ScriptLibraryPanel() {
             {/* Content */}
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
-                <span className="text-sm text-slate-500">加载中...</span>
+                <span className="text-sm text-muted-foreground">加载中...</span>
               </div>
             ) : (
               <div className="flex-1 flex flex-col min-h-0 overflow-auto p-4 space-y-4">
                 {/* Script Code */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2">
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">
                     脚本内容 ({selectedScript.script_type === "shell" ? "Shell" : "Python"})
                   </label>
                   <CodeEditor
@@ -326,7 +326,7 @@ export default function ScriptLibraryPanel() {
 
                 {/* SCRIPT.md Meta */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2">
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">
                     SCRIPT.md（元信息）
                   </label>
                   <textarea
@@ -334,7 +334,7 @@ export default function ScriptLibraryPanel() {
                     onChange={(e) => setMetaContent(e.target.value)}
                     readOnly={!editing}
                     rows={8}
-                    className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm font-mono focus:outline-none focus:border-indigo-500/50 transition-colors resize-none ${
+                    className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm font-mono focus:outline-none focus:border-primary/50 transition-colors resize-none ${
                       !editing ? "pointer-events-none opacity-60" : ""
                     }`}
                     placeholder="---\nname: 脚本名称\ndescription: 脚本用途描述\n---\n\n## 用法"
@@ -350,19 +350,19 @@ export default function ScriptLibraryPanel() {
       {showNewGroup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowNewGroup(false)}>
           <div className={DIALOG_BASE} onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-medium text-slate-100 mb-4">新建分组</h3>
+            <h3 className="text-sm font-medium text-foreground mb-4">新建分组</h3>
             <input
               type="text"
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
               placeholder="分组名（小写字母+连字符）"
               autoFocus
-              className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 mb-4"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 mb-4"
               onKeyDown={(e) => { if (e.key === "Enter") handleCreateGroup(); }}
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowNewGroup(false)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer">取消</button>
-              <button onClick={handleCreateGroup} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs transition-colors cursor-pointer">创建</button>
+              <button onClick={() => setShowNewGroup(false)} className="px-3 py-1.5 rounded-lg bg-secondary hover:bg-muted text-foreground text-xs transition-colors cursor-pointer">取消</button>
+              <button onClick={handleCreateGroup} className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary text-white text-xs transition-colors cursor-pointer">创建</button>
             </div>
           </div>
         </div>
@@ -372,7 +372,7 @@ export default function ScriptLibraryPanel() {
       {showNewScript && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowNewScript(false)}>
           <div className={DIALOG_BASE} onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-medium text-slate-100 mb-4">
+            <h3 className="text-sm font-medium text-foreground mb-4">
               在 {selectedGroup} 中新建脚本
             </h3>
             <div className="space-y-3 mb-4">
@@ -382,21 +382,21 @@ export default function ScriptLibraryPanel() {
                 onChange={(e) => setNewScriptName(e.target.value)}
                 placeholder="脚本名（不含扩展名）"
                 autoFocus
-                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50"
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreateScript(); }}
               />
               <select
                 value={newScriptType}
                 onChange={(e) => setNewScriptType(e.target.value as "shell" | "python")}
-                className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 appearance-none"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 appearance-none"
               >
                 <option value="shell">Shell</option>
                 <option value="python">Python</option>
               </select>
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowNewScript(false)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer">取消</button>
-              <button onClick={handleCreateScript} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs transition-colors cursor-pointer">创建</button>
+              <button onClick={() => setShowNewScript(false)} className="px-3 py-1.5 rounded-lg bg-secondary hover:bg-muted text-foreground text-xs transition-colors cursor-pointer">取消</button>
+              <button onClick={handleCreateScript} className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary text-white text-xs transition-colors cursor-pointer">创建</button>
             </div>
           </div>
         </div>

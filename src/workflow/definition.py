@@ -45,6 +45,13 @@ def _coerce_integer_setting(value: Any, *, default: int) -> Any:
     return value
 
 
+def _coerce_optional_integer_setting(value: Any, *, default: int) -> Any:
+    """把缺失或空白配置归一到默认值，其余值交给统一校验。"""
+    if isinstance(value, str) and not value.strip():
+        return default
+    return _coerce_integer_setting(value, default=default)
+
+
 def _is_integer_in_range(value: Any, *, minimum: int, maximum: int) -> bool:
     return (
         isinstance(value, int)
@@ -100,13 +107,14 @@ class WorkflowNode:
     enable_complete_node_task: bool = True      # 是否注入 complete_node_task 工具
     output_variable: str = ""                   # 输出变量 key：Agent 最后一轮回复文本写入此变量
     enable_reject_upstream: bool = False        # 是否注入 reject_upstream 工具（允许下游拒绝上游产出）
-    max_reject_count: int = 3                   # 最大拒绝次数（enable_reject_upstream 为 true 时生效）
+    max_reject_count: int = 3                   # 历史兼容字段；新调度只使用节点失败策略
     save_output_to_file: bool = False           # 是否将LLM最后输出保存到文件
     output_file_path: str = ""                  # 保存路径（仅限 workspace 内，支持相对路径/{{key}}占位符）
     require_non_empty_output: bool = False      # 是否要求最后一条 LLM 输出非空
-    retry_empty_output_in_session: bool = False # 空输出时是否在原会话追问一次
+    retry_empty_output_in_session: bool = False # 历史兼容字段；新调度直接判定当前 attempt 失败
     json_output_field: str = ""                 # 要求最小字数的 JSON 字符串字段路径
     json_output_field_min_chars: int = 0        # JSON 字段字数必须严格大于此值（0=关闭）
+    output_repair_max_count: int = 1            # 历史兼容字段；不再参与新调度
     model_override: str = ""                    # 模型覆盖（格式 "provider_id:model_name"，空则使用 agent 类型默认模型，支持 {{key}} 占位符）
     sub_workflow_id: str | None = None          # 引用的子流程模板 ID（node_type="subprocess" 时有效）
     sub_scheme_id: str | None = None            # 子流程使用的执行方案 ID（空=全部执行，node_type="subprocess" 时有效）
@@ -125,6 +133,10 @@ class WorkflowNode:
         # 移除空字符串的可选字段
         if not d.get("model_override"):
             d.pop("model_override", None)
+        # 旧定义仍可读取，但新定义和 Task snapshot 不再写入独立修复预算。
+        d.pop("max_reject_count", None)
+        d.pop("retry_empty_output_in_session", None)
+        d.pop("output_repair_max_count", None)
         return d
 
     @classmethod
@@ -162,6 +174,10 @@ class WorkflowNode:
             json_output_field_min_chars=_coerce_integer_setting(
                 data.get("json_output_field_min_chars", 0),
                 default=0,
+            ),
+            output_repair_max_count=_coerce_optional_integer_setting(
+                data.get("output_repair_max_count", 1),
+                default=1,
             ),
             model_override=data.get("model_override", ""),
             sub_workflow_id=data.get("sub_workflow_id"),
@@ -834,7 +850,6 @@ class WorkflowDef:
                 )
             if node_def.node_type != "agent" and (
                 node_def.require_non_empty_output
-                or node_def.retry_empty_output_in_session
                 or node_def.json_output_field
                 or node_def.json_output_field_min_chars
             ):
@@ -845,18 +860,6 @@ class WorkflowDef:
             if not isinstance(node_def.require_non_empty_output, bool):
                 errors.append(
                     f"节点 '{node_label}' 的 LLM 非空输出校验必须是布尔值"
-                )
-            if not isinstance(node_def.retry_empty_output_in_session, bool):
-                errors.append(
-                    f"节点 '{node_label}' 的空输出原会话追问必须是布尔值"
-                )
-            elif (
-                node_def.retry_empty_output_in_session
-                and node_def.require_non_empty_output is not True
-            ):
-                errors.append(
-                    f"节点 '{node_label}' 只有开启 LLM 非空输出校验后"
-                    "才能启用空输出原会话追问"
                 )
             has_json_field = bool(
                 isinstance(node_def.json_output_field, str)

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 
+from .active_task_index import ACTIVE_TASK_STATUSES, RECOVERY_TASK_STATUSES
 from .executor_client import ExecutorUnavailable
 
 
@@ -58,10 +58,18 @@ class WorkflowExecutionRoutingMixin:
 
     def _assign_delegate(self, task):
         client = self._delegate_client_for_task(task, allow_assignment=True)
+        if client is None and task.status == "failed":
+            client = self._execution_delegate.select_client(task.task_id)
         if client is None:
             return None
         identity = client.identity
-        if task.executor_id is None:
+        if task.executor_id is None or (
+            task.status == "failed"
+            and (
+                task.executor_id != identity.executor_id
+                or task.executor_epoch != identity.epoch
+            )
+        ):
             task.executor_id = identity.executor_id
             task.executor_epoch = identity.epoch
             self._save_task(task)
@@ -113,22 +121,17 @@ class WorkflowExecutionRoutingMixin:
             return self._executor_error(str(exc))
 
     def _reassign_executor_tasks(self, predicate, current) -> int:
-        recoverable = {
-            "pending", "running", "retry_waiting", "resume_pending", "failed",
-        }
+        recoverable = {"pending", *RECOVERY_TASK_STATUSES}
         reassigned = 0
-        workflows_dir = self._execution_control.workflows_dir
-        if not workflows_dir.exists():
-            return reassigned
-        from .definition import WorkflowTask
-
-        for task_path in workflows_dir.glob("*/tasks/*.json"):
-            try:
-                task = WorkflowTask.from_dict(
-                    json.loads(task_path.read_text(encoding="utf-8"))
-                )
-            except Exception:
-                logger.warning("跳过无法读取的 Executor Task: %s", task_path)
+        for ref in self._active_task_index.refs():
+            task_path = self._get_task_path(ref.workflow_id, ref.task_id)
+            task = self._load_task(ref.workflow_id, ref.task_id)
+            if task is None:
+                if not task_path.exists():
+                    self._active_task_index.remove(ref.workflow_id, ref.task_id)
+                continue
+            if task.status not in ACTIVE_TASK_STATUSES:
+                self._active_task_index.remove(ref.workflow_id, ref.task_id)
                 continue
             if task.status not in recoverable or not predicate(task):
                 continue
@@ -161,22 +164,17 @@ class WorkflowExecutionRoutingMixin:
         current_by_id = {
             identity.executor_id: identity for identity in pool.identities
         }
-        recoverable = {
-            "pending", "running", "retry_waiting", "resume_pending", "failed",
-        }
+        recoverable = {"pending", *RECOVERY_TASK_STATUSES}
         reassigned = 0
-        workflows_dir = self._execution_control.workflows_dir
-        if not workflows_dir.exists():
-            return reassigned
-        from .definition import WorkflowTask
-
-        for task_path in workflows_dir.glob("*/tasks/*.json"):
-            try:
-                task = WorkflowTask.from_dict(
-                    json.loads(task_path.read_text(encoding="utf-8"))
-                )
-            except Exception:
-                logger.warning("跳过无法读取的 Executor Task: %s", task_path)
+        for ref in self._active_task_index.refs():
+            task_path = self._get_task_path(ref.workflow_id, ref.task_id)
+            task = self._load_task(ref.workflow_id, ref.task_id)
+            if task is None:
+                if not task_path.exists():
+                    self._active_task_index.remove(ref.workflow_id, ref.task_id)
+                continue
+            if task.status not in ACTIVE_TASK_STATUSES:
+                self._active_task_index.remove(ref.workflow_id, ref.task_id)
                 continue
             if task.status not in recoverable or task.status == "pre_running":
                 continue

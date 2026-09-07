@@ -135,7 +135,7 @@ export default function CompressionLogsPanel({ compact = false }: Props) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-8 gap-3" role="alert" aria-live="polite">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" size="sm" type="button" onClick={loadLogs} className="min-h-[44px] cursor-pointer">
           <RefreshCw size={14} className="mr-2" aria-hidden="true" />
           重试
@@ -151,7 +151,7 @@ export default function CompressionLogsPanel({ compact = false }: Props) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-amber-500" aria-hidden="true" />
+              <Filter className="h-4 w-4 text-warning" aria-hidden="true" />
               筛选条件
             </CardTitle>
           </CardHeader>
@@ -272,7 +272,7 @@ export default function CompressionLogsPanel({ compact = false }: Props) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-purple-500" aria-hidden="true" />
+              <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
               日志列表
             </CardTitle>
             <CardDescription>

@@ -22,6 +22,7 @@ import httpx
 
 
 from fastapi import APIRouter, Request, HTTPException, Body
+from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -159,7 +160,7 @@ async def get_session_tree(request: Request, main_id: str | None = None):
 
 async def get_session_system_prompt(session_id: str, request: Request):
 
-    """获取指定会话的完整 LLM 上下文概览（system_prompt + tools + 消息统计 + 模型配置 + 完整消息历史）"""
+    """获取指定会话当前有效的 LLM 入模上下文。"""
 
     sm = _get_session_manager(request)
 
@@ -175,28 +176,46 @@ async def get_session_system_prompt(session_id: str, request: Request):
 
 
 
-    # 工具列表（LLM 通过 bind_tools 看到的 tools schema）
+    # 工具列表（LLM 通过 bind_tools 看到的 tools schema）。detached 会话每轮结束后
+    # 会主动冷卸载 Graph 与 session.tools，检查面板只重建当前工具清单，不唤醒会话。
+    from src.agent.extension_sessions import (
+        DETACHED_CONVERSATION_PROFILE,
+        build_detached_session_tools,
+    )
+
+    inspection_tools = session.tools
+    if (
+        not inspection_tools
+        and getattr(session, "lifecycle_profile", "")
+        == DETACHED_CONVERSATION_PROFILE
+    ):
+        inspection_tools = build_detached_session_tools(sm, session)
 
     tools_info = []
 
-    for tool in session.tools:
+    for tool in inspection_tools:
 
-        tool_data = {"name": tool.name, "description": tool.description or ""}
+        openai_tool_schema = convert_to_openai_tool(tool)
+        function_schema = openai_tool_schema.get("function", {})
+        tool_data = {
+            "name": tool.name,
+            "description": tool.description or "",
+            "schema": openai_tool_schema,
+        }
 
-        # 提取参数 schema
+        # 使用与 bind_tools 相同的转换路径，避免把 InjectedToolArg
+        # 等只供运行时使用、无法生成 JSON Schema 的字段暴露给检查面板。
+        schema = function_schema.get("parameters", {})
+        props = schema.get("properties", {})
+        required = schema.get("required", [])
 
-        if hasattr(tool, "args_schema") and tool.args_schema:
+        from src.core.tool_schema import parameter_summary
 
-            schema = tool.args_schema.model_json_schema()
-
-            props = schema.get("properties", {})
-
-            required = schema.get("required", [])
+        if props:
 
             tool_data["parameters"] = {
 
-                k: {"type": v.get("type", "string"), "description": v.get("description", ""), "required": k in required}
-
+                k: parameter_summary(v, k in required)
                 for k, v in props.items()
 
             }
@@ -205,11 +224,14 @@ async def get_session_system_prompt(session_id: str, request: Request):
 
 
 
+    # 当前有效入模消息。与模型调用共用 lc_messages，不读取展示权威 record。
+    model_messages = session.get_model_input_messages()
+
     # 消息统计
 
     msg_counts = {"system": 0, "user": 0, "assistant": 0, "tool": 0}
 
-    for m in session.record:
+    for m in model_messages:
 
         role = m.get("type", m.get("role", ""))
 
@@ -223,7 +245,22 @@ async def get_session_system_prompt(session_id: str, request: Request):
 
     system_tokens = estimate_tokens(session.system_prompt) if session.system_prompt else 0
 
-    messages_tokens = sum(estimate_tokens(str(m.get("content", ""))) for m in session.record if m.get("role") != "system")
+    messages_tokens = sum(
+        estimate_tokens(str(m.get("content", "")))
+        for m in model_messages
+        if m.get("role") != "system"
+    )
+    tools_tokens = (
+        estimate_tokens(
+            json.dumps(
+                [tool["schema"] for tool in tools_info],
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        if tools_info
+        else 0
+    )
 
 
 
@@ -233,13 +270,19 @@ async def get_session_system_prompt(session_id: str, request: Request):
     model_manager = get_model_manager()
     # 优先使用会话自身的模型，否则使用动态默认。
     session_model = session.model_id or model_manager.get_default_model()
-    provider_id = session_model.split(":", 1)[0] if session_model else ""
-    provider_config = model_manager.get_provider(provider_id) or {}
-    hyperparams = provider_config.get("hyperparameter_values", {})
+    effective_model_params = model_manager.get_default_params()
+    effective_model_params.update(
+        {
+            key: value
+            for key, value in session.model_params.items()
+            if value is not None or key == "response_format"
+        }
+    )
 
     model_config = {
         "model": session_model or "",
-        "temperature": hyperparams.get("temperature", 1.0),
+        "temperature": effective_model_params.get("temperature", 0.7),
+        "model_params": effective_model_params,
         "max_context_tokens": MAX_CONTEXT_TOKENS,
         "max_tool_rounds": MAX_TOOL_ROUNDS,
     }
@@ -265,13 +308,17 @@ async def get_session_system_prompt(session_id: str, request: Request):
 
             "messages": messages_tokens,
 
-            "total": system_tokens + messages_tokens,
+            "tools": tools_tokens,
+
+            "total": system_tokens + messages_tokens + tools_tokens,
 
         },
 
         "model_config": model_config,
 
-        "messages": session.record,  # 返回完整的消息历史（LLM 实际看到的）
+        "messages": model_messages,
+
+        "context_scope": "current_effective",
 
     }
 
@@ -1337,6 +1384,10 @@ async def get_skill_detail(skill_id: str, request: Request):
         raise HTTPException(status_code=404, detail=f"未找到 skill: {skill_id}")
 
     skill_dict = skill.to_dict()
+    skill_dict["resource_owner"] = skill.metadata.get("resource_owner", "user")
+    skill_dict["resource_read_only"] = skill.metadata.get(
+        "resource_read_only", False
+    )
 
     # 添加配置信息
     if sm.config_manager:
@@ -1347,6 +1398,7 @@ async def get_skill_detail(skill_id: str, request: Request):
         wf_only = sm.config_manager.get_workflow_only(skill_id)
         if wf_only is not None:
             skill_dict["workflow_only"] = wf_only
+        skill_dict["scope_override"] = sm.config_manager.get_scope_override(skill_id)
     else:
         skill_dict["auto_inject"] = False
         skill_dict["group_ids"] = []
@@ -1360,13 +1412,22 @@ class CreateSkillRequest(BaseModel):
     name: str
     description: str = ""
     content: str = ""
-    category: str = "general"
+    category: str = "uncategorized"
     agent_types: list[str] = Field(default_factory=list)
     priority: int = 50
     tags: list[str] = Field(default_factory=list)
     enabled: bool = True
-    version: str = "1.0.0"
+    version: str = ""
     author: str = ""
+    language: str = ""
+    scope: str = "all"
+    license: str = ""
+    compatibility: str = ""
+    requires_core: str = ""
+    allowed_tools: list[str] = Field(default_factory=list)
+    required_tools: list[str] = Field(default_factory=list)
+    required_plugins: list[str] = Field(default_factory=list)
+    required_apps: list[str] = Field(default_factory=list)
 
 
 @router.post("/skills")
@@ -1395,6 +1456,15 @@ class UpdateSkillRequest(BaseModel):
     enabled: bool | None = None
     version: str | None = None
     author: str | None = None
+    language: str | None = None
+    scope: str | None = None
+    license: str | None = None
+    compatibility: str | None = None
+    requires_core: str | None = None
+    allowed_tools: list[str] | None = None
+    required_tools: list[str] | None = None
+    required_plugins: list[str] | None = None
+    required_apps: list[str] | None = None
 
 
 @router.put("/skills/{skill_id}")
@@ -1405,10 +1475,25 @@ async def update_skill(skill_id: str, body: UpdateSkillRequest, request: Request
         raise HTTPException(status_code=500, detail="Skill 管理器未初始化")
 
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
-    skill = sm.update_skill(skill_id, updates)
+    enabled = updates.pop("enabled", None)
+    priority = updates.pop("priority", None)
+    if priority is not None and not 0 <= priority <= 100:
+        raise HTTPException(status_code=422, detail="优先级必须在 0 到 100 之间")
+    try:
+        skill = sm.update_skill(skill_id, updates) if updates else sm.get_skill(skill_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if not skill:
         raise HTTPException(status_code=404, detail=f"未找到 skill: {skill_id}")
+    if enabled is not None and not sm.toggle_skill(skill_id, enabled):
+        raise HTTPException(status_code=500, detail="设置启用状态失败")
+    if priority is not None:
+        if not sm.config_manager or not sm.config_manager.set_priority(skill_id, priority):
+            raise HTTPException(status_code=500, detail="设置优先级失败")
+        skill.priority = priority
 
     return {"success": True, "skill": skill.to_dict()}
 
@@ -1420,7 +1505,12 @@ async def delete_skill(skill_id: str, request: Request):
     if not sm:
         raise HTTPException(status_code=500, detail="Skill 管理器未初始化")
 
-    success = sm.delete_skill(skill_id)
+    try:
+        success = sm.delete_skill(skill_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="无法删除该 Skill，请稍后重试") from exc
     if not success:
         raise HTTPException(status_code=404, detail=f"未找到 skill: {skill_id}")
 
@@ -1460,6 +1550,22 @@ async def toggle_skill_workflow_only(skill_id: str, enabled: bool, request: Requ
         raise HTTPException(status_code=500, detail="设置 workflow_only 失败")
 
     return {"success": True, "skill_id": skill_id, "workflow_only": enabled}
+
+
+@router.post("/skills/{skill_id}/priority")
+async def set_skill_priority(skill_id: str, priority: int, request: Request):
+    """设置 Skill 的本地注入优先级。"""
+    sm = _get_skill_manager(request)
+    if not sm or not sm.config_manager:
+        raise HTTPException(status_code=500, detail="Skill 配置管理器未初始化")
+    if sm.get_skill(skill_id) is None:
+        raise HTTPException(status_code=404, detail=f"未找到 skill: {skill_id}")
+    if not 0 <= priority <= 100:
+        raise HTTPException(status_code=422, detail="优先级必须在 0 到 100 之间")
+    if not sm.config_manager.set_priority(skill_id, priority):
+        raise HTTPException(status_code=500, detail="设置优先级失败")
+    sm.reload()
+    return {"success": True, "skill_id": skill_id, "priority": priority}
 
 
 @router.post("/skills/reload")
@@ -2413,6 +2519,7 @@ async def add_model_provider(body: AddModelProviderRequest, request: Request):
     from src.core.model_manager import get_model_manager
 
     model_manager = get_model_manager()
+
     if (
         body.managed_by
         and (

@@ -129,7 +129,7 @@ export default function ModelProviderCard({
   };
 
   return (
-    <article className={`rounded-xl border bg-slate-900/50 p-4 ${isDefault ? "border-indigo-500/50" : "border-slate-700"}`}>
+    <article className={`rounded-xl border bg-card/50 p-4 ${isDefault ? "border-primary/50" : "border-border"}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -137,21 +137,21 @@ export default function ModelProviderCard({
             onClick={() => setExpanded(!expanded)}
             aria-expanded={expanded}
             aria-label={expanded ? "折叠供应商配置" : "展开供应商配置"}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-2">
-              <h4 className="truncate text-base font-semibold text-slate-100">{localProvider.name}</h4>
+              <h4 className="truncate text-base font-semibold text-foreground">{localProvider.name}</h4>
               {isManaged && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-indigo-400/25 bg-indigo-500/10 px-2 py-0.5 text-[11px] font-medium text-indigo-300">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                   <LockKeyhole size={11} aria-hidden="true" />
                   插件托管
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {schema?.display_name || localProvider.provider_type} · {localProvider.models.length} 个模型
             </p>
           </div>
@@ -161,7 +161,7 @@ export default function ModelProviderCard({
             <button
               type="button"
               onClick={() => onPrioritize(provider.id)}
-              className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs text-slate-400 hover:bg-indigo-500/10 hover:text-indigo-300"
+              className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary"
             >
               <ArrowUp size={14} aria-hidden="true" />
               设为首位
@@ -174,7 +174,7 @@ export default function ModelProviderCard({
                 onClick={handleSave}
                 disabled={!edited || saving}
                 aria-label="保存供应商配置"
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-green-400 hover:bg-green-500/10 disabled:cursor-not-allowed disabled:text-slate-600"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-success hover:bg-success/10 disabled:cursor-not-allowed disabled:text-muted-foreground"
               >
                 {saving ? <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" /> : <Save size={16} />}
               </button>
@@ -182,7 +182,7 @@ export default function ModelProviderCard({
                 type="button"
                 onClick={() => onDelete(provider.id)}
                 aria-label="删除供应商"
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 size={16} />
               </button>
@@ -192,31 +192,31 @@ export default function ModelProviderCard({
       </div>
 
       {expanded && isManaged && (
-        <div className="mt-4 border-t border-slate-700/70 pt-4">
-          <h5 className="text-sm font-medium text-slate-200">可用模型</h5>
-          <div className="mt-2 flex min-h-12 flex-wrap items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/40 p-2">
+        <div className="mt-4 border-t border-border/70 pt-4">
+          <h5 className="text-sm font-medium text-foreground">可用模型</h5>
+          <div className="mt-2 flex min-h-12 flex-wrap items-center gap-2 rounded-xl border border-border/80 bg-secondary/40 p-2">
             {localProvider.models.length > 0 ? localProvider.models.map((model) => (
               <span
                 key={model}
-                className="max-w-full truncate rounded-lg border border-slate-600/80 bg-slate-700/70 px-2.5 py-2 font-mono text-xs text-slate-200"
+                className="max-w-full truncate rounded-lg border border-border/80 bg-muted/70 px-2.5 py-2 font-mono text-xs text-foreground"
               >
                 {model}
               </span>
             )) : (
-              <span className="px-2 text-sm text-slate-500">暂无可用模型</span>
+              <span className="px-2 text-sm text-muted-foreground">暂无可用模型</span>
             )}
           </div>
         </div>
       )}
 
       {expanded && !isManaged && (
-        <div className="mt-4 space-y-4 border-t border-slate-700/70 pt-4">
-          <label className="block text-sm text-slate-300">
+        <div className="mt-4 space-y-4 border-t border-border/70 pt-4">
+          <label className="block text-sm text-foreground">
             供应商类型
             <select
               value={localProvider.provider_type}
               onChange={(event) => updateProviderType(event.target.value)}
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 text-sm text-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              className="mt-1 min-h-11 w-full rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             >
               {Object.entries(schemas).map(([providerType, providerSchema]) => (
                 <option key={providerType} value={providerType}>
@@ -227,7 +227,7 @@ export default function ModelProviderCard({
           </label>
 
           <div>
-            <label htmlFor={`provider-${provider.id}-api-key`} className="mb-1 block text-sm text-slate-300">API Key</label>
+            <label htmlFor={`provider-${provider.id}-api-key`} className="mb-1 block text-sm text-foreground">API Key</label>
             <div className="relative">
               <input
                 id={`provider-${provider.id}-api-key`}
@@ -238,13 +238,13 @@ export default function ModelProviderCard({
                   setEdited(true);
                 }}
                 placeholder="输入 API Key"
-                className="min-h-11 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 pr-12 text-sm text-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="min-h-11 w-full rounded-lg border border-border bg-secondary px-3 pr-12 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
                 aria-label={showApiKey ? "隐藏 API Key" : "显示 API Key"}
-                className="absolute right-1 top-0 flex min-h-11 min-w-11 items-center justify-center text-slate-400 hover:text-slate-200"
+                className="absolute right-1 top-0 flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-foreground"
               >
                 {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -254,8 +254,8 @@ export default function ModelProviderCard({
           <div>
             <div className="mb-2 flex items-end justify-between gap-4">
               <div>
-                <h5 className="text-sm font-medium text-slate-200">模型列表</h5>
-                <p className="mt-0.5 text-xs text-slate-500">
+                <h5 className="text-sm font-medium text-foreground">模型列表</h5>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {isDefault
                     ? "第一个会成为 Main 的默认模型，可拖动排序"
                     : "第一个是该供应商默认模型；设为首位后供 Main 使用"}
@@ -265,7 +265,7 @@ export default function ModelProviderCard({
                 type="button"
                 onClick={discoverModels}
                 disabled={discovering}
-                className="flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs text-indigo-300 hover:bg-indigo-500/10 disabled:opacity-50"
+                className="flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
               >
                 <RefreshCw size={14} className={discovering ? "animate-spin motion-reduce:animate-none" : ""} />
                 {discovering ? "拉取中" : "拉取模型"}
@@ -280,21 +280,21 @@ export default function ModelProviderCard({
               }}
               inputLabel={`为 ${localProvider.name} 输入模型`}
             />
-            {discoverError && <p className="mt-1 text-xs text-amber-400" role="alert">{discoverError}</p>}
+            {discoverError && <p className="mt-1 text-xs text-warning" role="alert">{discoverError}</p>}
           </div>
 
-          <div className="rounded-lg border border-slate-700/80 bg-slate-800/30">
+          <div className="rounded-lg border border-border/80 bg-secondary/30">
             <button
               type="button"
               onClick={() => setApiAddressExpanded(!apiAddressExpanded)}
               aria-expanded={apiAddressExpanded}
-              className="flex min-h-11 w-full items-center justify-between px-3 text-sm text-slate-300 hover:bg-slate-800/60"
+              className="flex min-h-11 w-full items-center justify-between px-3 text-sm text-foreground hover:bg-secondary/60"
             >
               API 地址
               {apiAddressExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {apiAddressExpanded && (
-              <div className="border-t border-slate-700/80 p-3">
+              <div className="border-t border-border/80 p-3">
                 <input
                   value={localProvider.base_url}
                   onChange={(event) => {
@@ -302,18 +302,18 @@ export default function ModelProviderCard({
                     setEdited(true);
                   }}
                   aria-label="API 地址"
-                  className="min-h-11 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 font-mono text-sm text-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="min-h-11 w-full rounded-lg border border-border bg-secondary px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-muted-foreground">
                   完整 API Base URL，包含版本路径（v1，不带末尾斜杠/）
                 </p>
               </div>
             )}
           </div>
 
-          <div className="space-y-3 border-t border-slate-700/70 pt-4">
-            <h5 className="text-sm font-medium text-slate-200">模型参数</h5>
-            <label className="flex items-center justify-between gap-4 text-sm text-slate-300">
+          <div className="space-y-3 border-t border-border/70 pt-4">
+            <h5 className="text-sm font-medium text-foreground">模型参数</h5>
+            <label className="flex items-center justify-between gap-4 text-sm text-foreground">
               最大上下文 Tokens
               <input
                 type="number"
@@ -327,13 +327,13 @@ export default function ModelProviderCard({
                   });
                   setEdited(true);
                 }}
-                className="min-h-10 w-36 rounded-lg border border-slate-600 bg-slate-800 px-3 text-right font-mono text-sm text-slate-200 outline-none focus:border-indigo-500"
+                className="min-h-10 w-36 rounded-lg border border-border bg-secondary px-3 text-right font-mono text-sm text-foreground outline-none focus:border-primary"
               />
             </label>
             {schema && Object.entries(schema.hyperparams).map(([key, param]) => {
                 const value = localProvider.hyperparameter_values[key] ?? param.default;
                 return (
-                  <label key={key} className="flex items-center justify-between gap-4 text-sm text-slate-300">
+                  <label key={key} className="flex items-center justify-between gap-4 text-sm text-foreground">
                     {param.label}
                     <input
                       type="number"
@@ -341,7 +341,7 @@ export default function ModelProviderCard({
                       max={param.max}
                       value={value == null ? "" : Number(value)}
                       onChange={(event) => updateHyperparam(key, event.target.value === "" ? null : Number(event.target.value))}
-                      className="min-h-10 w-36 rounded-lg border border-slate-600 bg-slate-800 px-3 text-right font-mono text-sm text-slate-200 outline-none focus:border-indigo-500"
+                      className="min-h-10 w-36 rounded-lg border border-border bg-secondary px-3 text-right font-mono text-sm text-foreground outline-none focus:border-primary"
                     />
                   </label>
                 );

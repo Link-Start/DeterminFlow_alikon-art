@@ -207,6 +207,10 @@ class WorkflowLoopMixin:
             "rejection_history": [
                 dict(item) for item in node_state.rejection_history
             ],
+            "output_repair_count": node_state.output_repair_count,
+            "output_repair_history": [
+                dict(item) for item in node_state.output_repair_history
+            ],
         }
         node_state.iteration_history.append(snapshot)
 
@@ -219,6 +223,8 @@ class WorkflowLoopMixin:
         node_state.rejection_reason = ""
         node_state.reject_upstream_count = 0
         node_state.rejection_history = []
+        node_state.output_repair_count = 0
+        node_state.output_repair_history = []
 
     async def _reset_node_for_loop_iteration(
         self,

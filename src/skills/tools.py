@@ -303,11 +303,11 @@ def create_skill_manage_tool(skill_manager: "SkillManager"):
                 if skill_manager.config_manager:
                     skill_manager.config_manager.sync_with_directory([name])
                     skill_manager.config_manager.set_enabled(name, True)
-                    skill_manager.config_manager.set_auto_inject(name, False)
+                    skill_manager.config_manager.set_auto_inject(name, True)
 
                 return (
                     f"✅ 技能 '{name}' 创建成功。\n"
-                    f"路径: data/skills/{name}/\n"
+                    f"路径: data/skills/local/{name}/\n"
                     f"💡 提示：使用 write_file action 添加捆绑资源文件（scripts/, references/, assets/）。"
                 )
 

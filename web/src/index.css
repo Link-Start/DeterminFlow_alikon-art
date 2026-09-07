@@ -28,71 +28,95 @@
 @layer base {
   :root,
   [data-theme="dark"] {
-    --background: 222.2 84% 4.9%;
+    --background: 221.74 48.94% 9.22%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 6.9%;
+    --card: 217.24 47.54% 11.96%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 6.9%;
+    --popover: 217.24 47.54% 11.96%;
     --popover-foreground: 210 40% 98%;
     --primary: 239 84% 67%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 216.32 44.19% 16.86%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 216.32 44.19% 16.86%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 216.32 44.19% 16.86%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 91% 71%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --success: 142 69% 58%;
+    --success-foreground: 144 70% 10%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 35 95% 10%;
+    --info: 199 89% 60%;
+    --info-foreground: 200 90% 10%;
+    --border: 213.06 33.79% 28.43%;
+    --input: 213.46 27.37% 37.25%;
     --ring: 239 84% 67%;
     --radius: 0.5rem;
-    --theme-surface-deep: 222.2 84% 4.9%;
-    --theme-surface: 222 47% 11%;
-    --theme-surface-raised: 217.2 32.6% 17.5%;
-    --theme-surface-muted: 215 25% 27%;
-    --scrollbar-track: hsl(222.2 84% 4.9% / 0.5);
+    --theme-surface-deep: 221.74 48.94% 9.22%;
+    --theme-surface: 217.24 47.54% 11.96%;
+    --theme-surface-raised: 216.32 44.19% 16.86%;
+    --theme-surface-hover: 213.75 39.34% 23.92%;
+    --theme-surface-strong: 213.46 27.37% 37.25%;
+    --node-agent: 258 90% 66%;
+    --node-tool: 188 86% 53%;
+    --node-script: 217 91% 60%;
+    --node-api: 173 80% 40%;
+    --node-approval: 45 93% 47%;
+    --scrollbar-track: hsl(221.74 48.94% 9.22% / 0.7);
     --scrollbar-thumb: hsl(var(--primary) / 0.3);
     --scrollbar-thumb-hover: hsl(var(--primary) / 0.5);
     --chart-axis-color: #94a3b8;
-    --chart-tooltip-background: #1e293b;
-    --chart-tooltip-border: #475569;
+    --chart-tooltip-background: #18273e;
+    --chart-tooltip-border: #455c79;
     --chart-tooltip-foreground: #f1f5f9;
     --chart-tooltip-shadow: none;
   }
 
   [data-theme="light"] {
-    --background: 210 20% 98%;
-    --foreground: 222 22% 15%;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222 22% 15%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 22% 15%;
-    --primary: 217 91% 52%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 243 75% 59%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 222 22% 20%;
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 214 95% 93%;
-    --accent-foreground: 217 91% 38%;
-    --destructive: 0 72% 51%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 226 100% 97%;
+    --accent-foreground: 244 55% 41%;
+    --destructive: 0 72% 42%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 18% 88%;
-    --input: 214 18% 88%;
-    --ring: 217 91% 52%;
+    --success: 142 72% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 37%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 94% 32%;
+    --info-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 213 27% 84%;
+    --ring: 243 75% 59%;
     --theme-surface-deep: 210 40% 98%;
     --theme-surface: 0 0% 100%;
-    --theme-surface-raised: 210 20% 96%;
-    --theme-surface-muted: 214 18% 88%;
-    --scrollbar-track: hsl(210 20% 96%);
+    --theme-surface-raised: 210 40% 96%;
+    --theme-surface-hover: 214 32% 91%;
+    --theme-surface-strong: 213 27% 84%;
+    --node-agent: 258 90% 66%;
+    --node-tool: 188 86% 42%;
+    --node-script: 217 91% 52%;
+    --node-api: 173 80% 32%;
+    --node-approval: 32 95% 37%;
+    --scrollbar-track: hsl(210 40% 96%);
     --scrollbar-thumb: hsl(215 16% 47% / 0.34);
     --scrollbar-thumb-hover: hsl(215 16% 37% / 0.48);
-    --chart-axis-color: hsl(215 16% 42%);
+    --chart-axis-color: hsl(215 16% 47%);
     --chart-tooltip-background: #ffffff;
-    --chart-tooltip-border: hsl(214 18% 88%);
-    --chart-tooltip-foreground: hsl(222 22% 15%);
+    --chart-tooltip-border: hsl(214 32% 91%);
+    --chart-tooltip-foreground: hsl(222 47% 11%);
     --chart-tooltip-shadow: 0 8px 24px rgb(15 23 42 / 0.08);
   }
 }
@@ -133,40 +157,18 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* Surface utilities (solid semi-transparent backgrounds) */
+/* Shared semantic surfaces */
 .surface {
-  @apply bg-slate-800/60 border border-primary/15;
+  @apply border border-border bg-card;
 }
 
 .surface-card {
-  @apply bg-slate-800/40 border border-primary/10 rounded-xl;
+  @apply rounded-xl border border-border bg-card;
 }
 
-/* Legacy aliases — prefer .surface / .surface-card */
-.glass {
-  @apply bg-slate-800/60 border border-primary/15;
-}
-
-.glass-card {
-  @apply bg-slate-800/40 border border-primary/10 rounded-xl;
-}
-
-/* Glow effects (use sparingly for status indication) */
-.glow-border {
-  box-shadow: 0 0 10px hsl(var(--primary) / 0.2),
-              inset 0 0 10px hsl(var(--primary) / 0.05);
-}
-
-.glow-green {
-  box-shadow: 0 0 10px hsl(142 71% 45% / 0.3);
-}
-
-.glow-red {
-  box-shadow: 0 0 10px hsl(0 84% 60% / 0.3);
-}
-
-.glow-amber {
-  box-shadow: 0 0 10px hsl(38 92% 50% / 0.3);
+/* Dense orchestration structure needs one stronger neutral boundary in light mode. */
+[data-theme="light"] .orchestration-workbench {
+  --border: var(--theme-surface-strong);
 }
 
 /* Pulse animation for running status */
@@ -214,7 +216,7 @@
 }
 
 .markdown-body h1, .markdown-body h2, .markdown-body h3 {
-  @apply text-slate-200 mt-4 mb-2;
+  @apply mb-2 mt-4 text-foreground;
 }
 
 .markdown-body ul, .markdown-body ol {
@@ -226,15 +228,15 @@
 }
 
 .markdown-body blockquote {
-  @apply bg-emerald-500/5 border border-emerald-500/20 rounded-lg pl-4 py-1 text-slate-400;
+  @apply rounded-lg border border-primary/20 bg-primary/5 py-1 pl-4 text-muted-foreground;
 }
 
 .markdown-body a {
-  @apply text-emerald-400 underline;
+  @apply text-primary underline;
 }
 
 .markdown-body a:hover {
-  @apply text-emerald-300;
+  @apply text-primary/80;
 }
 
 .markdown-body table {
@@ -269,152 +271,4 @@
 /* Accessibility: keyboard focus styles */
 :focus-visible {
   @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
-}
-
-/* Accessibility: high-contrast support */
-@media (forced-colors: active) {
-  .glow-border,
-  .glow-green,
-  .glow-red,
-  .glow-amber {
-    box-shadow: none;
-  }
-}
-
-/*
- * Compatibility bridge for legacy components that still use slate utilities.
- * Selectors are explicit so new UI can keep moving to semantic color tokens.
- */
-[data-theme="light"] .bg-slate-950,
-[data-theme="light"] .bg-slate-950\/30,
-[data-theme="light"] .bg-slate-950\/40,
-[data-theme="light"] .bg-slate-950\/50,
-[data-theme="light"] .bg-slate-950\/60,
-[data-theme="light"] .bg-slate-950\/70,
-[data-theme="light"] .bg-slate-950\/80,
-[data-theme="light"] .bg-slate-950\/95 {
-  background-color: hsl(var(--theme-surface-deep));
-}
-
-[data-theme="light"] .bg-slate-900,
-[data-theme="light"] .bg-slate-900\/35,
-[data-theme="light"] .bg-slate-900\/40,
-[data-theme="light"] .bg-slate-900\/50,
-[data-theme="light"] .bg-slate-900\/60,
-[data-theme="light"] .bg-slate-900\/70,
-[data-theme="light"] .bg-slate-900\/80,
-[data-theme="light"] .bg-slate-900\/95,
-[data-theme="light"] .bg-slate-800,
-[data-theme="light"] .bg-slate-800\/20,
-[data-theme="light"] .bg-slate-800\/30,
-[data-theme="light"] .bg-slate-800\/40,
-[data-theme="light"] .bg-slate-800\/50,
-[data-theme="light"] .bg-slate-800\/60,
-[data-theme="light"] .bg-slate-800\/65,
-[data-theme="light"] .bg-slate-800\/70,
-[data-theme="light"] .bg-slate-800\/80,
-[data-theme="light"] .bg-slate-800\/90,
-[data-theme="light"] .bg-slate-800\/95 {
-  background-color: hsl(var(--theme-surface));
-}
-
-[data-theme="light"] .bg-slate-700,
-[data-theme="light"] .bg-slate-700\/50,
-[data-theme="light"] .bg-slate-700\/60,
-[data-theme="light"] .bg-slate-700\/70,
-[data-theme="light"] .bg-slate-700\/75,
-[data-theme="light"] .bg-slate-700\/80,
-[data-theme="light"] .bg-slate-700\/90,
-[data-theme="light"] .bg-slate-600,
-[data-theme="light"] .bg-slate-600\/70 {
-  background-color: hsl(var(--theme-surface-raised));
-}
-
-[data-theme="light"] .text-slate-100,
-[data-theme="light"] .text-slate-200 {
-  color: hsl(var(--foreground));
-}
-
-[data-theme="light"] .text-slate-300 {
-  color: hsl(215 25% 27%);
-}
-
-[data-theme="light"] .text-slate-400 {
-  color: hsl(var(--muted-foreground));
-}
-
-[data-theme="light"] .text-indigo-300,
-[data-theme="light"] .text-indigo-400,
-[data-theme="light"] .text-indigo-500 {
-  color: hsl(243 75% 47%);
-}
-
-[data-theme="light"] .text-purple-300,
-[data-theme="light"] .text-purple-400,
-[data-theme="light"] .text-purple-500 {
-  color: hsl(272 72% 40%);
-}
-
-[data-theme="light"] .text-cyan-300,
-[data-theme="light"] .text-cyan-400,
-[data-theme="light"] .text-cyan-500 {
-  color: hsl(192 91% 30%);
-}
-
-[data-theme="light"] .text-green-300,
-[data-theme="light"] .text-green-400,
-[data-theme="light"] .text-green-500 {
-  color: hsl(142 72% 29%);
-}
-
-[data-theme="light"] .text-red-300,
-[data-theme="light"] .text-red-400,
-[data-theme="light"] .text-red-500 {
-  color: hsl(0 72% 45%);
-}
-
-[data-theme="light"] .text-amber-300,
-[data-theme="light"] .text-amber-400,
-[data-theme="light"] .text-amber-500 {
-  color: hsl(32 95% 35%);
-}
-
-[data-theme="light"] .border-slate-900,
-[data-theme="light"] .border-slate-800,
-[data-theme="light"] .border-slate-700,
-[data-theme="light"] .border-slate-700\/30,
-[data-theme="light"] .border-slate-700\/40,
-[data-theme="light"] .border-slate-700\/50,
-[data-theme="light"] .border-slate-700\/70,
-[data-theme="light"] .border-slate-700\/80,
-[data-theme="light"] .border-slate-600,
-[data-theme="light"] .border-slate-600\/30,
-[data-theme="light"] .border-slate-600\/40,
-[data-theme="light"] .border-slate-600\/50,
-[data-theme="light"] .border-slate-600\/60,
-[data-theme="light"] .border-slate-600\/80 {
-  border-color: hsl(var(--border));
-}
-
-[data-theme="light"] .hover\:bg-slate-950:hover,
-[data-theme="light"] .hover\:bg-slate-950\/50:hover,
-[data-theme="light"] .hover\:bg-slate-900:hover,
-[data-theme="light"] .hover\:bg-slate-900\/60:hover,
-[data-theme="light"] .hover\:bg-slate-800:hover,
-[data-theme="light"] .hover\:bg-slate-800\/50:hover,
-[data-theme="light"] .hover\:bg-slate-800\/60:hover,
-[data-theme="light"] .hover\:bg-slate-700:hover,
-[data-theme="light"] .hover\:bg-slate-700\/50:hover,
-[data-theme="light"] .hover\:bg-slate-700\/60:hover {
-  background-color: hsl(var(--accent));
-}
-
-[data-theme="light"] .hover\:text-slate-100:hover,
-[data-theme="light"] .hover\:text-slate-200:hover,
-[data-theme="light"] .hover\:text-slate-300:hover {
-  color: hsl(var(--foreground));
-}
-
-[data-theme="light"] .ring-offset-slate-950 {
-  --tw-ring-offset-color: hsl(var(--background));
 }

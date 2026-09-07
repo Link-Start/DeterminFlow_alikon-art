@@ -132,7 +132,7 @@ export default function ConversationTimeline({
               );
             })}
             {isStreaming && streamingSegments.length === 0 && (
-              <div className="flex items-center gap-2 py-1 text-xs text-slate-500" role="status">
+              <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground" role="status">
                 <Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 正在生成
               </div>
@@ -148,7 +148,7 @@ export default function ConversationTimeline({
               <ConversationAsyncState
                 kind="error"
                 message={visibleError}
-                className="min-h-0 rounded-lg border border-red-500/15 bg-red-500/5 py-4"
+                className="min-h-0 rounded-lg border border-destructive/15 bg-destructive/5 py-4"
               />
             )}
           </div>

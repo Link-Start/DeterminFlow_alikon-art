@@ -232,14 +232,49 @@ class _FakeToolRegistry:
             self.registered.clear()
 
 
-def _runtime(tool_registry=None) -> CoreRuntime:
+def _runtime(tool_registry=None, *, services=None) -> CoreRuntime:
     return CoreRuntime(
         app=object(),
         session_manager=object(),
         workflow_runtime=object(),
         tool_registry=tool_registry or _FakeToolRegistry(),
         event_publisher=None,
+        services=services or {},
     )
+
+
+def test_only_official_public_api_receives_core_account_session(tmp_path: Path):
+    _write_manifest(tmp_path / "extensions" / "public-api", "public-api")
+    _write_manifest(tmp_path / "extensions" / "third-party", "third-party")
+    manager = ExtensionManager(
+        tmp_path,
+        enabled=["public-api", "third-party"],
+        discover_entry_points=False,
+    )
+    manager._applied_plugin_records["public-api"] = SimpleNamespace(trust="official")
+    account_session = object()
+    runtime = _runtime(services={"_official_account_session": account_session})
+
+    official_runtime = manager._owner_runtime("public-api", runtime)
+    third_party_runtime = manager._owner_runtime("third-party", runtime)
+
+    assert official_runtime.get_service("account_session") is account_session
+    assert official_runtime.get_service("_official_account_session") is None
+    assert third_party_runtime.get_service("account_session") is None
+    assert third_party_runtime.get_service("_official_account_session") is None
+
+
+def test_third_party_public_api_cannot_receive_core_account_session(tmp_path: Path):
+    _write_manifest(tmp_path / "extensions" / "public-api", "public-api")
+    manager = ExtensionManager(
+        tmp_path,
+        enabled=["public-api"],
+        discover_entry_points=False,
+    )
+    manager._applied_plugin_records["public-api"] = SimpleNamespace(trust="third_party")
+    runtime = _runtime(services={"_official_account_session": object()})
+
+    assert manager._owner_runtime("public-api", runtime).get_service("account_session") is None
 
 
 def test_extension_dependencies_load_before_dependents(tmp_path: Path):
@@ -545,7 +580,9 @@ def test_core_app_has_no_product_extension_routes(tmp_path: Path):
     paths = create_app(manager).openapi()["paths"]
 
     assert "/api/extensions" in paths
-    assert not any(path.startswith("/api/product-extension/") for path in paths)
+    assert "/api/hindsight/config" not in paths
+    assert "/api/teardown/overview" not in paths
+    assert not any(path.startswith("/api/v1/novel") for path in paths)
 
 
 def test_failed_health_check_marks_extension_degraded(tmp_path: Path):

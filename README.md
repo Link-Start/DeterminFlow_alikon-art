@@ -243,6 +243,9 @@ docker compose up --build
 
 ## 文档
 
+- [资源广场与 Skill 安装、更新](docs/resource-marketplace.md)
+- [统一账户接口](docs/core-account-profile.md)
+- [社区开发分支更新说明](docs/community-updates.md)
 - [架构说明](docs/architecture.md)
 - [Plugin Package 规范](docs/plugin-packages.md)
 - [Extension 开发指南](docs/extension-development.md)

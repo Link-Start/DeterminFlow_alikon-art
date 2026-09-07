@@ -148,7 +148,7 @@ export default function GraphPage() {
   );
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] flex flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       {/* View Mode Toggle */}
       <div
         className="px-4 py-2 border-b border-border flex items-center gap-4"
@@ -162,9 +162,9 @@ export default function GraphPage() {
             aria-selected={viewMode === "sessions"}
             aria-controls="panel-sessions"
             onClick={() => setViewMode("sessions")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer min-h-[44px] flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer min-h-[44px] flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
               viewMode === "sessions"
-                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                ? "bg-primary/20 text-primary border border-primary/30"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -177,9 +177,9 @@ export default function GraphPage() {
             aria-selected={viewMode === "langgraph"}
             aria-controls="panel-langgraph"
             onClick={() => setViewMode("langgraph")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer min-h-[44px] flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer min-h-[44px] flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${
               viewMode === "langgraph"
-                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                ? "bg-info/20 text-info border border-info/30"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >

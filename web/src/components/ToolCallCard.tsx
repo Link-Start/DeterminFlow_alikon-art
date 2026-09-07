@@ -29,39 +29,39 @@ function ToolCallCard({ name, args, result, status }: ToolCallCardProps) {
 
   const statusLabel = status === "building" ? "生成参数..." : status === "running" ? "执行中..." : "完成";
   const statusBadgeBg = status === "completed"
-    ? "bg-green-500/20 text-green-400"
-    : "bg-amber-500/20 text-amber-400";
+    ? "bg-success/20 text-success"
+    : "bg-warning/20 text-warning";
 
   return (
     <div className="mb-2 ml-10">
       <div
         role="article"
         aria-label={`工具调用 ${name} - ${statusLabel}`}
-        className={`px-3 py-2 bg-slate-800/50 border border-slate-700/40 rounded-lg transition-colors duration-200 ${status === "running" ? "animate-pulse-slow motion-reduce:animate-none" : ""}`}
+        className={`px-3 py-2 bg-secondary/50 border border-border/40 rounded-lg transition-colors duration-200 ${status === "running" ? "animate-pulse-slow motion-reduce:animate-none" : ""}`}
       >
         <div className="flex items-center gap-2">
           {status === "running" ? (
-            <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none text-amber-400" aria-hidden="true" />
+            <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none text-warning" aria-hidden="true" />
           ) : status === "building" ? (
-            <Pencil className="w-4 h-4 text-amber-400 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+            <Pencil className="w-4 h-4 text-warning animate-pulse motion-reduce:animate-none" aria-hidden="true" />
           ) : (
-            <CheckCircle2 className="w-4 h-4 text-green-400" aria-hidden="true" />
+            <CheckCircle2 className="w-4 h-4 text-success" aria-hidden="true" />
           )}
-          <span className="text-sm font-medium text-amber-400">{name}</span>
+          <span className="text-sm font-medium text-warning">{name}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full ${statusBadgeBg}`} role="status" aria-label={statusLabel}>
             {statusLabel}
           </span>
         </div>
         {formattedArgs && formattedArgs !== "{}" && (
           <div className="mt-1.5 text-xs text-muted-foreground">
-            <pre className="bg-slate-900/60 rounded p-1.5 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap" role="region" aria-label={`${name} 参数`}>
+            <pre className="bg-card/60 rounded p-1.5 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap" role="region" aria-label={`${name} 参数`}>
               {formattedArgs}
             </pre>
           </div>
         )}
         {result && status === "completed" && (
-          <div className="mt-1.5 text-xs text-slate-400">
-            <div className="bg-slate-900/60 rounded p-1.5 overflow-x-auto max-h-32 overflow-y-auto" role="region" aria-label={`${name} 结果`}>
+          <div className="mt-1.5 text-xs text-muted-foreground">
+            <div className="bg-card/60 rounded p-1.5 overflow-x-auto max-h-32 overflow-y-auto" role="region" aria-label={`${name} 结果`}>
               {result.length > 300 ? result.slice(0, 300) + "..." : result}
             </div>
           </div>

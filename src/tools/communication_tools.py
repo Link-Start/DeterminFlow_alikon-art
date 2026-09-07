@@ -185,12 +185,12 @@ class RejectUpstreamArgs(BaseModel):
 def create_reject_upstream_tool(
     session_manager: "SessionManager",
 ) -> StructuredTool:
-    """创建 reject_upstream 工具 — 允许下游节点拒绝上游节点产出并触发重试。
+    """创建 reject_upstream 工具 — 将输出校验失败归属到目标上游节点。
 
     调用此工具后：
-    1. 拒绝原因将发送到目标上游节点的 session 中
-    2. 引擎将当前节点状态设为 waiting_retry
-    3. 上游节点重新完成后，其新产出将追加到当前节点的 session
+    1. 目标上游节点的当前 attempt 被标记为 failed
+    2. 引擎只按该节点的失败策略决定自动重试、跳过或终止
+    3. 自动重试会创建新的正式 attempt 和新的 Agent Session
     """
 
     async def _reject_upstream(reason: str, target_node_id: str = "") -> str:

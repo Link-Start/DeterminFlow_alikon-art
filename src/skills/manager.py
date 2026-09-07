@@ -6,17 +6,22 @@ Skill 管理器 - 支持渐进式披露（Progressive Disclosure）
 2. Activation（激活）：任务匹配时读取完整 SKILL.md（< 5000 tokens）
 3. Execution（执行）：按需加载 scripts/references/assets 文件
 """
+import hashlib
+import json
 import logging
+import shutil
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
 from src.extension_api.registrar import OwnedPath
+from src.resources import ResourceProvenanceStore
 
 from .models import Skill, SkillCategory
 from .loader import SkillLoader
 from .file_watcher import SkillRuleWatcher
+from .storage import BUILTIN_SKILL_OWNER, MARKETPLACE_SKILL_OWNER
 
 logger = logging.getLogger(__name__)
 
@@ -39,16 +44,53 @@ class SkillManager:
         rules_dir: Path | None = None,
         rule_manager: "RuleManager | None" = None,
         *,
+        builtin_skills_dir: Path | None = None,
+        marketplace_skills_dir: Path | None = None,
+        provenance_path: Path | None = None,
         resource_roots: list[OwnedPath] | None = None,
         owner_enabled: Callable[[str], bool] | None = None,
     ):
+        skills_dir = skills_dir.resolve()
         self.skills_dir = skills_dir
+        self.local_skills_dir = skills_dir
+        self.builtin_skills_dir = (
+            builtin_skills_dir.resolve() if builtin_skills_dir is not None else None
+        )
+        self.marketplace_skills_dir = (
+            marketplace_skills_dir.resolve()
+            if marketplace_skills_dir is not None
+            else skills_dir
+        )
+        self.uses_source_owned_roots = (
+            self.builtin_skills_dir is not None
+            or self.marketplace_skills_dir != skills_dir
+        )
+        managed_roots: list[OwnedPath] = []
+        if self.builtin_skills_dir is not None:
+            self.builtin_skills_dir.mkdir(parents=True, exist_ok=True)
+            managed_roots.append(
+                OwnedPath(BUILTIN_SKILL_OWNER, self.builtin_skills_dir)
+            )
+        if self.marketplace_skills_dir != skills_dir:
+            self.marketplace_skills_dir.mkdir(parents=True, exist_ok=True)
+            managed_roots.append(
+                OwnedPath(MARKETPLACE_SKILL_OWNER, self.marketplace_skills_dir)
+            )
+
+        def root_enabled(owner: str) -> bool:
+            if owner in {BUILTIN_SKILL_OWNER, MARKETPLACE_SKILL_OWNER}:
+                return True
+            return owner_enabled(owner) if owner_enabled is not None else True
+
         self.loader = SkillLoader(
             skills_dir,
-            resource_roots=resource_roots,
-            owner_enabled=owner_enabled,
+            resource_roots=[*managed_roots, *(resource_roots or [])],
+            owner_enabled=root_enabled,
         )
         self.config_manager = config_manager
+        self.provenance_store = ResourceProvenanceStore(
+            provenance_path or skills_dir.parent / "resource-provenance.json"
+        )
         self._skills: dict[str, Skill] = {}
         self._skills_lock = threading.Lock()
         self._load_all_skills()
@@ -71,10 +113,29 @@ class SkillManager:
         # 同步配置文件
         if self.config_manager:
             skill_ids = list(new_skills.keys())
-            self.config_manager.sync_with_directory(skill_ids)
-            # 从配置恢复 enabled 状态（SKILL.md 不持久化 enabled）
+            self.config_manager.sync_with_directory(
+                skill_ids,
+                defaults={
+                    skill.id: {
+                        "priority": skill.priority,
+                        "agent_types": skill.agent_types,
+                    }
+                    for skill in skills
+                },
+            )
+            # 从配置恢复本地运行设置（不回写 SKILL.md）。
             for skill_id, skill in new_skills.items():
                 skill.enabled = self.config_manager.get_enabled(skill_id)
+                configured_priority = self.config_manager.get_priority(skill_id)
+                if configured_priority is not None:
+                    skill.priority = configured_priority
+                skill.agent_types = self.config_manager.get_agent_types(skill_id)
+                scope_override = self.config_manager.get_scope_override(skill_id)
+                effective_scope = scope_override or skill.scope
+                skill.workflow_only = effective_scope == "workflow"
+
+        for skill in new_skills.values():
+            self._attach_provenance(skill)
 
         with self._skills_lock:
             self._skills = new_skills
@@ -162,6 +223,78 @@ class SkillManager:
     def get_skill(self, skill_id: str) -> Skill | None:
         """获取指定 skill"""
         return self._skills.get(skill_id)
+
+    @staticmethod
+    def _category_value(skill: Skill) -> str:
+        return (
+            skill.category.value
+            if isinstance(skill.category, SkillCategory)
+            else str(skill.category)
+        )
+
+    def _attach_provenance(self, skill: Skill) -> None:
+        record = self.provenance_store.get("skill", skill.id)
+        owner = str(skill.metadata.get("resource_owner") or "user")
+        raw_dir = skill.metadata.get("skill_dir")
+        skill_path = Path(raw_dir) / "SKILL.md" if isinstance(raw_dir, str) else None
+        current_hash = ""
+        if skill_path is not None and skill_path.is_file():
+            current_hash = hashlib.sha256(skill_path.read_bytes()).hexdigest()
+
+        if owner == BUILTIN_SKILL_OWNER:
+            record = {
+                "resource_type": "skill",
+                "local_id": skill.id,
+                "source": {"kind": "core"},
+                "package": {"sha256": current_hash, "version": skill.version},
+                "installed_at": None,
+            }
+            skill.metadata["resource_owner"] = "core"
+            skill.metadata["resource_read_only"] = True
+        elif owner == MARKETPLACE_SKILL_OWNER:
+            source = record.get("source") if isinstance(record, dict) else None
+            if not isinstance(source, dict) or source.get("kind") != "marketplace":
+                record = {
+                    "resource_type": "skill",
+                    "local_id": skill.id,
+                    "source": {"kind": "marketplace"},
+                    "package": {},
+                    "installed_at": None,
+                }
+                skill.validation_warnings.append(
+                    "资源广场溯源记录缺失，已按只读资源加载"
+                )
+            skill.metadata["resource_owner"] = "marketplace"
+            skill.metadata["resource_read_only"] = True
+        elif owner != "user":
+            record = {
+                "resource_type": "skill",
+                "local_id": skill.id,
+                "source": {"kind": "plugin", "plugin_id": owner},
+                "package": {"version": skill.version},
+                "installed_at": None,
+            }
+        elif record is None or self.uses_source_owned_roots:
+            source: dict[str, Any] = {"kind": "local"}
+            package: dict[str, Any] = {}
+            record = {
+                "resource_type": "skill",
+                "local_id": skill.id,
+                "source": source,
+                "package": package,
+                "installed_at": None,
+            }
+
+        package = record.get("package") if isinstance(record, dict) else {}
+        package = package if isinstance(package, dict) else {}
+        base_hash = package.get("sha256")
+        skill.metadata["provenance"] = record
+        skill.metadata["local_modified"] = bool(
+            isinstance(base_hash, str)
+            and base_hash
+            and current_hash
+            and base_hash != current_hash
+        )
 
     def list_all(self, enabled_only: bool = False) -> list[Skill]:
         """列出所有 skills"""
@@ -296,9 +429,9 @@ class SkillManager:
         for skill in active_skills:
             parts.append(f"## {skill.name} (`{skill.id}`)\n")
             parts.append(f"**描述**: {skill.description}")
-            parts.append(f"- **分类**: {skill.category.value}")
+            parts.append(f"- **分类**: {self._category_value(skill)}")
             parts.append(f"- **优先级**: {skill.priority}")
-            if skill.version and skill.version != "1.0.0":
+            if skill.version:
                 parts.append(f"- **版本**: {skill.version}")
             if skill.author:
                 parts.append(f"- **作者**: {skill.author}")
@@ -467,7 +600,7 @@ class SkillManager:
                 "id": s.id,
                 "name": s.name,
                 "description": s.description,
-                "category": s.category.value,
+                "category": self._category_value(s),
                 "agent_types": s.agent_types,
                 "workflow_only": s.workflow_only,
                 "priority": s.priority,
@@ -475,6 +608,18 @@ class SkillManager:
                 "enabled": s.enabled,
                 "version": s.version,
                 "author": s.author,
+                "language": s.language,
+                "scope": s.scope,
+                "license": s.license,
+                "compatibility": s.compatibility,
+                "requires_core": s.requires_core,
+                "allowed_tools": s.allowed_tools,
+                "required_tools": s.required_tools,
+                "required_plugins": s.required_plugins,
+                "required_apps": s.required_apps,
+                "validation_warnings": s.validation_warnings,
+                "provenance": s.metadata.get("provenance"),
+                "local_modified": s.metadata.get("local_modified", False),
                 "content_length": len(s.content),
                 "has_scripts": s.metadata.get("has_scripts", False),
                 "has_references": s.metadata.get("has_references", False),
@@ -494,6 +639,7 @@ class SkillManager:
                 wf_only = self.config_manager.get_workflow_only(s.id)
                 if wf_only is not None:
                     summary["workflow_only"] = wf_only
+                summary["scope_override"] = self.config_manager.get_scope_override(s.id)
             else:
                 summary["auto_inject"] = False
                 summary["group_ids"] = []
@@ -536,15 +682,25 @@ class SkillManager:
         """创建新 skill"""
         skill = Skill.from_dict(skill_data)
         self.loader.save_skill(skill)
+        if self.config_manager:
+            self.config_manager.sync_with_directory(
+                [*self._skills.keys(), skill.id],
+                defaults={skill.id: {"priority": skill.priority}},
+            )
+            self.config_manager.set_enabled(skill.id, skill.enabled)
+            self.config_manager.set_priority(skill.id, skill.priority)
+            self.config_manager.set_auto_inject(skill.id, True)
+        self._attach_provenance(skill)
         self._skills[skill.id] = skill
         logger.info(f"已创建 skill: {skill.id}")
         return skill
 
     # 可更新字段白名单，防止意外修改 id、created_at、metadata 等不可变字段
     _ALLOWED_UPDATE_FIELDS = frozenset({
-        "name", "description", "summary", "content", "version", "author",
-        "category", "enabled", "priority", "workflow_only", "auto_inject",
-        "agent_types", "tags", "group_ids",
+        "name", "description", "content", "version", "author", "category",
+        "language", "scope", "license", "compatibility", "requires_core",
+        "allowed_tools", "required_tools", "required_plugins", "required_apps",
+        "agent_types", "tags",
     })
 
     def update_skill(self, skill_id: str, updates: dict) -> Skill | None:
@@ -554,13 +710,16 @@ class SkillManager:
             logger.warning(f"Skill 不存在: {skill_id}")
             return None
         if skill.metadata.get("resource_read_only"):
+            owner = str(skill.metadata.get("resource_owner") or "受管")
             raise PermissionError(
-                f"Plugin Skill 是只读资源，不能直接修改: {skill_id}"
+                f"{owner} Skill 是只读资源，不能直接修改: {skill_id}"
             )
 
         # 白名单过滤：仅更新允许的字段
         for key, value in updates.items():
             if key in self._ALLOWED_UPDATE_FIELDS:
+                if key == "scope" and value not in {"all", "workflow"}:
+                    raise ValueError("Skill scope 必须是 all 或 workflow")
                 setattr(skill, key, value)
             else:
                 logger.warning(f"忽略不允许更新的字段: {key}")
@@ -570,6 +729,13 @@ class SkillManager:
 
         # 保存到文件
         self.loader.save_skill(skill)
+        self._attach_provenance(skill)
+        scope_override = (
+            self.config_manager.get_scope_override(skill.id)
+            if self.config_manager
+            else None
+        )
+        skill.workflow_only = (scope_override or skill.scope) == "workflow"
         logger.info(f"已更新 skill: {skill_id}")
         return skill
 
@@ -579,14 +745,34 @@ class SkillManager:
         if not skill:
             logger.warning(f"Skill 不存在: {skill_id}")
             return False
-        if skill.metadata.get("resource_read_only"):
+        provenance = skill.metadata.get("provenance")
+        source = provenance.get("source", {}) if isinstance(provenance, dict) else {}
+        source_kind = source.get("kind") if isinstance(source, dict) else None
+        if source_kind in {"core", "plugin"}:
             raise PermissionError(
-                f"Plugin Skill 是只读资源，不能直接删除: {skill_id}"
+                f"{source_kind} Skill 是只读资源，不能直接删除: {skill_id}"
             )
 
-        success = self.loader.delete_skill(skill_id)
+        if source_kind == "marketplace":
+            raw_skill_dir = skill.metadata.get("skill_dir")
+            if not isinstance(raw_skill_dir, str):
+                raise PermissionError("资源广场 Skill 缺少受管目录")
+            skill_dir = Path(raw_skill_dir).resolve()
+            try:
+                if skill_dir.parent != self.marketplace_skills_dir.resolve():
+                    raise PermissionError("资源广场 Skill 路径不在受管目录中")
+            except OSError as exc:
+                raise PermissionError("无法验证资源广场 Skill 路径") from exc
+            if skill_dir.exists():
+                shutil.rmtree(skill_dir)
+            success = True
+        else:
+            success = self.loader.delete_skill(skill_id)
         if success:
             del self._skills[skill_id]
+            self.provenance_store.remove("skill", skill_id)
+            if self.config_manager is not None:
+                self.config_manager.remove_skill(skill_id)
             logger.info(f"已删除 skill: {skill_id}")
         return success
 
@@ -600,9 +786,9 @@ class SkillManager:
         if not skill:
             return False
 
+        if self.config_manager and not self.config_manager.set_enabled(skill_id, enabled):
+            return False
         skill.enabled = enabled
-        if self.config_manager:
-            self.config_manager.set_enabled(skill_id, enabled)
         logger.info(f"Skill {skill_id} 已{'启用' if enabled else '禁用'}")
         return True
 
@@ -611,11 +797,10 @@ class SkillManager:
         all_skills = list(self._skills.values())
         enabled_count = sum(1 for s in all_skills if s.enabled)
 
-        by_category = {}
-        for category in SkillCategory:
-            count = sum(1 for s in all_skills if s.category == category)
-            if count > 0:
-                by_category[category.value] = count
+        by_category: dict[str, int] = {}
+        for skill in all_skills:
+            category = self._category_value(skill)
+            by_category[category] = by_category.get(category, 0) + 1
 
         return {
             "total": len(all_skills),

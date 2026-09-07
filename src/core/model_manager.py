@@ -166,8 +166,6 @@ _DEFAULT_CONFIG_PATH = str(
     ).expanduser().resolve()
 )
 _DEFAULT_CONFIG_TEMPLATE = _PROJECT_ROOT / "config" / "models_config.example.json"
-_AGENTS_CONFIG_PATH = _CONFIG_ROOT / "agents_config.json"
-
 class ModelManager:
     """多供应商模型管理器"""
 
@@ -465,7 +463,17 @@ class ModelManager:
 
     def get_default_model(self) -> str | None:
         """返回默认模型标识（从 agents_config.json 的 main agent 定义读取，带 mtime 缓存）"""
-        agents_config_path = _AGENTS_CONFIG_PATH
+        agents_config_path = (
+            Path(
+                get_determinflow_env(
+                    "CONFIG_DIR",
+                    str(_PROJECT_ROOT / "config"),
+                )
+            )
+            .expanduser()
+            .resolve()
+            / "agents_config.json"
+        )
         try:
             if agents_config_path.exists():
                 st = agents_config_path.stat()
@@ -476,7 +484,7 @@ class ModelManager:
                     self._agents_config_cache["mtime"] = st.st_mtime
                     self._agents_config_cache["model"] = main_agent.get("model")
                 cached = self._agents_config_cache["model"]
-                if cached:
+                if cached and cached in self.get_all_models():
                     return cached
         except (json.JSONDecodeError, OSError, KeyError) as e:
             logger.warning(f"读取 agents_config.json 获取默认模型失败: {e}")

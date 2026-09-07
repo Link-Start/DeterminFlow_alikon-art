@@ -38,6 +38,7 @@ import SubprocessPopup from "./SubprocessPopup";
 import ContextMenu from "./ContextMenu";
 import ConditionEdgeEditor from "./ConditionEdgeEditor";
 import type { WorkflowNodeDef, NodeExecutionInfo, WorkflowDefinition, WorkflowDetailResponse, WorkflowVariable } from "../../types";
+import { AGENT_TYPE_COLORS, BRAND_COLORS } from "../../lib/brand-colors";
 import {
   buildWorkflowSavePayload,
   canvasNodeExecutionData,
@@ -276,8 +277,8 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
           {
             ...connection,
             id: generateEdgeId(sourceId, targetId),
-            style: { stroke: "#6366F1", strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: "#6366F1" },
+            style: { stroke: BRAND_COLORS.primary, strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: BRAND_COLORS.primary },
             deletable: !isReadOnly,
           },
           eds
@@ -639,12 +640,12 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
   // ---- Render ----
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-slate-400" role="status" aria-label="正在加载工作流">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground" role="status" aria-label="正在加载工作流">
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]" />
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]" />
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
           </div>
           <span className="sr-only">加载工作流中...</span>
         </div>
@@ -671,8 +672,8 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
             aria-pressed={showVariableManager}
             className={`absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer min-h-[44px] ${
               showVariableManager
-                ? "bg-indigo-500 text-white"
-                : "bg-slate-900/80 border border-indigo-500/20 text-slate-400 hover:border-indigo-500/40"
+                ? "bg-primary text-white"
+                : "bg-card/80 border border-primary/20 text-muted-foreground hover:border-primary/40"
             }`}
           >
             <span className="text-sm font-mono font-bold" aria-hidden="true">{`{x}`}</span>
@@ -682,7 +683,7 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
 
         {/* Toast — inline connection warnings */}
         {saveMessage && (
-          <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 px-4 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-xs text-red-400" role="alert" aria-live="polite">
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 px-4 py-1.5 rounded-lg bg-destructive/20 border border-destructive/30 text-xs text-destructive" role="alert" aria-live="polite">
             {saveMessage}
           </div>
         )}
@@ -690,19 +691,19 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
         {/* Modal — 保存校验失败弹窗 */}
         {saveErrorDialog && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSaveErrorDialog(null)} role="dialog" aria-modal="true" aria-label="保存校验失败" onKeyDown={(e) => { if (e.key === "Escape") setSaveErrorDialog(null); }} tabIndex={-1}>
-            <div className="bg-slate-900 border-2 border-red-500/40 rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-card border-2 border-destructive/40 rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-red-500/20">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-destructive/20">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <AlertTriangle className="w-4 h-4 text-red-400" aria-hidden="true" />
+                  <div className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center">
+                    <AlertTriangle className="w-4 h-4 text-destructive" aria-hidden="true" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-red-400">保存校验失败</h3>
-                    <p className="text-xs text-slate-500">请修复以下问题后重试</p>
+                    <h3 className="text-sm font-semibold text-destructive">保存校验失败</h3>
+                    <p className="text-xs text-muted-foreground">请修复以下问题后重试</p>
                   </div>
                 </div>
-                <button onClick={() => setSaveErrorDialog(null)} className="text-slate-500 hover:text-slate-200 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="关闭对话框">
+                <button onClick={() => setSaveErrorDialog(null)} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="关闭对话框">
                   <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
@@ -710,19 +711,19 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
               <div className="px-6 py-4 max-h-64 overflow-y-auto">
                 <ul className="space-y-2" role="list">
                   {saveErrorDialog.split("\n").filter(Boolean).map((line, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-slate-200 leading-relaxed" role="listitem">
-                      <span className="text-red-400 mt-0.5 shrink-0" aria-hidden="true">•</span>
+                    <li key={i} className="flex items-start gap-2 text-sm text-foreground leading-relaxed" role="listitem">
+                      <span className="text-destructive mt-0.5 shrink-0" aria-hidden="true">•</span>
                       <span>{line}</span>
                     </li>
                   ))}
                 </ul>
               </div>
               {/* Footer */}
-              <div className="px-6 py-3 border-t border-indigo-500/10 flex justify-end">
+              <div className="px-6 py-3 border-t border-primary/10 flex justify-end">
                 <button
                   type="button"
                   onClick={() => setSaveErrorDialog(null)}
-                  className="px-4 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-xs text-indigo-400 hover:bg-indigo-500/30 transition-colors cursor-pointer min-h-[44px]"
+                  className="px-4 py-2 rounded-lg bg-primary/20 border border-primary/30 text-xs text-primary hover:bg-primary/30 transition-colors cursor-pointer min-h-[44px]"
                 >
                   我知道了
                 </button>
@@ -754,10 +755,10 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
           fitView
           snapToGrid={!isReadOnly}
           snapGrid={SNAP_GRID}
-          className="bg-slate-950"
+          className="bg-background"
           defaultEdgeOptions={{
-            style: { stroke: "#6366F1", strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: "#6366F1" },
+            style: { stroke: BRAND_COLORS.primary, strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: BRAND_COLORS.primary },
           }}
           aria-label="工作流画布"
           nodesDraggable={!isReadOnly}
@@ -771,34 +772,26 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
             variant={BackgroundVariant.Dots}
             gap={16}
             size={1}
-            color="#334155"
+            color={BRAND_COLORS.borderStrong}
           />
           {!isReadOnly && (
-            <Controls className="!bg-slate-900 !border-slate-800 !fill-slate-400" />
+            <Controls className="!bg-card !border-border !fill-muted-foreground" />
           )}
           <MiniMap
-            nodeStrokeColor="#6366F1"
+            nodeStrokeColor={BRAND_COLORS.primary}
             nodeColor={(n) => {
-              if (n.id === START_NODE_ID) return "#22C55E";
-              if (n.id === END_NODE_ID) return "#EF4444";
+              if (n.id === START_NODE_ID) return BRAND_COLORS.success;
+              if (n.id === END_NODE_ID) return BRAND_COLORS.destructive;
               const agentColor = (n.data as Record<string, string>)?.agent_type;
               const nodeStatus = (n.data as Record<string, string>)?.status;
-              if (nodeStatus === "running") return "#3B82F6";
-              if (nodeStatus === "retry_waiting") return "#F59E0B";
-              if (nodeStatus === "completed") return "#22C55E";
-              if (nodeStatus === "failed") return "#EF4444";
-              return agentColor === "coder"
-                ? "#22C55E"
-                : agentColor === "reviewer"
-                ? "#3B82F6"
-                : agentColor === "researcher"
-                ? "#F59E0B"
-                : agentColor === "reader"
-                ? "#8B5CF6"
-                : "#6366F1";
+              if (nodeStatus === "running") return BRAND_COLORS.info;
+              if (nodeStatus === "retry_waiting") return BRAND_COLORS.warning;
+              if (nodeStatus === "completed") return BRAND_COLORS.success;
+              if (nodeStatus === "failed") return BRAND_COLORS.destructive;
+              return AGENT_TYPE_COLORS[agentColor] || BRAND_COLORS.primary;
             }}
-            maskColor="rgba(15, 23, 42, 0.7)"
-            className="!bg-slate-900/80 !border !border-indigo-500/10"
+            maskColor={BRAND_COLORS.backgroundOverlay}
+            className="!bg-card/80 !border !border-primary/10"
             aria-label="工作流缩略图导航"
           />
         </ReactFlow>
@@ -808,14 +801,14 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" role="status" aria-label="画布为空，请从左侧拖拽节点">
             <div className="text-center">
               <div className="mb-3">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/60 border border-dashed border-indigo-500/30">
-                  <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" aria-hidden="true" />
-                  <span className="text-sm text-slate-400">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-card/60 border border-dashed border-primary/30">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">
                     从左侧拖拽 Agent 节点到此处
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 从 START 连线到 Agent，再到 END
               </p>
             </div>
@@ -906,22 +899,22 @@ function WorkflowCanvasInner({ workflowId, taskId, readOnly, selectionMode, disa
                     ...e,
                     label: undefined,
                     labelStyle: undefined,
-                    style: { stroke: "#6366F1", strokeWidth: 2 },
-                    markerEnd: { type: MarkerType.ArrowClosed, color: "#6366F1" },
+                    style: { stroke: BRAND_COLORS.primary, strokeWidth: 2 },
+                    markerEnd: { type: MarkerType.ArrowClosed, color: BRAND_COLORS.primary },
                     data: { ...e.data, condition: null },
                   };
                 }
                 return {
                   ...e,
                   label: condition.is_default ? "默认" : (condition.label || condition.expression),
-                  labelStyle: { fontSize: 12, fill: condition.is_default ? "#64748B" : "#3B82F6" },
+                  labelStyle: { fontSize: 12, fill: condition.is_default ? BRAND_COLORS.muted : BRAND_COLORS.info },
                   style: {
-                    stroke: condition.is_default ? "#64748B" : "#3B82F6",
+                    stroke: condition.is_default ? BRAND_COLORS.muted : BRAND_COLORS.info,
                     strokeWidth: 2,
                   },
                   markerEnd: {
                     type: MarkerType.ArrowClosed,
-                    color: condition.is_default ? "#64748B" : "#3B82F6",
+                    color: condition.is_default ? BRAND_COLORS.muted : BRAND_COLORS.info,
                   },
                   data: { ...e.data, condition },
                 };

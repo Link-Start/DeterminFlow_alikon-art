@@ -125,9 +125,6 @@ export default function NodeConfigPanel({
   const [enableRejectUpstream, setEnableRejectUpstream] = useState(
     node.enable_reject_upstream || false,
   );
-  const [maxRejectCount, setMaxRejectCount] = useState(
-    node.max_reject_count != null ? String(node.max_reject_count) : "3",
-  );
   // Agent save output to file
   const [saveOutputToFile, setSaveOutputToFile] = useState(
     node.save_output_to_file || false,
@@ -137,9 +134,6 @@ export default function NodeConfigPanel({
   );
   const [requireNonEmptyOutput, setRequireNonEmptyOutput] = useState(
     node.require_non_empty_output || false,
-  );
-  const [retryEmptyOutputInSession, setRetryEmptyOutputInSession] = useState(
-    node.retry_empty_output_in_session || false,
   );
   const [jsonOutputField, setJsonOutputField] = useState(
     node.json_output_field || "",
@@ -227,15 +221,9 @@ export default function NodeConfigPanel({
         ? !!currentNodeParams.enable_reject_upstream
         : node.enable_reject_upstream || false
     );
-    setMaxRejectCount(
-      currentNodeType === "script"
-        ? String(currentNodeParams.max_reject_count ?? "3")
-        : (node.max_reject_count != null ? String(node.max_reject_count) : "3")
-    );
     setSaveOutputToFile(node.save_output_to_file || false);
     setOutputFilePath(node.output_file_path || "");
     setRequireNonEmptyOutput(node.require_non_empty_output || false);
-    setRetryEmptyOutputInSession(node.retry_empty_output_in_session || false);
     setJsonOutputField(node.json_output_field || "");
     setJsonOutputFieldMinChars(
       node.json_output_field_min_chars != null
@@ -412,13 +400,9 @@ export default function NodeConfigPanel({
       updates.enable_complete_node_task = enableCompleteNodeTask;
       updates.output_variable = outputVariable;
       updates.enable_reject_upstream = enableRejectUpstream;
-      updates.max_reject_count = parseInt(maxRejectCount, 10) || 3;
       updates.save_output_to_file = saveOutputToFile;
       updates.output_file_path = outputFilePath;
       updates.require_non_empty_output = requireNonEmptyOutput;
-      updates.retry_empty_output_in_session = requireNonEmptyOutput
-        ? retryEmptyOutputInSession
-        : false;
       updates.json_output_field = jsonOutputField.trim();
       updates.json_output_field_min_chars = Number.parseInt(
         jsonOutputFieldMinChars,
@@ -465,7 +449,6 @@ export default function NodeConfigPanel({
         useScriptArgv,
         timeout: timeout.toString(),
         enableRejectUpstream,
-        maxRejectCount,
       });
       // Save script content to file (only for inline scripts)
       if (scriptSource !== "library" && workflowId && scriptName.trim()) {
@@ -492,9 +475,9 @@ export default function NodeConfigPanel({
     setTimeout(() => setSaved(false), 1500);
   };
 
-  const readOnlyInput = "pointer-events-none opacity-60 cursor-not-allowed bg-slate-950/50";
-  const baseInputClass = "w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors";
-  const hookedInputClass = "pointer-events-none opacity-60 cursor-not-allowed bg-slate-950/50 text-slate-400";
+  const readOnlyInput = "pointer-events-none opacity-60 cursor-not-allowed bg-background/50";
+  const baseInputClass = "w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors";
+  const hookedInputClass = "pointer-events-none opacity-60 cursor-not-allowed bg-background/50 text-muted-foreground";
 
   /** 处理字段的转为变量/取消变量 */
   const handleHookToggle = (field: string, currentValue: string) => {
@@ -526,7 +509,7 @@ export default function NodeConfigPanel({
 
   return (
     <div
-      className="h-full bg-slate-900 border-l border-indigo-500/20 overflow-y-auto flex flex-col shadow-2xl relative"
+      className="h-full bg-card border-l border-primary/20 overflow-y-auto flex flex-col shadow-2xl relative"
       style={{ width: `${width}px`, minWidth: "280px", maxWidth: "700px" }}
       role="complementary"
       aria-label="节点配置面板"
@@ -534,8 +517,8 @@ export default function NodeConfigPanel({
       {/* Resize Handle */}
       <div
         onMouseDown={handleResizeMouseDown}
-        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-500/50 transition-colors z-10 group ${
-          isResizing ? "bg-indigo-500/60" : ""
+        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors z-10 group ${
+          isResizing ? "bg-primary/60" : ""
         }`}
         role="separator"
         aria-orientation="vertical"
@@ -552,29 +535,29 @@ export default function NodeConfigPanel({
         }}
       >
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <GripVertical size={16} className="text-indigo-500" />
+          <GripVertical size={16} className="text-primary" />
         </div>
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-indigo-500/10">
+      <div className="flex items-center justify-between p-4 border-b border-primary/10">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-slate-100">
+            <h3 className="text-sm font-semibold text-foreground">
               {isReadOnly ? "节点详情" : "节点属性"}
             </h3>
             {isReadOnly && (
-              <span className="flex items-center gap-1 text-xs text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded">
+              <span className="flex items-center gap-1 text-xs text-info bg-info/10 px-1.5 py-0.5 rounded">
                 <Eye size={10} />只读
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">{node.id}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 font-mono">{node.id}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 min-h-[44px] min-w-[44px] rounded-lg hover:bg-indigo-500/10 text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
+          className="p-1.5 min-h-[44px] min-w-[44px] rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           aria-label="关闭面板"
         >
           <X size={16} />
@@ -588,10 +571,10 @@ export default function NodeConfigPanel({
           <span
             className={`text-xs px-2 py-0.5 rounded font-medium ${
               nt === "approval"
-                ? "bg-amber-500/15 text-amber-500"
+                ? "bg-warning/15 text-warning"
                 : nt === "script"
-                  ? "bg-cyan-500/15 text-cyan-500"
-                  : "bg-indigo-500/15 text-indigo-500"
+                  ? "bg-info/15 text-info"
+                  : "bg-primary/15 text-primary"
             }`}
           >
             {nt === "approval" ? "审批节点" :
@@ -602,7 +585,7 @@ export default function NodeConfigPanel({
 
         {/* Label */}
         <div>
-          <label htmlFor="node-label" className="block text-xs font-medium text-slate-400 mb-1.5">节点名称</label>
+          <label htmlFor="node-label" className="block text-xs font-medium text-muted-foreground mb-1.5">节点名称</label>
           <div className="relative">
             {varBindings["label"] ? (
               <input
@@ -673,16 +656,12 @@ export default function NodeConfigPanel({
             setOutputFilePath={setOutputFilePath}
             requireNonEmptyOutput={requireNonEmptyOutput}
             setRequireNonEmptyOutput={setRequireNonEmptyOutput}
-            retryEmptyOutputInSession={retryEmptyOutputInSession}
-            setRetryEmptyOutputInSession={setRetryEmptyOutputInSession}
             jsonOutputField={jsonOutputField}
             setJsonOutputField={setJsonOutputField}
             jsonOutputFieldMinChars={jsonOutputFieldMinChars}
             setJsonOutputFieldMinChars={setJsonOutputFieldMinChars}
             enableRejectUpstream={enableRejectUpstream}
             setEnableRejectUpstream={setEnableRejectUpstream}
-            maxRejectCount={maxRejectCount}
-            setMaxRejectCount={setMaxRejectCount}
             isReadOnly={isReadOnly}
             readOnlyInput={readOnlyInput}
             baseInputClass={baseInputClass}
@@ -697,9 +676,9 @@ export default function NodeConfigPanel({
           <>
             {/* File paths */}
             <div>
-              <label htmlFor="file-paths" className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="file-paths" className="block text-xs font-medium text-muted-foreground mb-1.5">
                 要展示的文件路径
-                <span className="text-slate-500"> (可选)</span>
+                <span className="text-muted-foreground"> (可选)</span>
               </label>
               <textarea
                 id="file-paths"
@@ -713,14 +692,14 @@ export default function NodeConfigPanel({
                 }`}
                 placeholder="/path/to/file.md&#10;/path/to/another.md"
               />
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 每行一个文件路径（相对于工作流 workspace 根目录）
               </p>
             </div>
 
             {/* Rejection reason placeholder */}
             <div>
-              <label htmlFor="rejection-placeholder" className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="rejection-placeholder" className="block text-xs font-medium text-muted-foreground mb-1.5">
                 驳回原因输入框提示文案
               </label>
               <input
@@ -765,8 +744,6 @@ export default function NodeConfigPanel({
             scriptLoaded={scriptLoaded}
             enableRejectUpstream={enableRejectUpstream}
             setEnableRejectUpstream={setEnableRejectUpstream}
-            maxRejectCount={maxRejectCount}
-            setMaxRejectCount={setMaxRejectCount}
             isReadOnly={isReadOnly}
             readOnlyInput={readOnlyInput}
             baseInputClass={baseInputClass}
@@ -778,8 +755,8 @@ export default function NodeConfigPanel({
           <>
             {/* Target Workflow Selector */}
             <div>
-              <label htmlFor="sub-workflow-id" className="block text-xs font-medium text-slate-400 mb-1.5">
-                目标流程 {!isReadOnly && <span className="text-red-400">*</span>}
+              <label htmlFor="sub-workflow-id" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                目标流程 {!isReadOnly && <span className="text-destructive">*</span>}
               </label>
               <select
                 id="sub-workflow-id"
@@ -790,7 +767,7 @@ export default function NodeConfigPanel({
                 }}
                 disabled={isReadOnly}
                 aria-label="选择目标子流程模板"
-                className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none ${
+                className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none ${
                   isReadOnly ? "pointer-events-none opacity-60" : ""
                 }`}
               >
@@ -801,7 +778,7 @@ export default function NodeConfigPanel({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 选择要嵌套复用的工作流模板
               </p>
             </div>
@@ -809,7 +786,7 @@ export default function NodeConfigPanel({
             {/* Execution Scheme Selector (only when target workflow is selected) */}
             {subSchemesOptions.length > 0 && (
               <div>
-                <label htmlFor="sub-scheme-id" className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label htmlFor="sub-scheme-id" className="block text-xs font-medium text-muted-foreground mb-1.5">
                   执行方案
                 </label>
                 <select
@@ -821,7 +798,7 @@ export default function NodeConfigPanel({
                   }}
                   disabled={isReadOnly}
                   aria-label="选择子流程的执行方案"
-                  className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none ${
+                  className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none ${
                     isReadOnly ? "pointer-events-none opacity-60" : ""
                   }`}
                 >
@@ -832,7 +809,7 @@ export default function NodeConfigPanel({
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   选择"全部执行"则运行子流程所有节点
                 </p>
               </div>
@@ -840,8 +817,8 @@ export default function NodeConfigPanel({
 
             {/* Visible Variables (Parameters) */}
             {subVisibleVars.length > 0 && (
-              <div className="space-y-3 mt-4 border-t border-indigo-500/10 pt-4">
-                <h4 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+              <div className="space-y-3 mt-4 border-t border-primary/10 pt-4">
+                <h4 className="text-xs font-semibold text-primary uppercase tracking-wider">
                   子流程参数
                 </h4>
                 {subVisibleVars.map((v) => {
@@ -850,14 +827,14 @@ export default function NodeConfigPanel({
                   return (
                     <div key={v.key}>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-medium text-slate-300">
+                        <label className="text-xs font-medium text-foreground">
                           {v.name || v.key}
-                          {v.required && <span className="text-red-400 ml-0.5">*</span>}
+                          {v.required && <span className="text-destructive ml-0.5">*</span>}
                         </label>
-                        <span className="text-xs text-slate-500 font-mono">{v.key}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{v.key}</span>
                       </div>
                       {v.description && (
-                        <p className="text-xs text-slate-500 mb-1.5">{v.description}</p>
+                        <p className="text-xs text-muted-foreground mb-1.5">{v.description}</p>
                       )}
                       <VarInput
                         value={isLocked ? (v.default || "") : param.value}
@@ -890,12 +867,12 @@ export default function NodeConfigPanel({
                             setSubWorkflowParams(newParams);
                             setSaved(false);
                           }}
-                          className="w-3 h-3 rounded accent-indigo-500"
+                          className="w-3 h-3 rounded accent-primary"
                         />
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-muted-foreground">
                           固定使用默认值
                           {isLocked && v.default && (
-                            <span className="text-slate-600 ml-1">
+                            <span className="text-muted-foreground ml-1">
                               ({v.default})
                             </span>
                           )}
@@ -911,12 +888,12 @@ export default function NodeConfigPanel({
 
         {/* Read-only info banner */}
         {isReadOnly && (
-          <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+          <div className="p-3 rounded-lg bg-info/5 border border-info/10">
             <div className="flex items-center gap-1.5 mb-1">
-              <EyeOff size={12} className="text-blue-500" />
-              <span className="text-xs font-medium text-blue-500">工作流运行中</span>
+              <EyeOff size={12} className="text-info" />
+              <span className="text-xs font-medium text-info">工作流运行中</span>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               工作流正在执行，节点配置不可编辑。等待执行完成即可恢复编辑。
             </p>
           </div>
@@ -924,13 +901,13 @@ export default function NodeConfigPanel({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-indigo-500/10 space-y-2">
+      <div className="p-4 border-t border-primary/10 space-y-2">
         {!isReadOnly && (
           <button
             type="button"
             onClick={handleSave}
             className={`w-full py-2.5 min-h-[44px] rounded-lg text-sm font-medium transition-all cursor-pointer ${
-              saved ? "bg-green-500/20 text-green-400" : "bg-indigo-500 hover:bg-indigo-600 text-white"
+              saved ? "bg-success/20 text-success" : "bg-primary hover:bg-primary text-white"
             }`}
           >
             {saved ? "已保存" : "保存"}
@@ -945,7 +922,7 @@ export default function NodeConfigPanel({
                 onClose();
               }
             }}
-            className="w-full py-2.5 min-h-[44px] rounded-lg text-sm font-medium bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all cursor-pointer"
+            className="w-full py-2.5 min-h-[44px] rounded-lg text-sm font-medium bg-destructive/10 hover:bg-destructive/20 text-destructive transition-all cursor-pointer"
           >
             删除节点
           </button>

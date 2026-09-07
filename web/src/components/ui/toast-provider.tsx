@@ -17,7 +17,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
       <div
         aria-live="polite"
         aria-label="通知"
-        className="fixed top-4 right-4 z-50 flex flex-col gap-2"
+        className="fixed top-16 right-4 z-50 flex flex-col gap-2"
       >
         {toasts.map((toast) => (
           <ToastItem
@@ -39,15 +39,11 @@ function ToastItem({
   onDismiss: () => void;
 }) {
   const variantStyles = {
-    default: "bg-background border-border text-foreground",
-    success:
-      "bg-emerald-50 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
-    error:
-      "bg-red-50 dark:bg-red-950/80 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100",
-    destructive:
-      "bg-red-50 dark:bg-red-950/80 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100",
-    warning:
-      "bg-amber-50 dark:bg-amber-950/80 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100",
+    default: "bg-card border-border text-foreground",
+    success: "bg-card border-success text-success",
+    error: "bg-card border-destructive text-destructive",
+    destructive: "bg-card border-destructive text-destructive",
+    warning: "bg-card border-warning text-warning",
   };
 
   const style = variantStyles[toast.variant || "default"];

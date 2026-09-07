@@ -63,14 +63,14 @@ const STATUS_LABELS: Record<WorkflowTask["status"], string> = {
 };
 
 const STATUS_STYLES: Record<WorkflowTask["status"], string> = {
-  pending: "text-slate-400 bg-slate-500/10",
-  pre_running: "text-amber-300 bg-amber-500/10",
-  resume_pending: "text-cyan-300 bg-cyan-500/10",
-  running: "text-indigo-300 bg-indigo-500/10",
-  retry_waiting: "text-amber-300 bg-amber-500/10",
-  completed: "text-emerald-300 bg-emerald-500/10",
-  failed: "text-red-300 bg-red-500/10",
-  stopped: "text-slate-400 bg-slate-500/10",
+  pending: "text-muted-foreground bg-muted-foreground/10",
+  pre_running: "text-warning bg-warning/10",
+  resume_pending: "text-info bg-info/10",
+  running: "text-primary bg-primary/10",
+  retry_waiting: "text-warning bg-warning/10",
+  completed: "text-success bg-success/10",
+  failed: "text-destructive bg-destructive/10",
+  stopped: "text-muted-foreground bg-muted-foreground/10",
 };
 
 interface ChatWorkflowTasksProps {
@@ -88,13 +88,13 @@ export default function ChatWorkflowTasks({
 
   return (
     <section
-      className="shrink-0 border-b border-slate-700/50 bg-slate-900/70 px-6 py-2"
+      className="shrink-0 border-b border-border/50 bg-card/70 px-6 py-2"
       aria-label="后台任务"
     >
       <div className="mx-auto flex w-full max-w-4xl items-center gap-2 overflow-x-auto">
-        <span className="shrink-0 text-xs font-medium text-slate-400">后台任务</span>
+        <span className="shrink-0 text-xs font-medium text-muted-foreground">后台任务</span>
         {loading && tasks.length === 0 ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500 motion-reduce:animate-none" aria-label="加载中" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground motion-reduce:animate-none" aria-label="加载中" />
         ) : (
           tasks.slice(0, 6).map((task) => {
             const progress = task.progress;
@@ -103,24 +103,24 @@ export default function ChatWorkflowTasks({
                 key={`${task.workflow_id}:${task.task_id}`}
                 type="button"
                 onClick={() => onOpenTask(task)}
-                className="group flex min-w-44 max-w-64 shrink-0 items-center gap-2 rounded-lg border border-slate-700/70 bg-slate-800/70 px-3 py-2 text-left transition-colors hover:border-slate-600 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                className="group flex min-w-44 max-w-64 shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-secondary/70 px-3 py-2 text-left transition-colors hover:border-border hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label={`查看任务 ${task.name}`}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs text-slate-200">{task.name}</span>
-                  <span className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span className="block truncate text-xs text-foreground">{task.name}</span>
+                  <span className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <span className={`rounded px-1.5 py-0.5 ${STATUS_STYLES[task.status]}`}>
                       {STATUS_LABELS[task.status]}
                     </span>
                     {task.main_takeover && (
-                      <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-violet-300">接管</span>
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary">接管</span>
                     )}
                     {progress && progress.total > 0 && (
                       <span>{progress.completed}/{progress.total}</span>
                     )}
                   </span>
                 </span>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-600 group-hover:text-slate-400" aria-hidden="true" />
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-muted-foreground" aria-hidden="true" />
               </button>
             );
           })

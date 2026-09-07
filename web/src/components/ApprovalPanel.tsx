@@ -48,10 +48,10 @@ function CountdownBar({ expiresAt }: { expiresAt: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-valuenow={remaining} aria-valuemin={0} aria-valuemax={100} aria-label={`审批超时倒计时 ${seconds} 秒`}>
+      <div className="flex-1 h-1 bg-secondary rounded-full overflow-hidden" role="progressbar" aria-valuenow={remaining} aria-valuemin={0} aria-valuemax={100} aria-label={`审批超时倒计时 ${seconds} 秒`}>
         <div
           className={`h-full rounded-full transition-all duration-500 ${
-            remaining > 50 ? "bg-green-500" : remaining > 20 ? "bg-amber-500" : "bg-red-500"
+            remaining > 50 ? "bg-success" : remaining > 20 ? "bg-warning" : "bg-destructive"
           }`}
           style={{ width: `${remaining}%` }}
         />
@@ -92,10 +92,10 @@ function ApprovalPanel({
           key={r.request_id}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs animate-fade-in ${
             r.result === "approved"
-              ? "bg-green-500/10 border border-green-500/20 text-green-500"
+              ? "bg-success/10 border border-success/20 text-success"
               : r.result === "rejected"
-                ? "bg-red-500/10 border border-red-500/20 text-red-500"
-                : "bg-amber-500/10 border border-amber-500/20 text-amber-500"
+                ? "bg-destructive/10 border border-destructive/20 text-destructive"
+                : "bg-warning/10 border border-warning/20 text-warning"
           }`}
           role="alert"
         >
@@ -111,15 +111,15 @@ function ApprovalPanel({
       {pendingApprovals.map((request) => (
         <div
           key={request.request_id}
-          className="bg-slate-800/40 border border-amber-500/20 rounded-xl px-4 py-3 space-y-2 animate-slide-in"
+          className="bg-secondary/40 border border-warning/20 rounded-xl px-4 py-3 space-y-2 animate-slide-in"
           role="alert"
           aria-label={`审批请求: ${request.command}`}
         >
           {/* 头部 */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield size={14} className="text-amber-500" aria-hidden="true" />
-              <span className="text-xs font-medium text-amber-500">命令审批请求</span>
+              <Shield size={14} className="text-warning" aria-hidden="true" />
+              <span className="text-xs font-medium text-warning">命令审批请求</span>
               <span className="text-xs text-muted-foreground font-mono">
                 {request.request_id.slice(0, 8)}
               </span>
@@ -131,9 +131,9 @@ function ApprovalPanel({
           </div>
 
           {/* 命令内容 */}
-          <div className="flex items-start gap-2 px-3 py-2 rounded bg-slate-900 border border-slate-700">
-            <Terminal size={12} className="text-amber-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
-            <code className="text-xs font-mono text-amber-500 break-all">
+          <div className="flex items-start gap-2 px-3 py-2 rounded bg-card border border-border">
+            <Terminal size={12} className="text-warning mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <code className="text-xs font-mono text-warning break-all">
               {request.command}
             </code>
           </div>
@@ -153,8 +153,8 @@ function ApprovalPanel({
             <button
               onClick={() => onApprove(request.request_id)}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
-                bg-green-500/20 text-green-500 border border-green-500/30
-                hover:bg-green-500/30 transition-all cursor-pointer min-h-[44px]"
+                bg-success/20 text-success border border-success/30
+                hover:bg-success/30 transition-all cursor-pointer min-h-[44px]"
               aria-label={`批准命令: ${request.command}`}
             >
               <Check size={14} aria-hidden="true" />
@@ -163,8 +163,8 @@ function ApprovalPanel({
             <button
               onClick={() => onReject(request.request_id)}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium
-                bg-red-500/20 text-red-500 border border-red-500/30
-                hover:bg-red-500/30 transition-all cursor-pointer min-h-[44px]"
+                bg-destructive/20 text-destructive border border-destructive/30
+                hover:bg-destructive/30 transition-all cursor-pointer min-h-[44px]"
               aria-label={`拒绝命令: ${request.command}`}
             >
               <X size={14} aria-hidden="true" />

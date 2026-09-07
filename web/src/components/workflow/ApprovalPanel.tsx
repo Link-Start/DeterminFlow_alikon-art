@@ -65,18 +65,18 @@ export default function ApprovalPanel({
   const canResolve = !nodeState || nodeState.status === "waiting_approval";
 
   return (
-    <div className="flex flex-col h-full bg-slate-900">
+    <div className="flex flex-col h-full bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-indigo-500/10 shrink-0">
+      <div className="flex items-center justify-between p-4 border-b border-primary/10 shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-slate-200">审批节点</h3>
-          <p className="text-xs text-slate-500 mt-0.5">{nodeLabel}</p>
+          <h3 className="text-sm font-semibold text-foreground">审批节点</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{nodeLabel}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="关闭审批面板"
-          className="p-1.5 rounded-lg hover:bg-indigo-500/10 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           <X size={16} aria-hidden="true" />
         </button>
@@ -95,9 +95,9 @@ export default function ApprovalPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Status banner */}
         {canResolve && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
-            <AlertCircle size={16} className="text-amber-500 shrink-0" aria-hidden="true" />
-            <span className="text-xs text-amber-500">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/5 border border-warning/10">
+            <AlertCircle size={16} className="text-warning shrink-0" aria-hidden="true" />
+            <span className="text-xs text-warning">
               此节点需要人工审批才能继续执行
             </span>
           </div>
@@ -106,36 +106,36 @@ export default function ApprovalPanel({
         {/* Files section */}
         {hasFiles ? (
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <FileText size={14} className="shrink-0" aria-hidden="true" />
               <span>查看文件 ({files.length})</span>
             </div>
             {files.map((file, idx) => (
               <div
                 key={idx}
-                className="rounded-lg border border-indigo-500/10 overflow-hidden"
+                className="rounded-lg border border-primary/10 overflow-hidden"
               >
                 <button
                   type="button"
                   onClick={() => toggleFile(idx)}
                   aria-expanded={expandedFiles.has(idx)}
                   aria-label={`展开/折叠文件 ${file.path}`}
-                  className="w-full flex items-center gap-2 px-3 py-2 bg-slate-950 hover:bg-indigo-500/5 transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-background hover:bg-primary/5 transition-colors text-left cursor-pointer"
                 >
                   {expandedFiles.has(idx) ? (
-                    <ChevronDown size={14} className="text-slate-400 shrink-0" aria-hidden="true" />
+                    <ChevronDown size={14} className="text-muted-foreground shrink-0" aria-hidden="true" />
                   ) : (
-                    <ChevronRight size={14} className="text-slate-400 shrink-0" aria-hidden="true" />
+                    <ChevronRight size={14} className="text-muted-foreground shrink-0" aria-hidden="true" />
                   )}
-                  <span className="text-xs text-slate-200 truncate font-mono">
+                  <span className="text-xs text-foreground truncate font-mono">
                     {file.path}
                   </span>
                   {!file.exists && (
-                    <span className="text-xs text-red-500 ml-auto">不存在</span>
+                    <span className="text-xs text-destructive ml-auto">不存在</span>
                   )}
                 </button>
                 {expandedFiles.has(idx) && (
-                  <div className="border-t border-indigo-500/10">
+                  <div className="border-t border-primary/10">
                     <MarkdownViewer
                       content={file.content}
                       fileName={file.path}
@@ -147,14 +147,14 @@ export default function ApprovalPanel({
             ))}
           </div>
         ) : (
-          <p className="text-xs text-slate-500 italic">
+          <p className="text-xs text-muted-foreground italic">
             此审批节点未配置要查看的文件
           </p>
         )}
 
         {/* Rejection reason */}
         {canResolve && <div>
-          <label htmlFor="approval-reason" className="block text-xs font-medium text-slate-400 mb-1.5">
+          <label htmlFor="approval-reason" className="block text-xs font-medium text-muted-foreground mb-1.5">
             驳回原因（驳回时必填）
           </label>
           <textarea
@@ -162,20 +162,20 @@ export default function ApprovalPanel({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-200 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors resize-none min-h-[44px]"
+            className="w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors resize-none min-h-[44px]"
             placeholder={placeholder}
           />
         </div>}
       </div>
 
       {/* Footer: action buttons */}
-      {canResolve && <div className="p-4 border-t border-indigo-500/10 space-y-2 shrink-0">
+      {canResolve && <div className="p-4 border-t border-primary/10 space-y-2 shrink-0">
         <button
           type="button"
           onClick={() => handleAction(true)}
           disabled={submitting}
           aria-label="通过审批"
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-medium transition-colors cursor-pointer min-h-[44px]"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-success hover:bg-success disabled:opacity-50 text-white text-sm font-medium transition-colors cursor-pointer min-h-[44px]"
         >
           <Check size={16} aria-hidden="true" />
           {submitting ? "提交中..." : "通过"}
@@ -185,7 +185,7 @@ export default function ApprovalPanel({
           onClick={() => handleAction(false)}
           disabled={submitting}
           aria-label="驳回审批"
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 text-red-500 text-sm font-medium border border-red-500/20 transition-colors cursor-pointer min-h-[44px]"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 disabled:opacity-50 text-destructive text-sm font-medium border border-destructive/20 transition-colors cursor-pointer min-h-[44px]"
         >
           <X size={16} aria-hidden="true" />
           {submitting ? "提交中..." : "驳回"}

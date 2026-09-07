@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import tempfile
 from dataclasses import replace
@@ -241,9 +242,146 @@ def _validate_bundle_resources(
         ).validate_sources()
 
 
+def _plugin_private_import_roots(
+    manifest: ExtensionManifest,
+) -> set[str]:
+    """Return Plugin-local Python roots that scripts must not import."""
+    plugin_root = manifest.base_path
+    if plugin_root is None:
+        return {"src"}
+
+    roots = {"src"}
+    for child in plugin_root.iterdir():
+        if child.is_file() and child.suffix == ".py":
+            roots.add(child.stem)
+        elif child.is_dir() and (child / "__init__.py").is_file():
+            roots.add(child.name)
+    if manifest.backend:
+        roots.add(manifest.backend.split(":", 1)[0].split(".", 1)[0])
+    return roots
+
+
+def _imported_roots(tree: ast.AST) -> set[str]:
+    roots: set[str] = set()
+    importlib_aliases = {"importlib"}
+    dynamic_import_functions = {"__import__"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots.update(alias.name.split(".", 1)[0] for alias in node.names)
+            importlib_aliases.update(
+                alias.asname or alias.name
+                for alias in node.names
+                if alias.name == "importlib"
+            )
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            roots.add(node.module.split(".", 1)[0])
+            if node.module == "importlib":
+                dynamic_import_functions.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "import_module"
+                )
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and node.args:
+            function = node.func
+            is_dynamic_import = (
+                isinstance(function, ast.Name)
+                and function.id in dynamic_import_functions
+            ) or (
+                isinstance(function, ast.Attribute)
+                and function.attr == "import_module"
+                and isinstance(function.value, ast.Name)
+                and function.value.id in importlib_aliases
+            )
+            module = node.args[0]
+            if (
+                is_dynamic_import
+                and isinstance(module, ast.Constant)
+                and isinstance(module.value, str)
+            ):
+                roots.add(module.value.split(".", 1)[0])
+    return roots
+
+
+def _validate_script_independence(
+    roots: list[OwnedPath],
+    manifest: ExtensionManifest,
+) -> None:
+    """Reject Script Library code coupled to Core or Plugin Python packages."""
+    plugin_roots = _plugin_private_import_roots(manifest)
+    for owned_root in roots:
+        for group_dir in sorted(owned_root.path.iterdir()):
+            if not group_dir.is_dir() or group_dir.name.startswith("."):
+                continue
+            group_code = sorted(
+                path.name
+                for path in group_dir.iterdir()
+                if path.is_file() and path.suffix in {".py", ".sh"}
+            )
+            if group_code:
+                raise ValueError(
+                    "Plugin Script Library helper 必须放入具体脚本目录: "
+                    f"{group_dir.relative_to(owned_root.path)}: "
+                    f"{', '.join(group_code)}"
+                )
+            script_dirs = [
+                path
+                for path in group_dir.iterdir()
+                if path.is_dir()
+                and not path.name.startswith(".")
+                and path.name != "__pycache__"
+            ]
+            invalid_dirs = sorted(
+                path.name
+                for path in script_dirs
+                if not (
+                    (path / f"{path.name}.py").is_file()
+                    or (path / f"{path.name}.sh").is_file()
+                )
+            )
+            if invalid_dirs:
+                raise ValueError(
+                    "Plugin Script Library 组内目录必须是带同名入口的独立脚本: "
+                    f"{group_dir.relative_to(owned_root.path)}: "
+                    f"{', '.join(invalid_dirs)}"
+                )
+            sibling_roots = {path.name for path in script_dirs}
+            for script_dir in sorted(script_dirs):
+                local_roots = {
+                    path.stem if path.is_file() else path.name
+                    for path in script_dir.iterdir()
+                    if (
+                        path.is_file() and path.suffix == ".py"
+                    ) or path.is_dir()
+                }
+                forbidden_roots = plugin_roots | (
+                    sibling_roots - local_roots - {script_dir.name}
+                )
+                for source in sorted(script_dir.rglob("*.py")):
+                    try:
+                        tree = ast.parse(
+                            source.read_text(encoding="utf-8"),
+                            filename=str(source),
+                        )
+                    except (OSError, UnicodeError, SyntaxError) as exc:
+                        raise ValueError(
+                            "Plugin Script Library Python 文件无法独立解析: "
+                            f"{source}: {exc}"
+                        ) from exc
+                    coupled = sorted(_imported_roots(tree) & forbidden_roots)
+                    if coupled:
+                        relative = source.relative_to(owned_root.path)
+                        raise ValueError(
+                            "Plugin Script Library 必须独立运行，禁止导入 "
+                            "Core、Plugin Backend 或兄弟脚本模块: "
+                            f"{relative}: {', '.join(coupled)}"
+                        )
+
+
 def _validate_script_resources(
     contributions: ExtensionContributions,
     scratch_root: Path,
+    manifest: ExtensionManifest,
 ) -> None:
     roots = contributions.resource_paths.get("script_libraries", [])
     if not roots:
@@ -253,6 +391,7 @@ def _validate_script_resources(
         extension_roots=roots,
     )
     catalog.validate_sources()
+    _validate_script_independence(roots, manifest)
     for script in catalog.list_scripts():
         if catalog.resolve(script["group"], script["name"]) is None:
             raise ValueError(
@@ -271,7 +410,7 @@ def _validate_declared_resources(
         _validate_json_resources(contributions, source_scratch)
         _validate_workflow_resources(contributions)
         _validate_bundle_resources(contributions, source_scratch)
-        _validate_script_resources(contributions, source_scratch)
+        _validate_script_resources(contributions, source_scratch, manifest)
         prepared = prepare_plugin_resources(
             manifest,
             contributions.resource_paths,
@@ -285,7 +424,7 @@ def _validate_declared_resources(
         _validate_json_resources(effective, effective_scratch)
         _validate_workflow_resources(effective)
         _validate_bundle_resources(effective, effective_scratch)
-        _validate_script_resources(effective, effective_scratch)
+        _validate_script_resources(effective, effective_scratch, manifest)
 
 
 def validate_plugin_checkout(

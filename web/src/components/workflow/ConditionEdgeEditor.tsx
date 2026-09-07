@@ -65,19 +65,19 @@ export default function ConditionEdgeEditor({ edge, isLoopGate, onSave, onClose 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose} role="dialog" aria-modal="true" aria-label="编辑分支条件">
       <div
-        className="bg-slate-900 border border-blue-500/30 rounded-xl p-5 w-80 shadow-2xl"
+        className="bg-card border border-info/30 rounded-xl p-5 w-80 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-sm font-semibold text-slate-100 mb-4">
+        <h3 className="text-sm font-semibold text-foreground mb-4">
           编辑分支条件
-          <span className="text-xs text-slate-500 ml-2">
+          <span className="text-xs text-muted-foreground ml-2">
             {edge.source} → {edge.target}
           </span>
         </h3>
 
         {/* Label */}
         <div className="mb-3">
-          <label htmlFor="condition-label" className="block text-xs text-slate-400 uppercase mb-1">条件名称</label>
+          <label htmlFor="condition-label" className="block text-xs text-muted-foreground uppercase mb-1">条件名称</label>
           <input
             ref={labelInputRef}
             type="text"
@@ -86,13 +86,13 @@ export default function ConditionEdgeEditor({ edge, isLoopGate, onSave, onClose 
             onChange={(e) => setLabel(e.target.value)}
             placeholder="如: 高分分支"
             disabled={isDefault}
-            className="w-full px-3 py-2 text-xs bg-slate-950 border border-indigo-500/20 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500/50 disabled:opacity-40"
+            className="w-full px-3 py-2 text-xs bg-background border border-primary/20 rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-info/50 disabled:opacity-40"
           />
         </div>
 
         {/* Expression */}
         <div className="mb-3">
-          <label htmlFor="condition-expression" className="block text-xs text-slate-400 uppercase mb-1">
+          <label htmlFor="condition-expression" className="block text-xs text-muted-foreground uppercase mb-1">
             {isLoopGate ? "循环表达式" : "条件表达式"}
           </label>
           <input
@@ -102,24 +102,24 @@ export default function ConditionEdgeEditor({ edge, isLoopGate, onSave, onClose 
             onChange={(e) => setExpression(e.target.value)}
             placeholder={isLoopGate ? "如: for item in chapters" : "如: {{score}} >= 60 AND {{retry}} < 3"}
             disabled={isDefault}
-            className={`w-full px-3 py-2 text-xs bg-slate-950 border rounded-lg text-slate-100 placeholder-slate-500 font-mono focus:outline-none disabled:opacity-40 ${
-              loopSyntaxError ? "border-red-500/50" : "border-indigo-500/20 focus:border-blue-500/50"
+            className={`w-full px-3 py-2 text-xs bg-background border rounded-lg text-foreground placeholder-muted-foreground font-mono focus:outline-none disabled:opacity-40 ${
+              loopSyntaxError ? "border-destructive/50" : "border-primary/20 focus:border-info/50"
             }`}
           />
           {isLoopGate ? (
             <>
-              <p className="text-xs text-emerald-500/70 mt-1">
+              <p className="text-xs text-success/70 mt-1">
                 列表: for item in chapters ｜ 字典: for key, value in config ｜ Range: for i in range(5)
               </p>
               {!isDefault && loopSyntaxError && (
-                <p className="text-xs text-red-500 mt-0.5">{loopSyntaxError}</p>
+                <p className="text-xs text-destructive mt-0.5">{loopSyntaxError}</p>
               )}
               {!isDefault && expression.trim() && !loopSyntaxError && (
-                <p className="text-xs text-emerald-500/70 mt-0.5">✓ 语法正确</p>
+                <p className="text-xs text-success/70 mt-0.5">✓ 语法正确</p>
               )}
             </>
           ) : (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               运算符: == != {">"} {"<"} {">="} {"<="} ｜ AND OR NOT ｜ ( ) ｜ 变量: {`{{key}}`}
             </p>
           )}
@@ -135,9 +135,9 @@ export default function ConditionEdgeEditor({ edge, isLoopGate, onSave, onClose 
               setIsDefault(e.target.checked);
               if (e.target.checked) { setExpression(""); setLabel("默认"); }
             }}
-            className="w-3.5 h-3.5 rounded border-indigo-500/30 bg-slate-950 accent-blue-500"
+            className="w-3.5 h-3.5 rounded border-primary/30 bg-background accent-primary"
           />
-          <label htmlFor="is-default" className="text-xs text-slate-400">
+          <label htmlFor="is-default" className="text-xs text-muted-foreground">
             设为默认分支（所有条件不匹配时走此分支）
           </label>
         </div>
@@ -148,21 +148,21 @@ export default function ConditionEdgeEditor({ edge, isLoopGate, onSave, onClose 
             type="button"
             onClick={handleSave}
             disabled={!isDefault && !expression.trim()}
-            className="flex-1 px-3 py-2.5 min-h-[44px] text-xs font-medium bg-blue-500 hover:bg-blue-600 disabled:opacity-30 text-white rounded-lg transition-colors cursor-pointer"
+            className="flex-1 px-3 py-2.5 min-h-[44px] text-xs font-medium bg-info hover:bg-info disabled:opacity-30 text-white rounded-lg transition-colors cursor-pointer"
           >
             保存
           </button>
           <button
             type="button"
             onClick={handleClear}
-            className="px-3 py-2.5 min-h-[44px] text-xs font-medium border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-2.5 min-h-[44px] text-xs font-medium border border-destructive/30 text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
           >
             清除
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-2.5 min-h-[44px] text-xs font-medium border border-indigo-500/20 text-slate-400 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-2.5 min-h-[44px] text-xs font-medium border border-primary/20 text-muted-foreground hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
           >
             取消
           </button>

@@ -7,11 +7,11 @@
 export function getCompressionTypeColor(type: string): string {
   switch (type) {
     case "micro":
-      return "bg-green-500/20 text-green-500";
+      return "bg-success/20 text-success";
     case "full":
-      return "bg-purple-500/20 text-purple-500";
+      return "bg-primary/20 text-primary";
     case "reactive":
-      return "bg-red-500/20 text-red-500";
+      return "bg-destructive/20 text-destructive";
     default:
       return "bg-muted text-muted-foreground";
   }

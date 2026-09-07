@@ -67,6 +67,8 @@ class NodeExecutionState:
     automatic_retry_count: int = 0
     next_retry_at: str | None = None
     attempt_history: list[dict] = field(default_factory=list)
+    output_repair_count: int = 0
+    output_repair_history: list[dict] = field(default_factory=list)
     input_snapshot: dict[str, Any] = field(default_factory=dict)
     upstream_summary_snapshot: str = ""
     next_attempt_trigger: str = "initial"
@@ -125,6 +127,13 @@ def _node_state_from_dict(data: dict, node_id: str = "") -> NodeExecutionState:
             deepcopy(item) for item in data.get("attempt_history", [])
             if isinstance(item, dict)
         ],
+        output_repair_count=_non_negative_int(
+            data.get("output_repair_count", 0)
+        ),
+        output_repair_history=[
+            deepcopy(item) for item in data.get("output_repair_history", [])
+            if isinstance(item, dict)
+        ],
         input_snapshot=(
             deepcopy(data.get("input_snapshot"))
             if isinstance(data.get("input_snapshot"), dict)
@@ -166,6 +175,8 @@ def _node_state_to_dict(
         "automatic_retry_count": state.automatic_retry_count,
         "next_retry_at": state.next_retry_at,
         "attempt_history": deepcopy(state.attempt_history),
+        "output_repair_count": state.output_repair_count,
+        "output_repair_history": deepcopy(state.output_repair_history),
         "input_snapshot": deepcopy(state.input_snapshot),
         "upstream_summary_snapshot": state.upstream_summary_snapshot,
         "next_attempt_trigger": state.next_attempt_trigger,

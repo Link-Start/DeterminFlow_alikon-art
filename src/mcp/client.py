@@ -57,7 +57,7 @@ class MCPClient:
         - command 模式：传入可执行文件路径 + args + env（外部 MCP Server，支持任意语言）
 
         Args:
-            server_name: Server 标识名（如 "knowledge", "browser"）
+            server_name: Server 标识名（如 "memory", "work-review"）
             server_script: Python 脚本路径（内置 server 用），与 command 二选一
             command: 可执行文件路径（外部 Server 用），与 server_script 二选一
             args: 命令行参数列表

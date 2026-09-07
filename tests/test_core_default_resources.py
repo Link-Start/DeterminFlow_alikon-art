@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import os
 import subprocess
@@ -34,7 +35,7 @@ def test_provision_core_skills_copies_bundled_skill(tmp_path: Path) -> None:
     assert target.read_bytes() == source.read_bytes()
 
 
-def test_provision_core_skills_preserves_existing_customization(tmp_path: Path) -> None:
+def test_provision_core_skills_overwrites_managed_runtime_copy(tmp_path: Path) -> None:
     target = tmp_path / "skills" / "workflow-guide" / "SKILL.md"
     target.parent.mkdir(parents=True)
     target.write_text("customized", encoding="utf-8")
@@ -49,10 +50,12 @@ def test_provision_core_skills_preserves_existing_customization(tmp_path: Path) 
         / "scripts"
         / "validate_definition.py"
     )
-    assert target not in created
+    assert target in created
     assert helper in created
     assert helper.read_bytes() == helper_source.read_bytes()
-    assert target.read_text(encoding="utf-8") == "customized"
+    assert target.read_bytes() == (
+        DEFAULT_RESOURCES_DIR / "skills" / "workflow-guide" / "SKILL.md"
+    ).read_bytes()
 
 
 def test_provision_core_skills_updates_unmodified_owned_file(
@@ -80,7 +83,37 @@ def test_provision_core_skills_updates_unmodified_owned_file(
     assert target.read_text(encoding="utf-8") == "version two"
 
 
-def test_provision_core_skills_bootstraps_known_legacy_file(
+def test_provision_core_skills_replaces_drift_and_records_current_hash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    defaults_dir = tmp_path / "defaults"
+    source = defaults_dir / "skills" / "example" / "SKILL.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("version two", encoding="utf-8")
+    target_dir = tmp_path / "installed-skills"
+    target = target_dir / "example" / "SKILL.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("local customization", encoding="utf-8")
+    old_hash = "a" * 64
+    marker = target_dir / default_resources.CORE_RESOURCE_MARKER
+    marker.write_text(
+        '{"files":{"example/SKILL.md":{"installed_hash":"' + old_hash + '"}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(default_resources, "DEFAULT_RESOURCES_DIR", defaults_dir)
+
+    synchronized = provision_core_skills(target_dir)
+
+    saved_marker = json.loads(marker.read_text(encoding="utf-8"))
+    assert synchronized == [target]
+    assert target.read_text(encoding="utf-8") == "version two"
+    assert saved_marker["files"]["example/SKILL.md"]["installed_hash"] == (
+        default_resources._file_hash(source)
+    )
+
+
+def test_provision_core_skills_removes_unmanaged_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -91,16 +124,16 @@ def test_provision_core_skills_bootstraps_known_legacy_file(
     target_dir = tmp_path / "installed-skills"
     target = target_dir / "example" / "SKILL.md"
     target.parent.mkdir(parents=True)
-    target.write_text("known legacy version", encoding="utf-8")
+    target.write_text("new bundled version", encoding="utf-8")
+    unmanaged = target_dir / "example" / "notes.txt"
+    unmanaged.write_text("not part of Core", encoding="utf-8")
     monkeypatch.setattr(default_resources, "DEFAULT_RESOURCES_DIR", defaults_dir)
-    monkeypatch.setattr(default_resources, "LEGACY_CORE_RESOURCE_HASHES", {
-        "example/SKILL.md": {default_resources._file_hash(target)},
-    })
 
     synchronized = provision_core_skills(target_dir)
 
-    assert synchronized == [target]
+    assert synchronized == []
     assert target.read_text(encoding="utf-8") == "new bundled version"
+    assert not unmanaged.exists()
 
 
 def test_provision_core_skills_ignores_python_cache(
@@ -145,11 +178,12 @@ def test_provisioned_workflow_validator_runs_from_data_layout(tmp_path: Path) ->
     isolated_repo = tmp_path / "repo"
     (isolated_repo / "data").mkdir(parents=True)
     os.symlink(repo_root / "src", isolated_repo / "src", target_is_directory=True)
-    provision_core_skills(isolated_repo / "data" / "skills")
+    provision_core_skills(isolated_repo / "data" / "skills" / "builtin")
     validator = (
         isolated_repo
         / "data"
         / "skills"
+        / "builtin"
         / "workflow-guide"
         / "scripts"
         / "validate_definition.py"
@@ -172,7 +206,7 @@ def test_provisioned_workflow_validator_supports_external_data_dir(
     tmp_path: Path,
 ) -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    external_skills = tmp_path / "external-data" / "skills"
+    external_skills = tmp_path / "external-data" / "skills" / "builtin"
     provision_core_skills(external_skills)
     validator = (
         external_skills

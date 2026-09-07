@@ -37,24 +37,36 @@ export default {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))'
         },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))'
-        },
-        neon: {
-          indigo: '#6366F1',
-          purple: '#8B5CF6',
-          cyan: '#06B6D4',
-          green: '#22C55E',
-          red: '#EF4444',
-          amber: '#F59E0B',
-          blue: '#3B82F6'
-        },
-        dark: {
-          '700': '#334155',
-          '800': '#1E293B',
-          '900': '#0F172A'
-        }
+      card: {
+        DEFAULT: 'hsl(var(--card))',
+        foreground: 'hsl(var(--card-foreground))'
+      },
+      success: {
+        DEFAULT: 'hsl(var(--success))',
+        foreground: 'hsl(var(--success-foreground))'
+      },
+      warning: {
+        DEFAULT: 'hsl(var(--warning))',
+        foreground: 'hsl(var(--warning-foreground))'
+      },
+      info: {
+        DEFAULT: 'hsl(var(--info))',
+        foreground: 'hsl(var(--info-foreground))'
+      },
+      surface: {
+        deep: 'hsl(var(--theme-surface-deep))',
+        DEFAULT: 'hsl(var(--theme-surface))',
+        raised: 'hsl(var(--theme-surface-raised))',
+        hover: 'hsl(var(--theme-surface-hover))',
+        strong: 'hsl(var(--theme-surface-strong))'
+      },
+      node: {
+        agent: 'hsl(var(--node-agent))',
+        tool: 'hsl(var(--node-tool))',
+        script: 'hsl(var(--node-script))',
+        api: 'hsl(var(--node-api))',
+        approval: 'hsl(var(--node-approval))'
+      }
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -71,28 +83,10 @@ export default {
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'glow': 'glow 2s ease-in-out infinite alternate',
-        'float': 'float 3s ease-in-out infinite',
-        'accordion-down': 'accordion-down 0.2s ease-out',
+      'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out'
       },
       keyframes: {
-        glow: {
-          '0%': {
-            boxShadow: '0 0 5px rgba(99, 102, 241, 0.2)'
-          },
-          '100%': {
-            boxShadow: '0 0 20px rgba(99, 102, 241, 0.6)'
-          }
-        },
-        float: {
-          '0%, 100%': {
-            transform: 'translateY(0)'
-          },
-          '50%': {
-            transform: 'translateY(-5px)'
-          }
-        },
         'accordion-down': {
           from: {
             height: '0'

@@ -13,11 +13,10 @@ logger = logging.getLogger(__name__)
 
 class SkillConfigManager:
     """
-    管理 skills 的外部配置
+    管理不随 SKILL.md 分发的本地运行设置。
 
-    配置存储在 config/skills_config.json 中，包括：
-    - auto_inject: 是否自动注入到提示词
-    - 未来可扩展其他配置
+    配置存储在 config/skills_config.json 中，包括启用状态、自动注入、
+    优先级、适用范围覆盖和分组关系。
     """
 
     def __init__(self, config_file: Path, config_store=None):
@@ -34,8 +33,9 @@ class SkillConfigManager:
             default_config = {
                 "version": "1.0",
                 "last_updated": datetime.now(timezone.utc).isoformat(),
-                "description": "Skills 配置文件 - 控制 skills 的自动注入行为",
-                "skills": {}
+                "description": "Skills 本地运行设置与分组关系",
+                "skills": {},
+                "skill_configs": {},
             }
             try:
                 self._save_config(default_config)
@@ -132,9 +132,9 @@ class SkillConfigManager:
 
     def set_auto_inject(self, skill_id: str, value: bool) -> bool:
         """
-        设置 skill 的自动注入配置
+        设置 skill 的自动注入配置。
 
-        同步更新 skills 节和 skill_configs 节
+        新配置只写 skill_configs；skills 节仅保留分组关系。
 
         Args:
             skill_id: skill ID
@@ -143,18 +143,33 @@ class SkillConfigManager:
         Returns:
             True 如果设置成功
         """
-        # 同时更新 skills 和 skill_configs 两个节，保持一致
-        ok_skills = self._set_skill_config(skill_id, "auto_inject", value, section="skills")
-        ok_configs = self._set_skill_config(skill_id, "auto_inject", value, section="skill_configs")
-        return ok_skills or ok_configs
+        try:
+            self._config.setdefault("skill_configs", {}).setdefault(skill_id, {})[
+                "auto_inject"
+            ] = value
+            legacy = self._config.setdefault("skills", {}).setdefault(skill_id, {})
+            legacy.pop("auto_inject", None)
+            self._save()
+            logger.info(f"Skill {skill_id} auto_inject 已设置为 {value}")
+            return True
+        except Exception as e:
+            logger.error(f"设置 auto_inject 失败: {e}")
+            return False
 
     def get_agent_types(self, skill_id: str) -> list[str]:
-        """获取 skill 分配的 agent 类型（兼容旧接口）"""
-        return self._get_skill_config(skill_id, "agent_types", [])
+        """获取仅在本机生效的 agent 类型限制。"""
+        value = self._get_skill_config(
+            skill_id, "agent_types", section="skill_configs"
+        )
+        if value is None:
+            value = self._get_skill_config(skill_id, "agent_types", [])
+        return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
     def set_agent_types(self, skill_id: str, agent_types: list[str]) -> bool:
-        """设置 skill 的 agent 类型分配（兼容旧接口）"""
-        return self._set_skill_config(skill_id, "agent_types", agent_types)
+        """设置仅在本机生效的 agent 类型限制。"""
+        return self._set_skill_config(
+            skill_id, "agent_types", agent_types, section="skill_configs"
+        )
 
     # ============ 组管理方法 ============
 
@@ -302,12 +317,21 @@ class SkillConfigManager:
         return ok
 
     def get_priority(self, skill_id: str) -> int | None:
-        """获取 skill 的优先级配置（None 表示使用 SKILL.md 中的默认值）"""
-        return self._get_skill_config(skill_id, "priority")
+        """获取 skill 的本地优先级配置。"""
+        value = self._get_skill_config(
+            skill_id, "priority", section="skill_configs"
+        )
+        if value is None:
+            value = self._get_skill_config(skill_id, "priority")
+        return value if isinstance(value, int) and 0 <= value <= 100 else None
 
     def set_priority(self, skill_id: str, priority: int) -> bool:
         """设置 skill 的优先级"""
-        return self._set_skill_config(skill_id, "priority", priority)
+        if not 0 <= priority <= 100:
+            return False
+        return self._set_skill_config(
+            skill_id, "priority", priority, section="skill_configs"
+        )
 
     def get_auto_inject_skills(self) -> list[str]:
         """
@@ -316,20 +340,50 @@ class SkillConfigManager:
         Returns:
             skill ID 列表
         """
-        result = []
-        for skill_id, config in self._config.get("skills", {}).items():
-            if config.get("auto_inject", False):
-                result.append(skill_id)
-        return result
+        skill_ids = set(self._config.get("skills", {})) | set(
+            self._config.get("skill_configs", {})
+        )
+        return [skill_id for skill_id in skill_ids if self.should_auto_inject(skill_id)]
 
     def get_workflow_only(self, skill_id: str) -> bool | None:
-        """获取 skill 的 workflow_only 配置（None 表示使用 SKILL.md 中的默认值）"""
-        val = self._get_skill_config(skill_id, "workflow_only", section="skill_configs")
-        return val  # None if not set
+        """兼容旧接口，返回本地 scope_override。"""
+        scope = self.get_scope_override(skill_id)
+        return None if scope is None else scope == "workflow"
 
     def set_workflow_only(self, skill_id: str, value: bool) -> bool:
-        """设置 skill 的 workflow_only 配置"""
-        return self._set_skill_config(skill_id, "workflow_only", value, section="skill_configs")
+        """兼容旧接口，以 scope_override 保存本地适用范围。"""
+        return self.set_scope_override(skill_id, "workflow" if value else "all")
+
+    def get_scope_override(self, skill_id: str) -> str | None:
+        """获取本地适用范围覆盖；None 表示使用 Skill 清单声明。"""
+        config = self._config.get("skill_configs", {}).get(skill_id, {})
+        value = config.get("scope_override")
+        if value in {"all", "workflow"}:
+            return value
+        legacy = config.get("workflow_only")
+        if isinstance(legacy, bool):
+            return "workflow" if legacy else "all"
+        return None
+
+    def set_scope_override(self, skill_id: str, scope: str | None) -> bool:
+        """设置或清除本地适用范围覆盖。"""
+        if scope not in {None, "all", "workflow"}:
+            return False
+        try:
+            config = self._config.setdefault("skill_configs", {}).setdefault(
+                skill_id, {}
+            )
+            config.pop("workflow_only", None)
+            if scope is None:
+                config.pop("scope_override", None)
+            else:
+                config["scope_override"] = scope
+            self._save()
+            logger.info(f"Skill {skill_id} scope_override 已设置为 {scope}")
+            return True
+        except Exception as e:
+            logger.error(f"设置 scope_override 失败: {e}")
+            return False
 
     def get_config(self, skill_id: str) -> dict:
         """获取 skill 的完整配置"""
@@ -385,7 +439,11 @@ class SkillConfigManager:
             logger.error(f"移除配置失败: {e}")
             return False
 
-    def sync_with_directory(self, skill_ids: list[str]) -> bool:
+    def sync_with_directory(
+        self,
+        skill_ids: list[str],
+        defaults: dict[str, dict[str, Any]] | None = None,
+    ) -> bool:
         """
         同步配置文件与目录中的skills
 
@@ -408,6 +466,27 @@ class SkillConfigManager:
                 self._config["skill_configs"] = {}
                 changed = True
 
+            defaults = defaults or {}
+
+            # 迁移旧的重复运行设置，保留原有行为。
+            for skill_id, legacy in self._config["skills"].items():
+                runtime = self._config["skill_configs"].setdefault(skill_id, {})
+                for key in ("auto_inject", "priority", "agent_types"):
+                    if key in legacy and key not in runtime:
+                        runtime[key] = legacy[key]
+                        changed = True
+                    if key in legacy:
+                        del legacy[key]
+                        changed = True
+            for runtime in self._config["skill_configs"].values():
+                if "workflow_only" in runtime:
+                    if "scope_override" not in runtime:
+                        runtime["scope_override"] = (
+                            "workflow" if runtime["workflow_only"] else "all"
+                        )
+                    del runtime["workflow_only"]
+                    changed = True
+
             # 为目录中存在但配置中缺少的skill添加默认配置
             for skill_id in skill_ids:
                 # 检查skills配置（不自动分配组，由管理员显式分配）
@@ -418,14 +497,43 @@ class SkillConfigManager:
 
                 # 检查skill_configs配置
                 if skill_id not in self._config["skill_configs"]:
+                    skill_defaults = defaults.get(skill_id, {})
                     self._config["skill_configs"][skill_id] = {
                         "enabled": True,
-                        "priority": 50,
-                        "auto_inject": False,
-                        "workflow_only": False
+                        "priority": skill_defaults.get("priority", 50),
+                        "auto_inject": True,
                     }
+                    agent_types = skill_defaults.get("agent_types")
+                    if isinstance(agent_types, list) and agent_types:
+                        self._config["skill_configs"][skill_id][
+                            "agent_types"
+                        ] = agent_types
+                    scope = skill_defaults.get("scope_override")
+                    if scope in {"all", "workflow"}:
+                        self._config["skill_configs"][skill_id][
+                            "scope_override"
+                        ] = scope
                     changed = True
                     logger.info(f"为skill {skill_id} 添加默认skill_configs配置")
+                else:
+                    runtime = self._config["skill_configs"][skill_id]
+                    skill_defaults = defaults.get(skill_id, {})
+                    for key, value in {
+                        "enabled": True,
+                        "priority": skill_defaults.get("priority", 50),
+                        "auto_inject": False,
+                    }.items():
+                        if key not in runtime:
+                            runtime[key] = value
+                            changed = True
+                    agent_types = skill_defaults.get("agent_types")
+                    if (
+                        "agent_types" not in runtime
+                        and isinstance(agent_types, list)
+                        and agent_types
+                    ):
+                        runtime["agent_types"] = agent_types
+                        changed = True
 
             # 确保default组存在
             groups = self._config.get("groups", [])

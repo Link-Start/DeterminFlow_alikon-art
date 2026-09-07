@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from openai import BadRequestError
 
 from src.agent.session import AgentSession, _resolve_pending_tool_run_id
+from src.core.tool_resolution import pending_tool_resolution
 from src.agent.session_manager import SessionManager
 from src.web import ws_handlers
 from src.web.event_bus import EventBus, _WsConnection
@@ -744,6 +745,162 @@ def test_tool_error_terminates_matching_bubble_and_persists_failure():
     assert tool_record["content"] == "disk unavailable"
 
 
+def test_pending_tool_is_persisted_without_terminal_tool_message():
+    async def scenario():
+        model_output = AIMessage(
+            content="",
+            tool_calls=[
+                {"id": "call-pending", "name": "write", "args": {"value": 1}},
+            ],
+        )
+        graph = _EventGraph([
+            {
+                "event": "on_chat_model_end",
+                "run_id": "model-run",
+                "data": {"output": model_output},
+            },
+            {
+                "event": "on_tool_start",
+                "run_id": "node-pending",
+                "name": "write",
+                "data": {"input": {"value": 1}},
+            },
+            {
+                "event": "on_tool_end",
+                "run_id": "node-pending",
+                "name": "write",
+                "data": {
+                    "output": pending_tool_resolution(
+                        tool_call_id="call-pending",
+                        name="write",
+                        metadata={"action_id": "action-1"},
+                    ),
+                },
+            },
+        ])
+        session = AgentSession(session_type="sub", agent_type="test")
+        session.compiled_graph = graph
+        emitted: list[dict] = []
+
+        async def no_save(*_args, **_kwargs):
+            return None
+
+        async def no_compress(*_args, **_kwargs):
+            return None
+
+        async def capture(event):
+            emitted.append(event)
+
+        session.async_save = no_save
+        session._check_and_compress_messages = no_compress
+        await session.send_message("write", capture, max_rounds=2)
+        return session, emitted
+
+    session, emitted = asyncio.run(scenario())
+    assert session.status == "awaiting_tool_resolution"
+    assert session.pending_tool_resolutions == {
+        "call-pending": {
+            "name": "write",
+            "run_id": "call-pending",
+            "metadata": {"action_id": "action-1"},
+        }
+    }
+    assert [event["type"] for event in emitted if event["type"].startswith("tool_")] == [
+        "tool_start",
+        "tool_pending",
+    ]
+    assert not any(message["type"] == "tool" for message in session.record)
+
+    restored = AgentSession.from_dict(session.to_dict())
+    assert restored.status == "awaiting_tool_resolution"
+    assert restored.pending_tool_resolutions == session.pending_tool_resolutions
+    assert isinstance(restored.lc_messages[-1], AIMessage)
+    assert restored.lc_messages[-1].tool_calls[0]["id"] == "call-pending"
+
+
+def test_resume_tools_continues_without_adding_a_human_message():
+    class ResumeGraph:
+        async def astream_events(self, state, **_kwargs):
+            final = AIMessage(content="操作已完成。")
+            yield {
+                "event": "on_chat_model_end",
+                "run_id": "resume-model",
+                "data": {"output": final},
+            }
+            yield {
+                "event": "on_chain_end",
+                "tags": [],
+                "data": {
+                    "output": {
+                        "messages": [*state["messages"], final],
+                        "remaining_rounds": state["remaining_rounds"],
+                    }
+                },
+            }
+
+    async def scenario():
+        session = AgentSession(session_type="sub", agent_type="test")
+        session.compiled_graph = ResumeGraph()
+        session.record = [
+            {"id": "msg_00001", "type": "user", "content": "执行操作"},
+            {
+                "id": "msg_00002",
+                "type": "assistant",
+                "content": "",
+                "tool_calls": [{
+                    "id": "call-pending",
+                    "type": "function",
+                    "function": {"name": "write", "arguments": "{}"},
+                }],
+            },
+        ]
+        session._msg_counter = 2
+        session.lc_messages = [
+            HumanMessage(content="执行操作"),
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "call-pending", "name": "write", "args": {}}],
+            ),
+        ]
+        session.pending_tool_resolutions = {
+            "call-pending": {
+                "name": "write",
+                "run_id": "call-pending",
+                "metadata": {"action_id": "action-1"},
+            }
+        }
+        session.pending_tool_remaining_rounds = 2
+        session.status = "awaiting_tool_resolution"
+        emitted = []
+
+        async def no_save(*_args, **_kwargs):
+            return None
+
+        async def capture(event):
+            emitted.append(event)
+
+        session.async_save = no_save
+        result = await session.resume_tools(
+            {"call-pending": {"ok": True, "state": "succeeded"}},
+            event_callback=capture,
+        )
+        return session, emitted, result
+
+    session, emitted, result = asyncio.run(scenario())
+    assert result == "操作已完成。"
+    assert [message["type"] for message in session.record] == [
+        "user",
+        "assistant",
+        "tool",
+        "assistant",
+    ]
+    assert session.record[2]["tool_call_id"] == "call-pending"
+    assert session.record[3]["content"] == "操作已完成。"
+    assert session.pending_tool_resolutions == {}
+    assert session.status == "completed"
+    assert "tool_end" in [event["type"] for event in emitted]
+
+
 def test_session_snapshot_always_contains_empty_messages_and_active_stream():
     async def scenario():
         bus = EventBus()
@@ -1278,7 +1435,7 @@ def test_interactive_main_retry_replays_persisted_turn_and_clears_failure():
         "old question",
         "old answer",
     ]
-    assert session.record[2]["content"].endswith("<USER_MESSAGE>\nretry this")
+    assert session.record[2]["content"] == "retry this"
     assert session.record[3]["content"] == "recovered answer"
     assert saves[0][0] is True
     assert saves[0][1]["retryable"] is False

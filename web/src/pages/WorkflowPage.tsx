@@ -688,14 +688,14 @@ export default function WorkflowPage() {
       />
       <div className="flex-1 flex min-h-0">
         {taskViewState === "loading" ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-sm text-slate-400" role="status">
+          <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
             <Loader2 size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
             加载任务详情...
           </div>
         ) : taskViewState === "error" ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center" role="alert">
-            <p className="text-sm text-red-300">{taskRestore.error}</p>
-            <button type="button" onClick={taskRestore.reload} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/10">
+            <p className="text-sm text-destructive">{taskRestore.error}</p>
+            <button type="button" onClick={taskRestore.reload} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-destructive/30 px-4 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10">
               <RotateCcw size={14} aria-hidden="true" />重新加载
             </button>
           </div>
@@ -773,7 +773,7 @@ export default function WorkflowPage() {
 
   if (isExecutionView && selectedId && selectedTaskId) {
     return (
-      <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
         {renderTabBar()}
         {renderExecutionView()}
       </div>
@@ -786,7 +786,7 @@ export default function WorkflowPage() {
     // 子视图：查看模式
     if (subView === "view" && selectedId) {
       return (
-        <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
           {renderTabBar()}
           <section aria-label={`查看工作流: ${selectedWorkflowName || "未命名"}`} className="flex-1 flex flex-col min-h-0">
             <WorkflowToolbar workflowId={selectedId} mode="view" onBack={handleBack} onEdit={() => handleEdit()} onStartTaskFill={handleStartTaskFill} onTaskStarted={handleTaskStarted} name={selectedWorkflowName} onRename={handleRename} />
@@ -799,7 +799,7 @@ export default function WorkflowPage() {
     // 子视图：编辑器
     if (subView === "editor" && selectedId) {
       return (
-        <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
           {renderTabBar()}
           <section aria-label={`编辑工作流: ${selectedWorkflowName || "未命名"}`} className="flex-1 flex flex-col min-h-0">
             <WorkflowToolbar workflowId={selectedId} mode="editor" onBack={handleBack} onSave={handleSaveRequest} hasUnsaved={hasUnsaved} saving={saving} name={selectedWorkflowName} onRename={handleRename} />
@@ -812,15 +812,15 @@ export default function WorkflowPage() {
     // 子视图：节点选择
     if (subView === "node-select" && selectedId) {
       return (
-        <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
           {renderTabBar()}
           {/* 重做提示条 */}
           {reuseTaskId && reuseTaskName && (
-            <div className="px-6 py-2 bg-indigo-500/10 border-b border-indigo-500/20 shrink-0">
-              <div className="flex items-center gap-2 text-sm text-indigo-300">
+            <div className="px-6 py-2 bg-primary/10 border-b border-primary/20 shrink-0">
+              <div className="flex items-center gap-2 text-sm text-primary">
                 <RotateCcw size={14} aria-hidden="true" />
                 <span>正在基于任务</span>
-                <span className="font-medium text-indigo-200">{reuseTaskName}</span>
+                <span className="font-medium text-primary">{reuseTaskName}</span>
                 <span>重做，节点选择和参数已沿用，可在此调整</span>
               </div>
             </div>
@@ -839,21 +839,21 @@ export default function WorkflowPage() {
                   setReuseWorkspaceOverride(null);
                 }}
                 aria-label="返回查看模式"
-                className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-100 transition-colors duration-200 cursor-pointer"
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 cursor-pointer"
               >
                 <ArrowLeft size={14} aria-hidden="true" />返回
               </button>
-              <h2 className="text-sm font-medium text-slate-100">选择执行节点</h2>
-              <span className="text-xs text-slate-500">
+              <h2 className="text-sm font-medium text-foreground">选择执行节点</h2>
+              <span className="text-xs text-muted-foreground">
                 （勾选需要执行的节点，START/END 始终执行）
               </span>
               {activeSchemeId && schemeModified && (
-                <span className="text-xs text-amber-400">
+                <span className="text-xs text-warning">
                   方案已修改（未保存）
                 </span>
               )}
               {activeSchemeId && !schemeModified && (
-                <span className="text-xs text-indigo-400">
+                <span className="text-xs text-primary">
                   方案：{schemes.find(s => s.id === activeSchemeId)?.name || ""}
                 </span>
               )}
@@ -862,7 +862,7 @@ export default function WorkflowPage() {
                 type="button"
                 onClick={handleSelectAll}
                 aria-label="批量全选所有节点"
-                className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-300 hover:bg-slate-800 hover:border-white/20 transition-colors cursor-pointer"
+                className="text-xs px-2.5 py-1 rounded border border-white/10 text-foreground hover:bg-secondary hover:border-white/20 transition-colors cursor-pointer"
               >
                 全选
               </button>
@@ -870,7 +870,7 @@ export default function WorkflowPage() {
                 type="button"
                 onClick={handleDeselectAll}
                 aria-label="批量取消全选所有节点"
-                className="text-xs px-2.5 py-1 rounded border border-white/10 text-slate-300 hover:bg-slate-800 hover:border-white/20 transition-colors cursor-pointer"
+                className="text-xs px-2.5 py-1 rounded border border-white/10 text-foreground hover:bg-secondary hover:border-white/20 transition-colors cursor-pointer"
               >
                 取消全选
               </button>
@@ -879,7 +879,7 @@ export default function WorkflowPage() {
               type="button"
               onClick={handleConfirmNodeSelect}
               aria-label="确认选择并进入参数填写"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors duration-200 cursor-pointer min-h-[44px]"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary text-white text-sm font-medium transition-colors duration-200 cursor-pointer min-h-[44px]"
             >
               下一步：填写参数<ArrowRight size={14} aria-hidden="true" />
             </button>
@@ -918,7 +918,7 @@ export default function WorkflowPage() {
       const effectiveSchemeId = (!schemeModified && activeSchemeId) ? activeSchemeId : undefined;
       const effectiveSelectedNodeIds = (schemeModified || !activeSchemeId) ? selectedNodeIds : undefined;
       return (
-        <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
           {renderTabBar()}
           <TaskParamFill
             workflowId={selectedId}
@@ -938,7 +938,7 @@ export default function WorkflowPage() {
     // 默认：模板卡片列表
     return (
       <>
-        <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
           {renderTabBar()}
           <WorkflowTemplatePanel
             workflows={workflows}
@@ -964,12 +964,12 @@ export default function WorkflowPage() {
 
   if (tab === "scripts") {
     return (
-      <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
         {renderTabBar()}
         <section id="wf-tabpanel-scripts" role="tabpanel" aria-label="脚本库管理" className="flex-1 min-h-0 flex flex-col">
-          <div className="px-6 py-4 border-b border-indigo-500/10 shrink-0">
-            <h2 className="text-lg font-semibold text-slate-100">脚本库</h2>
-            <p className="text-sm text-slate-400 mt-0.5">
+          <div className="px-6 py-4 border-b border-primary/10 shrink-0">
+            <h2 className="text-lg font-semibold text-foreground">脚本库</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
               管理可复用的 Shell/Python 脚本，供工作流脚本节点引用
             </p>
           </div>
@@ -983,7 +983,7 @@ export default function WorkflowPage() {
 
   return (
     <>
-      <div className="h-[calc(100dvh-3.5rem)] flex flex-col bg-slate-950">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
         {renderTabBar()}
         <section id="wf-tabpanel-history" role="tabpanel" aria-label="任务执行历史" className="flex-1 min-h-0">
           <TaskHistoryPanel

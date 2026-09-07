@@ -108,25 +108,25 @@ def test_startup_indexes_history_without_hydrating_terminal_workflow_sessions(
         isolated_sessions,
         "wf-finished",
         session_type="main",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-old",
-        task_description="Workflow: wf-example",
+        task_description="Workflow: wf-novel",
     )
     _write_session(
         isolated_sessions,
         "wf-running",
         session_type="main",
         status="running",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-live",
-        task_description="Workflow: wf-example",
+        task_description="Workflow: wf-novel",
     )
     _write_session(
         isolated_sessions,
         "sub-finished",
         session_type="sub",
         parent_id="wf-finished",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-old",
     )
     _write_session(
@@ -135,7 +135,7 @@ def test_startup_indexes_history_without_hydrating_terminal_workflow_sessions(
         session_type="sub",
         status="streaming",
         parent_id="wf-running",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-live",
     )
 
@@ -163,7 +163,7 @@ def test_external_workflow_session_refresh_discovers_and_invalidates_cold_copy(
         isolated_sessions,
         "wf-external",
         session_type="sub",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-live",
         content="first",
     )
@@ -177,7 +177,7 @@ def test_external_workflow_session_refresh_discovers_and_invalidates_cold_copy(
         isolated_sessions,
         "wf-external",
         session_type="sub",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-live",
         content="second",
     )
@@ -214,7 +214,7 @@ def test_split_controller_cold_read_preserves_live_workflow_sub_status(
         "workflow-live-sub",
         session_type="sub",
         status="streaming",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-live",
         runtime_scope="workflow",
     )
@@ -317,7 +317,7 @@ def test_historical_session_load_is_bounded_by_lru(isolated_sessions):
             isolated_sessions,
             session_id,
             session_type="sub",
-            workflow_id="wf-example",
+            workflow_id="wf-novel",
             task_id=f"task-{session_id}",
         )
 
@@ -616,7 +616,7 @@ def test_dirty_historical_session_is_flushed_before_shutdown(isolated_sessions):
         isolated_sessions,
         "cold-a",
         session_type="sub",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-1",
     )
     manager = SessionManager(cold_cache_max_entries=1)
@@ -640,7 +640,7 @@ def test_terminal_workflow_release_preserves_history_and_interactive_main(
     workflow_session = AgentSession(
         session_id="wf-runtime",
         session_type="sub",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-1",
         runtime_scope="workflow",
     )
@@ -651,7 +651,7 @@ def test_terminal_workflow_release_preserves_history_and_interactive_main(
     interactive_main = AgentSession(
         session_id="chat-main",
         session_type="main",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-1",
         runtime_scope="interactive",
     )
@@ -659,7 +659,7 @@ def test_terminal_workflow_release_preserves_history_and_interactive_main(
     manager.register_main(interactive_main)
 
     result = asyncio.run(
-        manager.release_workflow_task_sessions("wf-example", "task-1")
+        manager.release_workflow_task_sessions("wf-novel", "task-1")
     )
 
     assert result == {"matched": 1, "released": 1, "retained": 0}
@@ -710,7 +710,7 @@ def test_final_save_failure_retains_workflow_session(isolated_sessions, monkeypa
     session = AgentSession(
         session_id="wf-runtime",
         session_type="sub",
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-1",
         runtime_scope="workflow",
     )
@@ -722,7 +722,7 @@ def test_final_save_failure_retains_workflow_session(isolated_sessions, monkeypa
 
     monkeypatch.setattr(session, "async_save", fail_save)
     result = asyncio.run(
-        manager.release_workflow_task_sessions("wf-example", "task-1")
+        manager.release_workflow_task_sessions("wf-novel", "task-1")
     )
 
     assert result == {"matched": 1, "released": 0, "retained": 1}
@@ -744,7 +744,7 @@ def test_terminal_task_is_saved_before_session_release(tmp_path, monkeypatch):
 
     manager = WorkflowManager(RecordingSessionManager())
     task = WorkflowTask(
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-1",
         status="running",
     )
@@ -757,9 +757,9 @@ def test_terminal_task_is_saved_before_session_release(tmp_path, monkeypatch):
     manager._engine = CompletedEngine()
     asyncio.run(
         manager._run_task_coroutine(
-            "wf-example",
+            "wf-novel",
             "task-1",
-            WorkflowDef(workflow_id="wf-example"),
+            WorkflowDef(workflow_id="wf-novel"),
             task,
             None,
         )
@@ -887,7 +887,7 @@ def test_retry_waiting_task_keeps_runtime_sessions():
 
     manager = WorkflowManager(RecordingSessionManager())
     task = WorkflowTask(
-        workflow_id="wf-example",
+        workflow_id="wf-novel",
         task_id="task-1",
         status="retry_waiting",
     )

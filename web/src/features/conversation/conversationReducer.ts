@@ -336,6 +336,20 @@ function reduceServerEvent(
         generationId: event.generationId,
         phase: "streaming",
         status: "streaming",
+        messages:
+          next.retryingFailureId &&
+          next.failedTurn?.failureId === next.retryingFailureId
+            ? normalizeMessages([
+                ...next.messages,
+                {
+                  type: "user",
+                  content: next.failedTurn.content,
+                  ...(next.failedTurn.attachments.length
+                    ? { attachments: next.failedTurn.attachments }
+                    : {}),
+                },
+              ])
+            : next.messages,
         streamingSegments: [],
         isStreaming: true,
         needsResync: false,

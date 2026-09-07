@@ -400,20 +400,25 @@ class WorkflowEngine(WorkflowFlowMixin, WorkflowLoopMixin):
     # 单节点执行（插件分发）
     # ============================================================
 
-    async def _execute_node(self, definition: WorkflowDef, node_def: WorkflowNode,
-                            node_state: NodeExecutionState, shared_ws: Path | None,
-                            parent_id: str | None = None,
-                            on_node_started: Callable | None = None,
-                            parameter_values: dict[str, str] | None = None,
-                            node_states: dict[str, NodeExecutionState] | None = None,
-                            workflow_id: str = "",
-                            task_id: str = "",
-                            task_name: str = "",
-                            execution_order: list[str] | None = None,
-                            node_index: int = 0,
-                            needs_approval: bool = False,
-                            on_reject_upstream: Callable | None = None,
-                            on_node_checkpoint: Callable | None = None) -> NodeExecutionState:
+    async def _execute_node(
+        self,
+        definition: WorkflowDef,
+        node_def: WorkflowNode,
+        node_state: NodeExecutionState,
+        shared_ws: Path | None,
+        parent_id: str | None = None,
+        on_node_started: Callable | None = None,
+        parameter_values: dict[str, str] | None = None,
+        node_states: dict[str, NodeExecutionState] | None = None,
+        workflow_id: str = "",
+        task_id: str = "",
+        task_name: str = "",
+        execution_order: list[str] | None = None,
+        node_index: int = 0,
+        needs_approval: bool = False,
+        on_reject_upstream: Callable | None = None,
+        on_node_checkpoint: Callable | None = None,
+    ) -> NodeExecutionState:
         """分发节点执行 — 根据 node_type 查找插件并调用 execute()。"""
         node_type = node_def.node_type or "agent"
         plugin_cls = registry.get(node_type)
@@ -545,18 +550,6 @@ class WorkflowEngine(WorkflowFlowMixin, WorkflowLoopMixin):
                 parameter_values[var_key] = var_value
 
         return node_state
-
-    @staticmethod
-    def _get_max_reject_count(node_def: WorkflowNode) -> int:
-        """读取节点最大打回次数，脚本节点可从 node_params 覆盖。"""
-        raw = (node_def.node_params or {}).get(
-            "max_reject_count",
-            getattr(node_def, "max_reject_count", 3),
-        )
-        try:
-            return max(0, int(raw))
-        except (TypeError, ValueError):
-            return 3
 
     @staticmethod
     def _merge_token_usage(previous: dict | None, current: dict | None) -> dict | None:

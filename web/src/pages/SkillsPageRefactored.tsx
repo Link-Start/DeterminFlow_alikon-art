@@ -210,9 +210,9 @@ export default function SkillsPageRefactored() {
           <Card><CardHeader className="pb-3"><CardTitle className="text-sm">总计</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold tabular-nums">{stats.total}</div></CardContent></Card>
           <Card><CardHeader className="pb-3"><CardTitle className="text-sm">已启用</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-emerald-500 tabular-nums">{stats.enabled}</div></CardContent></Card>
+            <CardContent><div className="text-2xl font-bold text-success tabular-nums">{stats.enabled}</div></CardContent></Card>
           <Card><CardHeader className="pb-3"><CardTitle className="text-sm">已禁用</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-slate-400 tabular-nums">{stats.disabled}</div></CardContent></Card>
+            <CardContent><div className="text-2xl font-bold text-muted-foreground tabular-nums">{stats.disabled}</div></CardContent></Card>
         </div>
       )}
 
@@ -239,7 +239,7 @@ export default function SkillsPageRefactored() {
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm flex items-center gap-2">
                               {skill.name}
-                              {skill.auto_inject && <Zap className="w-3 h-3 text-amber-400" aria-hidden="true" />}
+                              {skill.auto_inject && <Zap className="w-3 h-3 text-warning" aria-hidden="true" />}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{skill.description}</div>
                             <div className="flex gap-1 mt-2 flex-wrap">
@@ -250,7 +250,7 @@ export default function SkillsPageRefactored() {
                             </div>
                           </div>
                         </div>
-                        {skill.enabled ? <><Power className="w-4 h-4 text-emerald-500" aria-hidden="true" /><span className="sr-only">已启用</span></> : <><PowerOff className="w-4 h-4 text-slate-400" aria-hidden="true" /><span className="sr-only">已禁用</span></>}
+                        {skill.enabled ? <><Power className="w-4 h-4 text-success" aria-hidden="true" /><span className="sr-only">已启用</span></> : <><PowerOff className="w-4 h-4 text-muted-foreground" aria-hidden="true" /><span className="sr-only">已禁用</span></>}
                       </div>
                     </div>
                   );
@@ -268,10 +268,10 @@ export default function SkillsPageRefactored() {
                   <div><CardTitle>{selectedSkill.name}</CardTitle><CardDescription>{selectedSkill.description}</CardDescription></div>
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => toggleAutoInject(selectedSkill.id, !selectedSkill.auto_inject)} aria-label={selectedSkill.auto_inject ? '关闭自动注入' : '开启自动注入'} className="focus-visible:ring-2 focus-visible:ring-primary/50">
-                      {selectedSkill.auto_inject ? <><Zap className="w-4 h-4 mr-2 text-amber-400" aria-hidden="true" />自动注入</> : <><Snowflake className="w-4 h-4 mr-2" aria-hidden="true" />手动获取</>}
+                      {selectedSkill.auto_inject ? <><Zap className="w-4 h-4 mr-2 text-warning" aria-hidden="true" />自动注入</> : <><Snowflake className="w-4 h-4 mr-2" aria-hidden="true" />手动获取</>}
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => toggleWorkflowOnly(selectedSkill.id, !selectedSkill.workflow_only)} aria-label={selectedSkill.workflow_only ? '设为通用' : '设为工作流专属'} className="focus-visible:ring-2 focus-visible:ring-primary/50">
-                      {selectedSkill.workflow_only ? <><Workflow className="w-4 h-4 mr-2 text-purple-400" aria-hidden="true" />工作流专属</> : <><Workflow className="w-4 h-4 mr-2" aria-hidden="true" />通用</>}
+                      {selectedSkill.workflow_only ? <><Workflow className="w-4 h-4 mr-2 text-primary" aria-hidden="true" />工作流专属</> : <><Workflow className="w-4 h-4 mr-2" aria-hidden="true" />通用</>}
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => toggleSkill(selectedSkill.id, !selectedSkill.enabled)} aria-label={selectedSkill.enabled ? '禁用技能' : '启用技能'} className="focus-visible:ring-2 focus-visible:ring-primary/50">
                       {selectedSkill.enabled ? <><PowerOff className="w-4 h-4 mr-2" aria-hidden="true" />禁用</> : <><Power className="w-4 h-4 mr-2" aria-hidden="true" />启用</>}
@@ -287,7 +287,7 @@ export default function SkillsPageRefactored() {
                   <div><div className="font-medium">作者</div><div className="text-muted-foreground">{selectedSkill.author || '未知'}</div></div>
                   <div><div className="font-medium">自动注入</div><div className="text-muted-foreground">{selectedSkill.auto_inject ? '是' : '否'}</div></div>
                   <div><div className="font-medium">工作流专属</div><div className="text-muted-foreground">{selectedSkill.workflow_only ? '是' : '否'}</div></div>
-                  <div><div className="font-medium">状态</div><div className="text-muted-foreground flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${selectedSkill.enabled ? 'bg-emerald-500' : 'bg-slate-500'}`} aria-hidden="true" />{selectedSkill.enabled ? '已启用' : '已禁用'}</div></div>
+                  <div><div className="font-medium">状态</div><div className="text-muted-foreground flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${selectedSkill.enabled ? 'bg-success' : 'bg-muted-foreground'}`} aria-hidden="true" />{selectedSkill.enabled ? '已启用' : '已禁用'}</div></div>
                 </div>
 
                 {/* 使用共享的组编辑器 */}

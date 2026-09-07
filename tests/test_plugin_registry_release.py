@@ -4,6 +4,7 @@ import base64
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import pytest
@@ -14,9 +15,11 @@ from src.plugin_system.registry import (
     parse_registry_manifest,
     verify_manifest_signature,
 )
+from src.plugin_system import registry_release
 from src.plugin_system.registry_release import (
     PluginRegistryReleaseError,
     R2RegistryPublisher,
+    S3CompatibleRegistryPublisher,
     build_registry,
     decode_ed25519_private_key,
     publish_registry,
@@ -82,7 +85,6 @@ def test_registry_build_is_deterministic_and_client_verifiable(tmp_path: Path) -
         source_url=SOURCE_URL,
         ref="main",
         output=first,
-        public_base_url=REGISTRY_URL,
         private_key=private_key,
     )
     build_registry(
@@ -90,11 +92,13 @@ def test_registry_build_is_deterministic_and_client_verifiable(tmp_path: Path) -
         source_url=SOURCE_URL,
         ref="main",
         output=second,
-        public_base_url=REGISTRY_URL,
         private_key=private_key,
     )
 
     assert manifest["resolved_commit"] == commit
+    package = manifest["plugins"][0]["package"]
+    assert "url" not in package
+    assert package["path"].startswith("packages/demo-plugin/")
     manifest_bytes = (first / "manifest.json").read_bytes()
     signature = (first / "manifest.json.sig").read_bytes()
     verify_manifest_signature(
@@ -102,14 +106,11 @@ def test_registry_build_is_deterministic_and_client_verifiable(tmp_path: Path) -
         signature,
         private_key.public_key().public_bytes_raw(),
     )
-    parsed = parse_registry_manifest(
-        json.loads(manifest_bytes),
-        registry_url=REGISTRY_URL,
-    )
+    parsed = parse_registry_manifest(json.loads(manifest_bytes))
     assert parsed.source == SOURCE_URL
     assert parsed.plugins[0].ref == "main"
     assert parsed.plugins[0].commit == commit
-    package_relative = parsed.plugins[0].package_url.removeprefix(f"{REGISTRY_URL}/")
+    package_relative = parsed.plugins[0].package_path
     assert (first / package_relative).read_bytes() == (second / package_relative).read_bytes()
     assert manifest_bytes == (second / "manifest.json").read_bytes()
     assert signature == (second / "manifest.json.sig").read_bytes()
@@ -129,7 +130,6 @@ def test_registry_build_rejects_git_symlinks(tmp_path: Path) -> None:
             source_url=SOURCE_URL,
             ref="main",
             output=tmp_path / "registry",
-            public_base_url=REGISTRY_URL,
             private_key=Ed25519PrivateKey.generate(),
         )
 
@@ -153,13 +153,12 @@ def test_registry_publish_updates_manifest_last(tmp_path: Path) -> None:
         source_url=SOURCE_URL,
         ref="main",
         output=registry,
-        public_base_url=REGISTRY_URL,
         private_key=Ed25519PrivateKey.generate(),
     )
     calls: list[tuple[str, str]] = []
 
     class RecordingPublisher:
-        public_base_url = "https://downloads.determinflow.com"
+        public_base_url = None
 
         def publish_immutable(self, _path: Path, key: str) -> None:
             calls.append(("immutable", key))
@@ -195,12 +194,105 @@ def test_registry_publish_rejects_changed_immutable_object(tmp_path: Path) -> No
             stderr="",
         )
 
-    publisher = R2RegistryPublisher(
+    publisher = S3CompatibleRegistryPublisher(
         bucket="downloads",
         endpoint_url="https://example.r2.cloudflarestorage.com",
-        public_base_url="https://downloads.determinflow.com",
         runner=runner,
     )
 
-    with pytest.raises(PluginRegistryReleaseError, match="immutable R2 object"):
+    with pytest.raises(PluginRegistryReleaseError, match="immutable object"):
         publisher.publish_immutable(asset, "plugins/v1/packages/demo/package.zip")
+
+
+def test_s3_publisher_verifies_via_get_object_without_public_base(tmp_path: Path) -> None:
+    asset = tmp_path / "package.zip"
+    asset.write_bytes(b"package")
+    calls: list[list[str]] = []
+
+    def runner(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(list(args))
+        if "head-object" in args:
+            return subprocess.CompletedProcess(args, 1, stdout="", stderr="Not Found")
+        if "put-object" in args:
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        if "get-object" in args:
+            destination = Path(args[-1])
+            destination.write_bytes(b"package")
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        raise AssertionError(args)
+
+    publisher = S3CompatibleRegistryPublisher(
+        bucket="downloads",
+        endpoint_url="https://s3.example.invalid",
+        runner=runner,
+    )
+    publisher.publish_immutable(asset, "plugins/v1/packages/demo/package.zip")
+
+    assert any("put-object" in arguments for arguments in calls)
+    assert any("get-object" in arguments for arguments in calls)
+    assert R2RegistryPublisher is S3CompatibleRegistryPublisher
+
+
+def test_cli_publish_s3_does_not_require_public_base(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_publish(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(registry_release, "publish_registry", fake_publish)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "registry_release",
+            "publish-s3",
+            "--registry-dir",
+            str(tmp_path),
+            "--bucket",
+            "downloads",
+            "--endpoint-url",
+            "https://s3.example.invalid",
+        ],
+    )
+
+    assert registry_release.main() == 0
+    publisher = captured["publisher"]
+    assert isinstance(publisher, S3CompatibleRegistryPublisher)
+    assert publisher.public_base_url is None
+    assert captured["prefix"] == "plugins/v1"
+
+
+def test_cli_publish_still_accepts_public_base_url(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_publish(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(registry_release, "publish_registry", fake_publish)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "registry_release",
+            "publish",
+            "--registry-dir",
+            str(tmp_path),
+            "--bucket",
+            "downloads",
+            "--endpoint-url",
+            "https://s3.example.invalid",
+            "--public-base-url",
+            "https://downloads.determinflow.com",
+        ],
+    )
+
+    assert registry_release.main() == 0
+    publisher = captured["publisher"]
+    assert isinstance(publisher, S3CompatibleRegistryPublisher)
+    assert publisher.public_base_url == "https://downloads.determinflow.com/"

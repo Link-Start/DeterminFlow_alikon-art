@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 import src.config as config_module
 import src.core.llm_client as llm_client_module
 import src.workflow.manager as workflow_manager_module
-import src.workflow.task_recovery as task_recovery_module
 from src.core.workspace_manager import WorkspaceManager
 from src.web.workflow_node_control_routes import router
 from src.workflow.definition import (
@@ -55,7 +54,6 @@ def _manager(tmp_path, monkeypatch) -> WorkflowManager:
     workflows_dir = tmp_path / "workflows"
     monkeypatch.setattr(config_module, "WORKFLOWS_DIR", workflows_dir)
     monkeypatch.setattr(workflow_manager_module, "WORKFLOWS_DIR", workflows_dir)
-    monkeypatch.setattr(task_recovery_module, "WORKFLOWS_DIR", workflows_dir)
     manager = WorkflowManager(_SessionManager())
     manager._ws_manager = WorkspaceManager(
         base_dir=str(tmp_path / "workspace-root")
@@ -467,11 +465,7 @@ def test_main_takeover_fails_before_start_when_owner_is_not_resident(
 def test_manager_runs_zero_delay_automatic_retry_end_to_end(
     tmp_path, monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        llm_client_module,
-        "create_llm",
-        lambda **_kwargs: object(),
-    )
+    monkeypatch.setattr(llm_client_module, "create_llm", lambda **_kwargs: object())
     manager = _manager(tmp_path, monkeypatch)
     workflow_id = "wf-auto-integration"
     task_id = "task-auto-integration"

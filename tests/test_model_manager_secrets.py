@@ -50,6 +50,33 @@ def test_provider_api_key_is_resolved_without_mutating_config(
     assert manager.get_provider("demo")["name"] == "Renamed"
 
 
+def test_provider_context_window_can_be_updated_and_persisted(tmp_path: Path) -> None:
+    config_path = tmp_path / "models_config.json"
+    config_path.write_text(
+        json.dumps({
+            "providers": {
+                "demo": {
+                    "name": "Demo",
+                    "api_key": "",
+                    "models": ["demo-model"],
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+    manager = ModelManager(str(config_path))
+
+    assert manager.get_model_info("demo:demo-model")["maxContextTokens"] == (
+        DEFAULT_MAX_CONTEXT_TOKENS
+    )
+
+    manager.update_provider("demo", {"maxContextTokens": 64000})
+
+    persisted = json.loads(config_path.read_text(encoding="utf-8"))
+    assert persisted["providers"]["demo"]["maxContextTokens"] == 64000
+    assert manager.get_model_info("demo:demo-model")["maxContextTokens"] == 64000
+
+
 def test_provider_base_url_is_normalized_on_load(tmp_path: Path) -> None:
     config_path = tmp_path / "models_config.json"
     config_path.write_text(
@@ -222,33 +249,6 @@ def test_empty_provider_base_url_is_supported(tmp_path: Path) -> None:
     manager.update_provider("demo", {"base_url": None})
 
     assert manager.get_all_providers()["demo"]["base_url"] == ""
-
-
-def test_provider_context_window_can_be_updated_and_persisted(tmp_path: Path) -> None:
-    config_path = tmp_path / "models_config.json"
-    config_path.write_text(
-        json.dumps({
-            "providers": {
-                "demo": {
-                    "name": "Demo",
-                    "api_key": "",
-                    "models": ["demo-model"],
-                }
-            }
-        }),
-        encoding="utf-8",
-    )
-    manager = ModelManager(str(config_path))
-
-    assert manager.get_model_info("demo:demo-model")["maxContextTokens"] == (
-        DEFAULT_MAX_CONTEXT_TOKENS
-    )
-
-    manager.update_provider("demo", {"maxContextTokens": 64000})
-
-    persisted = json.loads(config_path.read_text(encoding="utf-8"))
-    assert persisted["providers"]["demo"]["maxContextTokens"] == 64000
-    assert manager.get_model_info("demo:demo-model")["maxContextTokens"] == 64000
 
 
 def test_provider_api_key_does_not_guess_an_environment_variable(
@@ -473,7 +473,7 @@ def test_no_provider_has_no_hardcoded_default(tmp_path: Path) -> None:
     assert manager.get_model_info() == {
         "provider_id": "",
         "model_name": "",
-        "maxContextTokens": 128000,
+        "maxContextTokens": DEFAULT_MAX_CONTEXT_TOKENS,
         "provider_name": "",
     }
 

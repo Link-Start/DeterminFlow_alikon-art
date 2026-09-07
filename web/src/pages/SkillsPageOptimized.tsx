@@ -229,9 +229,9 @@ export default function SkillsPageOptimized() {
   };
 
   const getPriorityColor = (priority: number) => {
-    if (priority >= 8) return 'bg-red-500/20 text-red-400 border-red-500/30';
-    if (priority >= 5) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-    return 'bg-green-500/20 text-green-400 border-green-500/30';
+    if (priority >= 8) return 'bg-destructive/20 text-destructive border-destructive/30';
+    if (priority >= 5) return 'bg-warning/20 text-warning border-warning/30';
+    return 'bg-success/20 text-success border-success/30';
   };
 
   const getGroupNames = (skill: Skill) => {
@@ -287,7 +287,7 @@ export default function SkillsPageOptimized() {
       {/* 统计卡片 */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -301,43 +301,43 @@ export default function SkillsPageOptimized() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">已启用</p>
-                  <p className="text-2xl font-bold text-emerald-400 tabular-nums">{stats.enabled}</p>
+                  <p className="text-2xl font-bold text-success tabular-nums">{stats.enabled}</p>
                 </div>
-                <div className="p-2 bg-emerald-500/10 rounded-lg">
-                  <Power className="w-5 h-5 text-emerald-400" aria-hidden="true" />
+                <div className="p-2 bg-success/10 rounded-lg">
+                  <Power className="w-5 h-5 text-success" aria-hidden="true" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">已禁用</p>
-                  <p className="text-2xl font-bold text-slate-400 tabular-nums">{stats.disabled}</p>
+                  <p className="text-2xl font-bold text-muted-foreground tabular-nums">{stats.disabled}</p>
                 </div>
-                <div className="p-2 bg-slate-500/10 rounded-lg">
-                  <PowerOff className="w-5 h-5 text-slate-400" aria-hidden="true" />
+                <div className="p-2 bg-muted-foreground/10 rounded-lg">
+                  <PowerOff className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">分组数</p>
-                  <p className="text-2xl font-bold text-slate-200 tabular-nums">{groups.length}</p>
+                  <p className="text-2xl font-bold text-foreground tabular-nums">{groups.length}</p>
                 </div>
-                <div className="p-2 bg-slate-500/10 rounded-lg">
-                  <Layers className="w-5 h-5 text-slate-400" aria-hidden="true" />
+                <div className="p-2 bg-muted-foreground/10 rounded-lg">
+                  <Layers className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
                 </div>
               </div>
             </CardContent>
@@ -354,14 +354,14 @@ export default function SkillsPageOptimized() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           aria-label="搜索技能"
-          className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 min-h-[44px]"
+          className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 min-h-[44px]"
         />
       </div>
 
       {/* 主要内容区域 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 左侧：技能列表 */}
-        <Card className="lg:col-span-1 bg-slate-900 border-slate-700">
+        <Card className="lg:col-span-1 bg-card border-border">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">技能列表</CardTitle>
@@ -389,7 +389,7 @@ export default function SkillsPageOptimized() {
                         className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
                           selectedSkill?.id === skill.id
                             ? 'border-primary bg-primary/10 shadow-lg motion-reduce:shadow-none shadow-primary/10'
-                            : 'border-slate-700 hover:border-slate-600 hover:bg-slate-800/50'
+                            : 'border-border hover:border-border hover:bg-secondary/50'
                         }`}
                         onClick={() => loadDetail(skill.id)}
                         role="button"
@@ -403,16 +403,16 @@ export default function SkillsPageOptimized() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className="p-2 bg-slate-800 rounded-lg border border-slate-700">
+                            <div className="p-2 bg-secondary rounded-lg border border-border">
                               {getCategoryIcon(skill.category)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <h3 className="font-medium text-sm text-slate-200 truncate">
+                                <h3 className="font-medium text-sm text-foreground truncate">
                                   {skill.name}
                                 </h3>
                                 {skill.auto_inject && (
-                                  <Zap className="w-3 h-3 text-amber-400" aria-hidden="true" />
+                                  <Zap className="w-3 h-3 text-warning" aria-hidden="true" />
                                 )}
                               </div>
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -439,7 +439,7 @@ export default function SkillsPageOptimized() {
                           <div className="flex items-center gap-2 ml-2">
                             <div
                               className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                skill.enabled ? 'bg-emerald-500' : 'bg-slate-500'
+                                skill.enabled ? 'bg-success' : 'bg-muted-foreground'
                               }`}
                               title={skill.enabled ? '已启用' : '已禁用'}
                               aria-hidden="true"
@@ -459,7 +459,7 @@ export default function SkillsPageOptimized() {
         {/* 右侧：技能详情 */}
         <div className="lg:col-span-2">
           {selectedSkill ? (
-            <Card className="bg-slate-900 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-4">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1">
@@ -483,12 +483,12 @@ export default function SkillsPageOptimized() {
                       variant="outline"
                       size="sm"
                       onClick={() => toggleAutoInject(selectedSkill.id, !selectedSkill.auto_inject)}
-                      className={`focus-visible:ring-2 focus-visible:ring-primary/50 ${selectedSkill.auto_inject ? 'border-amber-500/50 text-amber-400' : ''}`}
+                      className={`focus-visible:ring-2 focus-visible:ring-primary/50 ${selectedSkill.auto_inject ? 'border-warning/50 text-warning' : ''}`}
                       aria-label={selectedSkill.auto_inject ? '关闭自动注入' : '开启自动注入'}
                     >
                       {selectedSkill.auto_inject ? (
                         <>
-                          <Zap className="w-4 h-4 mr-1 text-amber-400" aria-hidden="true" />自动注入
+                          <Zap className="w-4 h-4 mr-1 text-warning" aria-hidden="true" />自动注入
                         </>
                       ) : (
                         <>
@@ -501,7 +501,7 @@ export default function SkillsPageOptimized() {
                       variant="outline"
                       size="sm"
                       onClick={() => toggleWorkflowOnly(selectedSkill.id, !selectedSkill.workflow_only)}
-                      className={`focus-visible:ring-2 focus-visible:ring-primary/50 ${selectedSkill.workflow_only ? 'border-purple-500/50 text-purple-400' : ''}`}
+                      className={`focus-visible:ring-2 focus-visible:ring-primary/50 ${selectedSkill.workflow_only ? 'border-primary/50 text-primary' : ''}`}
                       aria-label={selectedSkill.workflow_only ? '设为通用' : '设为工作流专属'}
                     >
                       <Workflow className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -512,7 +512,7 @@ export default function SkillsPageOptimized() {
                       variant="outline"
                       size="sm"
                       onClick={() => toggleSkill(selectedSkill.id, !selectedSkill.enabled)}
-                      className={`focus-visible:ring-2 focus-visible:ring-primary/50 ${selectedSkill.enabled ? 'border-emerald-500/50 text-emerald-400' : 'border-slate-600'}`}
+                      className={`focus-visible:ring-2 focus-visible:ring-primary/50 ${selectedSkill.enabled ? 'border-success/50 text-success' : 'border-border'}`}
                       aria-label={selectedSkill.enabled ? '禁用技能' : '启用技能'}
                     >
                       {selectedSkill.enabled ? (
@@ -539,25 +539,25 @@ export default function SkillsPageOptimized() {
                   <>
                     {/* 技能信息网格 */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-secondary rounded-lg border border-border">
                         <p className="text-xs font-medium text-muted-foreground">分类</p>
                         <p className="text-sm font-medium text-white mt-1">
                           {getCategoryLabel(selectedSkill.category)}
                         </p>
                       </div>
-                      <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-secondary rounded-lg border border-border">
                         <p className="text-xs font-medium text-muted-foreground">优先级</p>
                         <p className="text-sm font-medium text-white mt-1">
                           {selectedSkill.priority}
                         </p>
                       </div>
-                      <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-secondary rounded-lg border border-border">
                         <p className="text-xs font-medium text-muted-foreground">版本</p>
                         <p className="text-sm font-medium text-white mt-1">
                           {selectedSkill.version}
                         </p>
                       </div>
-                      <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-secondary rounded-lg border border-border">
                         <p className="text-xs font-medium text-muted-foreground">作者</p>
                         <p className="text-sm font-medium text-white mt-1">
                           {selectedSkill.author || '未知'}
@@ -567,22 +567,22 @@ export default function SkillsPageOptimized() {
 
                     {/* 状态信息 */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-secondary rounded-lg border border-border">
                         <p className="text-xs font-medium text-muted-foreground">状态</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <div className={`w-2 h-2 rounded-full ${selectedSkill.enabled ? 'bg-emerald-500' : 'bg-slate-500'}`} aria-hidden="true" />
+                          <div className={`w-2 h-2 rounded-full ${selectedSkill.enabled ? 'bg-success' : 'bg-muted-foreground'}`} aria-hidden="true" />
                           <p className="text-sm font-medium text-white">
                             {selectedSkill.enabled ? '已启用' : '已禁用'}
                           </p>
                         </div>
                       </div>
-                      <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-secondary rounded-lg border border-border">
                         <p className="text-xs font-medium text-muted-foreground">自动注入</p>
                         <p className="text-sm font-medium text-white mt-1">
                           {selectedSkill.auto_inject ? '是' : '否'}
                         </p>
                       </div>
-                      <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-secondary rounded-lg border border-border">
                         <p className="text-xs font-medium text-muted-foreground">工作流专属</p>
                         <p className="text-sm font-medium text-white mt-1">
                           {selectedSkill.workflow_only ? '是' : '否'}
@@ -605,7 +605,7 @@ export default function SkillsPageOptimized() {
                     {/* 标签 */}
                     {selectedSkill.tags.length > 0 && (
                       <div>
-                        <h4 className="text-sm font-medium text-slate-300 mb-2">标签</h4>
+                        <h4 className="text-sm font-medium text-foreground mb-2">标签</h4>
                         <div className="flex flex-wrap gap-2">
                           {selectedSkill.tags.map(tag => (
                             <Badge key={tag} variant="secondary" className="text-xs">
@@ -618,10 +618,10 @@ export default function SkillsPageOptimized() {
 
                     {/* 内容预览 */}
                     <div>
-                      <h4 className="text-sm font-medium text-slate-300 mb-2">内容预览</h4>
-                      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                      <h4 className="text-sm font-medium text-foreground mb-2">内容预览</h4>
+                      <div className="bg-secondary rounded-lg border border-border p-4">
                         <ScrollArea className="h-[300px]">
-                          <pre className="text-sm text-slate-300 whitespace-pre-wrap font-mono">
+                          <pre className="text-sm text-foreground whitespace-pre-wrap font-mono">
                             {selectedSkill.content}
                           </pre>
                         </ScrollArea>
@@ -632,13 +632,13 @@ export default function SkillsPageOptimized() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-slate-900 border-slate-700 h-[600px]">
+            <Card className="bg-card border-border h-[600px]">
               <CardContent className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <div className="p-4 bg-slate-800 rounded-full border border-slate-700 w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                    <Eye className="w-8 h-8 text-slate-500" aria-hidden="true" />
+                  <div className="p-4 bg-secondary rounded-full border border-border w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                    <Eye className="w-8 h-8 text-muted-foreground" aria-hidden="true" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-300 mb-2">
+                  <h3 className="text-lg font-medium text-foreground mb-2">
                     选择技能查看详情
                   </h3>
                   <p className="text-sm text-muted-foreground max-w-sm">

@@ -40,10 +40,30 @@ class ConfigRequest(BaseModel):
     settings: dict[str, Any]
 
 
+class PluginDistributionConfig(BaseModel):
+    endpoints: list[str] | None = None
+    url: str | None = None
+    public_key: str = Field(min_length=1, max_length=512)
+
+
 class PluginSourceRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     url: str = Field(min_length=1, max_length=4096)
     ref: str = Field(default="HEAD", min_length=1, max_length=512)
+    registry: PluginDistributionConfig | None = None
+
+
+def _registry_payload(
+    registry: PluginDistributionConfig | None,
+) -> dict[str, Any] | None:
+    if registry is None:
+        return None
+    payload: dict[str, Any] = {"public_key": registry.public_key}
+    if registry.endpoints is not None:
+        payload["endpoints"] = registry.endpoints
+    if registry.url is not None:
+        payload["url"] = registry.url
+    return payload
 
 
 def _management(request: Request):
@@ -146,6 +166,7 @@ async def create_plugin_source(
             name=payload.name,
             url=payload.url,
             ref=payload.ref,
+            registry=_registry_payload(payload.registry),
         )
     except Exception as exc:
         _raise_http_error(exc)
@@ -168,6 +189,7 @@ async def update_plugin_source(
             name=payload.name,
             url=payload.url,
             ref=payload.ref,
+            registry=_registry_payload(payload.registry),
         )
     except Exception as exc:
         _raise_http_error(exc)

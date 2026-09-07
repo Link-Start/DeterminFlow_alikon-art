@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
+from typing import Annotated, Callable
 
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.tools import InjectedToolArg, StructuredTool
+from pydantic import BaseModel
 
 import src.agent.session as session_module
 import src.agent.session_lifecycle as lifecycle_module
 from src.agent.extension_sessions import ExtensionSessionRuntime
 from src.agent.session import AgentSession
 from src.agent.session_manager import SessionManager
+from src.web.api_routes import get_session_system_prompt
 
 
 @pytest.fixture
@@ -62,6 +67,10 @@ async def _test_detached_session_is_parentless(detached_runtime, monkeypatch):
     assert session.workspace_path is None
     assert session.lifecycle_profile == "detached_conversation"
     assert manager.main_session_id == "existing-main"
+    summary = manager._session_catalog.get(ref.session_id).to_summary()
+    assert summary["runtime_scope"] == "interactive"
+    assert summary["lifecycle_profile"] == "detached_conversation"
+    assert summary["resource_owner"] == "example-plugin"
 
     async def send_message(self, content, **kwargs):
         self.record.extend(
@@ -78,6 +87,196 @@ async def _test_detached_session_is_parentless(detached_runtime, monkeypatch):
     persisted = AgentSession.load(ref.session_id)
     assert persisted is not None
     assert persisted.record[-1]["content"] == "reply"
+
+
+def test_prompt_inspection_resolves_cold_detached_tools_without_rehydrating(
+    monkeypatch,
+):
+    def query_account() -> str:
+        """查询账号概况。"""
+        return "ok"
+
+    tool = StructuredTool.from_function(
+        query_account,
+        name="novelbuilt_account",
+        description="查询账号概况",
+    )
+
+    class FakeAssembler:
+        def __init__(self):
+            self.calls = []
+
+        def build(self, agent_type, **kwargs):
+            self.calls.append((agent_type, kwargs))
+            return [tool]
+
+    agent_def = SimpleNamespace(agent_type="plugin-page-assistant")
+    monkeypatch.setattr(
+        "src.agent.definition.get_agent_definition",
+        lambda agent_type: agent_def if agent_type == agent_def.agent_type else None,
+    )
+    monkeypatch.setattr(
+        "src.core.model_manager.get_model_manager",
+        lambda: SimpleNamespace(
+            get_default_model=lambda: "provider:model",
+            get_default_params=lambda: {"temperature": 0.7},
+            get_provider=lambda _provider_id: {},
+        ),
+    )
+    manager = SessionManager()
+    assembler = FakeAssembler()
+    manager._tool_assembler = assembler
+    session = AgentSession(
+        session_id="cold-detached",
+        session_type="sub",
+        agent_type=agent_def.agent_type,
+        lifecycle_profile="detached_conversation",
+        system_prompt="system",
+    )
+    session.status = "completed"
+    session.compiled_graph = None
+    session.tools = []
+    manager.sessions[session.session_id] = session
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(session_manager=manager),
+        ),
+    )
+
+    response = asyncio.run(get_session_system_prompt(session.session_id, request))
+
+    assert response["tools_count"] == 1
+    assert response["tools"][0]["name"] == "novelbuilt_account"
+    assert response["tools"][0]["description"] == "查询账号概况"
+    assert response["tools"][0]["schema"]["function"]["name"] == "novelbuilt_account"
+    assert assembler.calls == [
+        (
+            agent_def.agent_type,
+            {
+                "is_workflow_node": False,
+                "agent_definition": agent_def,
+                "workspace_path": "",
+                "enable_complete_node_task": False,
+                "enable_reject_upstream": False,
+            },
+        )
+    ]
+    assert session.compiled_graph is None
+    assert session.tools == []
+
+
+def test_prompt_inspection_uses_llm_visible_tool_schema():
+    class ToolArgs(BaseModel):
+        action: str
+        runtime_callback: Annotated[Callable[[], None], InjectedToolArg]
+
+    def invoke_tool(action: str, runtime_callback: Callable[[], None]) -> str:
+        """Run an action."""
+        return action
+
+    tool = StructuredTool.from_function(
+        invoke_tool,
+        name="novelbuilt_account",
+        description="查询账号概况",
+        args_schema=ToolArgs,
+    )
+    manager = SessionManager()
+    session = AgentSession(
+        session_id="active-detached",
+        session_type="sub",
+        agent_type="plugin-page-assistant",
+        lifecycle_profile="detached_conversation",
+        system_prompt="system",
+    )
+    session.tools = [tool]
+    manager.sessions[session.session_id] = session
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(session_manager=manager),
+        ),
+    )
+
+    response = asyncio.run(get_session_system_prompt(session.session_id, request))
+
+    assert response["tools_count"] == 1
+    inspected_tool = response["tools"][0]
+    assert inspected_tool["name"] == "novelbuilt_account"
+    assert inspected_tool["parameters"] == {
+        "action": {
+            "type": "string",
+            "description": "",
+            "required": True,
+        }
+    }
+    assert inspected_tool["schema"]["function"]["parameters"]["required"] == ["action"]
+    assert "runtime_callback" not in inspected_tool["schema"]["function"]["parameters"]["properties"]
+    assert response["token_estimate"]["tools"] > 0
+
+
+def test_prompt_inspection_uses_actual_model_messages_not_display_record(monkeypatch):
+    monkeypatch.setattr(
+        "src.core.model_manager.get_model_manager",
+        lambda: SimpleNamespace(
+            get_default_model=lambda: "provider:model",
+            get_default_params=lambda: {
+                "temperature": 0.7,
+                "reasoning_effort": "high",
+            },
+            get_provider=lambda _provider_id: {},
+        ),
+    )
+    manager = SessionManager()
+    session = AgentSession(
+        session_id="model-context",
+        session_type="sub",
+        agent_type="plugin-page-assistant",
+        lifecycle_profile="task",
+        system_prompt="system prompt",
+        model_params={"temperature": 0.2, "reasoning_effort": "low"},
+    )
+    session.lc_messages = [
+        SystemMessage(content="system prompt"),
+        HumanMessage(
+            content="<PRODUCT_CONTEXT>{\"chapter\":3}</PRODUCT_CONTEXT>\n<USER_MESSAGE>你好</USER_MESSAGE>",
+            additional_kwargs={
+                "display_content": "你好",
+                "source": "extension",
+                "injection_meta": [{"name": "current_time"}],
+                "model_context": {"chapter": 3},
+            },
+        ),
+        AIMessage(content="回答"),
+    ]
+    session.record = [
+        {"type": "user", "content": "你好"},
+        {"type": "compression_divider", "content": "仅供前端展示"},
+    ]
+    manager.sessions[session.session_id] = session
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(session_manager=manager),
+        ),
+    )
+
+    response = asyncio.run(get_session_system_prompt(session.session_id, request))
+
+    assert response["context_scope"] == "current_effective"
+    assert response["messages"] == [
+        {"role": "system", "content": "system prompt"},
+        {
+            "role": "user",
+            "content": "<PRODUCT_CONTEXT>{\"chapter\":3}</PRODUCT_CONTEXT>\n<USER_MESSAGE>你好</USER_MESSAGE>",
+        },
+        {"role": "assistant", "content": "回答"},
+    ]
+    assert response["message_counts"] == {
+        "system": 1,
+        "user": 1,
+        "assistant": 1,
+        "tool": 0,
+    }
+    assert response["model_config"]["temperature"] == 0.2
+    assert response["model_config"]["model_params"]["reasoning_effort"] == "low"
 
 
 def test_detached_invocation_passes_bounded_opaque_context(
@@ -108,6 +307,101 @@ async def _test_detached_invocation_context(detached_runtime, monkeypatch):
         "hello",
         invocation_context={"grant_id": "grant-1", "request_id": "request-1"},
     ) == "reply"
+
+
+def test_detached_invocation_passes_immutable_model_context(
+    detached_runtime,
+    monkeypatch,
+):
+    asyncio.run(_test_detached_invocation_model_context(detached_runtime, monkeypatch))
+
+
+async def _test_detached_invocation_model_context(detached_runtime, monkeypatch):
+    _, runtime = detached_runtime
+    ref = await runtime.ensure_detached(
+        external_ref="portal-session-model-context",
+        agent_type="plugin-page-assistant",
+        scope_hash="scope-model-context",
+    )
+    source_context = {
+        "locale": "zh-CN",
+        "page_context": {"surface": "workbench", "resource_key": None},
+        "confirmed_action_observation": None,
+    }
+
+    async def send_message(self, content, **kwargs):
+        assert content == "查看当前作品"
+        assert kwargs["model_context"] == source_context
+        kwargs["model_context"]["locale"] = "changed"
+        return "reply"
+
+    monkeypatch.setattr(AgentSession, "send_message", send_message)
+    assert await runtime.invoke(
+        ref.session_id,
+        "查看当前作品",
+        model_context=source_context,
+    ) == "reply"
+    assert source_context["locale"] == "zh-CN"
+
+
+def test_detached_invocation_rejects_oversized_model_context(detached_runtime):
+    asyncio.run(_test_detached_invocation_rejects_model_context(detached_runtime))
+
+
+async def _test_detached_invocation_rejects_model_context(detached_runtime):
+    _, runtime = detached_runtime
+    with pytest.raises(ValueError, match="64 KiB"):
+        await runtime.invoke(
+            "missing-session",
+            "hello",
+            model_context={"payload": "x" * (64 * 1024)},
+        )
+
+
+def test_detached_runtime_resumes_original_pending_tool_calls(
+    detached_runtime,
+    monkeypatch,
+):
+    asyncio.run(_test_detached_runtime_resumes_tools(detached_runtime, monkeypatch))
+
+
+async def _test_detached_runtime_resumes_tools(detached_runtime, monkeypatch):
+    manager, runtime = detached_runtime
+    ref = await runtime.ensure_detached(
+        external_ref="portal-session-resume",
+        agent_type="plugin-page-assistant",
+        scope_hash="scope-resume",
+    )
+    session = manager.sessions[ref.session_id]
+    session.pending_tool_resolutions = {
+        "call-write-1": {
+            "name": "novelbuilt_chapters",
+            "run_id": "call-write-1",
+            "metadata": {"action_id": "action-1"},
+        }
+    }
+    session.status = "awaiting_tool_resolution"
+    captured: dict[str, object] = {}
+
+    async def resume_tools(self, resolutions, **kwargs):
+        captured["resolutions"] = resolutions
+        captured["kwargs"] = kwargs
+        return "批准后的最终回复"
+
+    monkeypatch.setattr(AgentSession, "resume_tools", resume_tools)
+
+    result = await runtime.resume_tools(
+        ref.session_id,
+        {"call-write-1": {"ok": True, "state": "succeeded"}},
+        event_callback=None,
+    )
+
+    assert result == "批准后的最终回复"
+    assert captured == {
+        "resolutions": {"call-write-1": {"ok": True, "state": "succeeded"}},
+        "kwargs": {"event_callback": None, "invocation_context": {}},
+    }
+    assert ref.session_id not in manager.sessions
 
 
 def test_detached_invocation_rejects_invalid_opaque_context(detached_runtime):
@@ -170,6 +464,64 @@ async def _test_detached_session_reuses(detached_runtime, monkeypatch):
 
     monkeypatch.setattr(AgentSession, "send_message", second_turn)
     assert await restarted_runtime.invoke(ref.session_id, "second") == "second"
+
+
+def test_detached_session_refreshes_agent_model_override(detached_runtime, monkeypatch):
+    asyncio.run(_test_detached_session_refreshes_agent_model(detached_runtime, monkeypatch))
+
+
+async def _test_detached_session_refreshes_agent_model(detached_runtime, monkeypatch):
+    manager, runtime = detached_runtime
+    ref = await runtime.ensure_detached(
+        external_ref="portal-session-model",
+        agent_type="plugin-page-assistant",
+        scope_hash="scope-model",
+    )
+    replacement = SimpleNamespace(
+        model="alpha:candidate",
+        model_params={"temperature": 0.4},
+        system_prompt_template="",
+    )
+    monkeypatch.setattr(
+        "src.agent.definition.get_agent_definition",
+        lambda agent_type: replacement if agent_type == "plugin-page-assistant" else None,
+    )
+
+    reused = await runtime.ensure_detached(
+        external_ref="portal-session-model",
+        agent_type="plugin-page-assistant",
+        scope_hash="scope-model",
+    )
+
+    assert reused.created is False
+    session = manager.sessions[ref.session_id]
+    assert session.model_id == "alpha:candidate"
+    assert session.model_params == {"temperature": 0.4}
+
+
+def test_detached_session_replaces_failed_conversation(detached_runtime):
+    asyncio.run(_test_detached_session_replaces_failed_conversation(detached_runtime))
+
+
+async def _test_detached_session_replaces_failed_conversation(detached_runtime):
+    manager, runtime = detached_runtime
+    failed = await runtime.ensure_detached(
+        external_ref="portal-session-failed",
+        agent_type="plugin-page-assistant",
+        scope_hash="scope-failed",
+    )
+    manager.sessions[failed.session_id].status = "error"
+
+    replacement = await runtime.ensure_detached(
+        external_ref="portal-session-failed",
+        agent_type="plugin-page-assistant",
+        scope_hash="scope-failed",
+    )
+
+    assert replacement.created is True
+    assert replacement.session_id != failed.session_id
+    assert manager.get_session(failed.session_id) is None
+    assert manager.sessions[replacement.session_id].status == "completed"
 
 
 def test_detached_session_fails_closed_across_owner_and_scope(detached_runtime):
@@ -294,3 +646,72 @@ async def _test_detached_session_delete_by_reference(detached_runtime):
         )
         is False
     )
+
+
+def test_existing_detached_turn_uses_current_prompt_without_losing_history(
+    detached_runtime, monkeypatch,
+):
+    async def scenario():
+        manager, runtime = detached_runtime
+        ref = await runtime.ensure_detached(
+            external_ref="prompt-refresh", agent_type="plugin-page-assistant", scope_hash="s",
+        )
+        session = manager.sessions[ref.session_id]
+        session.record.append({"id": "old-user", "type": "user", "content": "previous"})
+        await runtime._deactivate(session)
+        manager._prompt_builder.build = lambda *args, **kwargs: "updated prompt"
+
+        async def send(self, content, **kwargs):
+            assert self.system_prompt == "updated prompt"
+            assert self.lc_messages[0].content == "updated prompt"
+            assert self.record[-1]["content"] == "previous"
+            return "reply"
+
+        monkeypatch.setattr(AgentSession, "send_message", send)
+        assert await runtime.invoke(ref.session_id, "new question") == "reply"
+        assert AgentSession.load(ref.session_id).system_prompt == "updated prompt"
+
+    asyncio.run(scenario())
+
+
+def test_detached_resume_and_observation_keep_the_turn_prompt(detached_runtime, monkeypatch):
+    async def scenario():
+        manager, runtime = detached_runtime
+        ref = await runtime.ensure_detached(
+            external_ref="prompt-resume", agent_type="plugin-page-assistant", scope_hash="s",
+        )
+        original = manager.sessions[ref.session_id].system_prompt
+        manager._prompt_builder.build = lambda *args, **kwargs: "future prompt"
+
+        async def resume(self, resolutions, **kwargs):
+            assert self.system_prompt == original
+            return "resumed"
+
+        async def observe(self, content, **kwargs):
+            assert content == ""
+            assert self.system_prompt == original
+            return "observed"
+
+        monkeypatch.setattr(AgentSession, "resume_tools", resume)
+        assert await runtime.resume_tools(ref.session_id, {"call": {"ok": True}}) == "resumed"
+        monkeypatch.setattr(AgentSession, "send_message", observe)
+        assert await runtime.invoke(ref.session_id, None, model_context={"result": "ok"}) == "observed"
+
+    asyncio.run(scenario())
+
+
+def test_blocked_new_message_does_not_refresh_pending_turn_prompt(detached_runtime):
+    async def scenario():
+        manager, runtime = detached_runtime
+        ref = await runtime.ensure_detached(
+            external_ref="prompt-pending", agent_type="plugin-page-assistant", scope_hash="s",
+        )
+        session = manager.sessions[ref.session_id]
+        original = session.system_prompt
+        session.pending_tool_resolutions = {"call": {"tool_call_id": "call"}}
+        manager._prompt_builder.build = lambda *args, **kwargs: "future prompt"
+        with pytest.raises(RuntimeError, match="等待外部工具结果"):
+            await runtime.invoke(ref.session_id, "new question")
+        assert AgentSession.load(ref.session_id).system_prompt == original
+
+    asyncio.run(scenario())

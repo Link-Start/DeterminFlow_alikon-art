@@ -12,6 +12,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Session } from "../types";
+import { BRAND_COLORS } from "../lib/brand-colors";
 import { getStatusConfig, truncate, formatRelativeTime } from "../lib/utils-helpers";
 import {
   Activity,
@@ -73,17 +74,17 @@ function SessionNode({ data }: NodeProps) {
       {(session.status === "running" || session.status === "streaming") && (
         <div
           className="absolute -inset-2 rounded-xl opacity-30 status-running motion-reduce:hidden"
-          style={{ background: `radial-gradient(circle, ${borderColor}40, transparent)` }}
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${borderColor} 25%, transparent), transparent)` }}
           aria-hidden="true"
         />
       )}
 
       <div
-        className={`relative px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 ${
-          selected ? "ring-2 ring-indigo-500" : ""
+        className={`relative px-4 py-3 rounded-xl bg-secondary/80 border border-border ${
+          selected ? "ring-2 ring-primary" : ""
         }`}
         style={{
-          borderColor: `${borderColor}60`,
+          borderColor: `color-mix(in srgb, ${borderColor} 38%, transparent)`,
           borderWidth: "2px",
           minWidth: isMain ? "180px" : "150px",
         }}
@@ -121,14 +122,14 @@ function SessionNode({ data }: NodeProps) {
 
 // Module-level constants (prevent re-creation on every render)
 const STATUS_COLOR_MAP: Record<string, string> = {
-  running: "#22c55e",   // green-500
-  streaming: "#06b6d4", // cyan-500
-  completed: "#3b82f6", // blue-500
-  error: "#ef4444",     // red-500
-  waiting: "#f59e0b",   // amber-500
-  idle: "#94a3b8",      // slate-400
+  running: BRAND_COLORS.success,
+  streaming: BRAND_COLORS.info,
+  completed: BRAND_COLORS.success,
+  error: BRAND_COLORS.destructive,
+  waiting: BRAND_COLORS.warning,
+  idle: BRAND_COLORS.muted,
 };
-const DEFAULT_BORDER_COLOR = "#6366f1"; // indigo-500
+const DEFAULT_BORDER_COLOR = BRAND_COLORS.primary;
 
 const nodeTypes = { sessionNode: SessionNode };
 
@@ -228,7 +229,7 @@ export default function SessionGraphView({
             target: sub.session_id,
             animated: sub.status === "running" || sub.status === "streaming",
             style: {
-              stroke: (sub.status === "running" || sub.status === "streaming") ? "#22c55e" : "#6366f1",
+              stroke: (sub.status === "running" || sub.status === "streaming") ? BRAND_COLORS.success : BRAND_COLORS.primary,
               strokeWidth: 2,
             },
             className: "motion-reduce:!transition-none motion-reduce:!animate-none",
@@ -273,11 +274,11 @@ export default function SessionGraphView({
         onNodeClick={handleNodeClick}
         nodeTypes={nodeTypes}
         fitView
-        className="bg-slate-900"
+        className="bg-card"
       >
-        <Background color="#334155" gap={20} />
+        <Background color={BRAND_COLORS.borderStrong} gap={20} />
         <Controls
-          className="!bg-slate-800 !border-indigo-500/20 !rounded-lg"
+          className="!bg-secondary !border-primary/20 !rounded-lg"
         />
       </ReactFlow>
 
@@ -287,7 +288,7 @@ export default function SessionGraphView({
           id="session-tooltip"
           role="tooltip"
           aria-label={`会话 ${hoveredSession.session_id} 详情`}
-          className="fixed z-50 bg-slate-800 border border-slate-700 rounded-lg p-3 min-w-[220px] max-w-[320px] pointer-events-none shadow-lg"
+          className="fixed z-50 bg-secondary border border-border rounded-lg p-3 min-w-[220px] max-w-[320px] pointer-events-none shadow-lg"
           style={{
             left: Math.min(mousePos.x + 15, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 340),
             top: Math.min(mousePos.y + 15, (typeof window !== 'undefined' ? window.innerHeight : 800) - 200),
@@ -297,13 +298,13 @@ export default function SessionGraphView({
             <span className={`${cfg.color}`} aria-hidden="true">
               {STATUS_ICON_MAP[hoveredSession.status]}
             </span>
-            <span className="text-xs font-mono font-bold text-cyan-400">{hoveredSession.session_id}</span>
+            <span className="text-xs font-mono font-bold text-info">{hoveredSession.session_id}</span>
             <span className={`text-xs ${cfg.color}`}>
               {STATUS_LABEL_MAP[hoveredSession.status] || hoveredSession.status}
             </span>
           </div>
           {hoveredSession.task && (
-            <p className="text-xs text-slate-300 mb-1.5">{truncate(hoveredSession.task, 80)}</p>
+            <p className="text-xs text-foreground mb-1.5">{truncate(hoveredSession.task, 80)}</p>
           )}
           <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
             <span>消息: {hoveredSession.message_count}</span>
@@ -312,7 +313,7 @@ export default function SessionGraphView({
             <span>更新: {formatRelativeTime(hoveredSession.updated_at)}</span>
           </div>
           {hoveredSession.last_message && (
-            <div className="mt-1.5 text-xs text-slate-400 border-t border-border pt-1.5">
+            <div className="mt-1.5 text-xs text-muted-foreground border-t border-border pt-1.5">
               最新: {truncate(hoveredSession.last_message, 60)}
             </div>
           )}

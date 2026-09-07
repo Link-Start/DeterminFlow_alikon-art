@@ -16,6 +16,10 @@ from langgraph.prebuilt import ToolNode
 
 from src.core.state import AgentState
 from src.core.tool_guard import RoundsGuard, make_guarded_wrapper
+from src.core.tool_resolution import route_after_tools
+from src.core.tool_errors import (
+    handle_tool_validation_error, last_batch_repeated_invalid, stopped_tool_response,
+)
 
 # 导入 llm_client 以确保 monkey patch 被应用（必须在使用 ChatOpenAI 之前）
 import src.core.llm_client  # noqa: F401
@@ -133,6 +137,7 @@ def _make_llm_node(llm: BaseChatModel, tools: list[BaseTool]):
         is_compressor = agent_type == "compressor"
 
         request_messages = list(messages)
+        recovery_final = last_batch_repeated_invalid(messages)
         if estimate_messages_tokens(request_messages) > max_context_tokens:
             request_messages = micro_strategy.compact_for_request(
                 request_messages,
@@ -145,7 +150,12 @@ def _make_llm_node(llm: BaseChatModel, tools: list[BaseTool]):
         retry_count = 0
         while True:
             try:
-                response = await llm_with_tools.ainvoke(request_messages)
+                # Reserve the last model round for an answer, without advertising
+                # tools that the graph no longer has budget to execute.
+                selected_llm = (
+                    llm if recovery_final or (state.get("remaining_rounds") or 0) <= 1 else llm_with_tools
+                )
+                response = await selected_llm.ainvoke(request_messages)
                 break
             except Exception as exc:
                 decision = checker.error_check(exc, request_messages)
@@ -183,34 +193,18 @@ def _make_llm_node(llm: BaseChatModel, tools: list[BaseTool]):
 
         remaining = state.get("remaining_rounds") or 0
         if isinstance(response, AIMessage) and response.tool_calls:
-            # [源头层] remaining_rounds 递减后 ≤ 0 时，剥离 tool_calls 只保留文本
-            # 避免 should_continue 路由到 __end__ 后产生无 ToolMessage 响应的孤儿 AIMessage
-            if remaining <= 1:  # 递减后将变为 0
-                tool_names = [tc.get("name", "unknown") for tc in response.tool_calls]
-                logger.warning(
-                    f"轮次即将耗尽，剥离 tool_calls | "
-                    f"session_id={session_id} | agent_type={agent_type} | "
-                    f"remaining_rounds={remaining} | tools={tool_names}"
-                )
-                new_content = response.content or "[工具调用已因轮次耗尽被跳过，请继续对话]"
-                # 保留 additional_kwargs（含 reasoning_content）、usage_metadata 等关键字段
-                response = AIMessage(
-                    content=new_content,
-                    additional_kwargs=response.additional_kwargs,
-                    response_metadata=getattr(response, "response_metadata", {}),
-                    usage_metadata=getattr(response, "usage_metadata", None),
-                )
-                remaining = 0
-            else:
-                tool_names = [tc.get("name", "unknown") for tc in response.tool_calls]
-                logger.debug(
-                    f"LLM 请求工具调用 | "
-                    f"session_id={session_id} | "
-                    f"agent_type={agent_type} | "
-                    f"remaining_rounds={remaining} | "
-                    f"tools={tool_names}"
-                )
-                remaining = remaining - 1
+            stop_code = None
+            if recovery_final:
+                stop_code = "tool_recovery_stopped"
+            elif remaining <= 1:
+                stop_code = "tool_round_limit"
+            if stop_code:
+                logger.warning("工具调用停止 | session_id=%s | reason=%s", session_id, stop_code)
+                return {
+                    "messages": stopped_tool_response(response, stop_code),
+                    "remaining_rounds": 0,
+                }
+            remaining -= 1
 
         return {
             "messages": [response],
@@ -257,9 +251,15 @@ def build_graph(
 
     llm_node = _make_llm_node(llm, deduplicated_tools)
 
-    # 使用 ToolNode 原生的 awrap_tool_call 机制注入鉴权层
+    # 使用 ToolNode 原生的 awrap_tool_call 机制注入鉴权层。
+    # handle_tool_validation_error 必须自行区分校验/运行异常：LangGraph 的
+    # wrapper catch-all 不会按 handler 注解过滤类型。
     guarded_wrapper = make_guarded_wrapper([RoundsGuard()])
-    tool_node = ToolNode(deduplicated_tools, awrap_tool_call=guarded_wrapper)
+    tool_node = ToolNode(
+        deduplicated_tools,
+        awrap_tool_call=guarded_wrapper,
+        handle_tool_errors=handle_tool_validation_error,
+    )
 
     graph = StateGraph(AgentState)
 
@@ -277,8 +277,14 @@ def build_graph(
         },
     )
 
-    # 统一双节点图：tools → llm
-    graph.add_edge("tools", "llm")
+    graph.add_conditional_edges(
+        "tools",
+        route_after_tools,
+        {
+            "llm": "llm",
+            "__end__": END,
+        },
+    )
 
     logger.info(f"Agent Graph 已构建: {len(deduplicated_tools)} 个工具, 最大 {max_rounds} 轮")
 

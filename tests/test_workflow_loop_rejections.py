@@ -18,6 +18,8 @@ def test_loop_iteration_snapshots_and_resets_rejection_budget():
         rejection_reason="schema mismatch",
         reject_upstream_count=2,
         rejection_history=[{"retry_index": 1, "reason": "schema mismatch"}],
+        output_repair_count=1,
+        output_repair_history=[{"repair_index": 1, "resolution": "passed"}],
     )
     mixin = WorkflowLoopMixin()
 
@@ -39,12 +41,18 @@ def test_loop_iteration_snapshots_and_resets_rejection_budget():
             "rejection_history": [
                 {"retry_index": 1, "reason": "schema mismatch"}
             ],
+            "output_repair_count": 1,
+            "output_repair_history": [
+                {"repair_index": 1, "resolution": "passed"}
+            ],
         }
     ]
     assert state.rejection_count == 0
     assert state.rejection_reason == ""
     assert state.reject_upstream_count == 0
     assert state.rejection_history == []
+    assert state.output_repair_count == 0
+    assert state.output_repair_history == []
 
 
 def test_loop_session_cleanup_waits_for_save_and_detaches_both_registries(

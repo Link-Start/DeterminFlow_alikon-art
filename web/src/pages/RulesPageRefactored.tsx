@@ -217,10 +217,10 @@ export default function RulesPageRefactored() {
           <p className="text-muted-foreground">管理必须遵守的规则</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowGroupDialog(true)} aria-label="管理规则组" type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+          <Button variant="outline" onClick={() => setShowGroupDialog(true)} aria-label="管理规则组" type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
             <Layers className="w-4 h-4 mr-2" />管理组
           </Button>
-          <Button onClick={reloadRules} disabled={isReloading} aria-label="重新加载规则" type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+          <Button onClick={reloadRules} disabled={isReloading} aria-label="重新加载规则" type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
             {isReloading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin motion-reduce:animate-none" />
             ) : (
@@ -233,41 +233,41 @@ export default function RulesPageRefactored() {
 
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-secondary/50 border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-blue-400">总计规则</CardTitle>
+              <CardTitle className="text-sm font-medium text-info">总计规则</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-300 tabular-nums">{stats.total}</div>
+              <div className="text-2xl font-bold text-info tabular-nums">{stats.total}</div>
             </CardContent>
           </Card>
           {stats.enabled !== undefined && (
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-secondary/50 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-green-400">已启用</CardTitle>
+                <CardTitle className="text-sm font-medium text-success">已启用</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-300 tabular-nums">{stats.enabled}</div>
+                <div className="text-2xl font-bold text-success tabular-nums">{stats.enabled}</div>
               </CardContent>
             </Card>
           )}
           {stats.workflow_only !== undefined && (
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-secondary/50 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-purple-400">工作流专属</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">工作流专属</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-300 tabular-nums">{stats.workflow_only}</div>
+                <div className="text-2xl font-bold text-primary tabular-nums">{stats.workflow_only}</div>
               </CardContent>
             </Card>
           )}
           {stats.groups !== undefined && (
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-secondary/50 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-orange-400">规则组</CardTitle>
+                <CardTitle className="text-sm font-medium text-warning">规则组</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-300 tabular-nums">{stats.groups}</div>
+                <div className="text-2xl font-bold text-warning tabular-nums">{stats.groups}</div>
               </CardContent>
             </Card>
           )}
@@ -365,10 +365,10 @@ export default function RulesPageRefactored() {
                       onClick={() => toggleWorkflowOnly(selectedRule.id, !selectedRule.workflow_only)}
                       aria-label={selectedRule.workflow_only ? '切换为通用规则' : '切换为工作流专属规则'}
                       type="button"
-                      className="focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                      className="focus-visible:ring-2 focus-visible:ring-primary/30"
                     >
                       {selectedRule.workflow_only ? (
-                        <><Workflow className="w-4 h-4 mr-2 text-purple-500" />工作流专属</>
+                        <><Workflow className="w-4 h-4 mr-2 text-primary" />工作流专属</>
                       ) : (
                         <><Workflow className="w-4 h-4 mr-2" />通用</>
                       )}
@@ -383,7 +383,7 @@ export default function RulesPageRefactored() {
                   <div>
                     <div className="font-medium">启用状态</div>
                     <div className="text-muted-foreground flex items-center gap-2">
-                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.enabled ? 'bg-green-500' : 'bg-red-500'}`} aria-hidden="true" />
+                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.enabled ? 'bg-success' : 'bg-destructive'}`} aria-hidden="true" />
                       {selectedRule.enabled ? '已启用' : '已禁用'}
                       <span className="sr-only">{selectedRule.enabled ? '规则已启用' : '规则已禁用'}</span>
                     </div>
@@ -391,7 +391,7 @@ export default function RulesPageRefactored() {
                   <div>
                     <div className="font-medium">工作流专属</div>
                     <div className="text-muted-foreground flex items-center gap-2">
-                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.workflow_only ? 'bg-blue-500' : 'bg-gray-500'}`} aria-hidden="true" />
+                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.workflow_only ? 'bg-info' : 'bg-muted-foreground'}`} aria-hidden="true" />
                       {selectedRule.workflow_only ? '是' : '否'}
                       <span className="sr-only">{selectedRule.workflow_only ? '规则仅限工作流使用' : '规则通用'}</span>
                     </div>

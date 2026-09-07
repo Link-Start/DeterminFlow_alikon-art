@@ -21,6 +21,7 @@ def _run_isolated_config(
     env["DETERMINFLOW_CONFIG_DIR"] = str(tmp_path)
     env.pop("SHOW_SYSTEM_PROMPT_TAB", None)
     env.pop("AI_COMPANY_SHOW_SYSTEM_PROMPT_TAB", None)
+    env.pop("USER_MESSAGE_INJECTION_ENABLED", None)
     env.pop("CODING_WORKSPACE_BASE", None)
     if env_updates:
         env.update(env_updates)
@@ -71,6 +72,66 @@ print(json.dumps({"updated": updated["SHOW_SYSTEM_PROMPT_TAB"], "stored": stored
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload == {"updated": True, "stored": "true"}
+
+
+def test_user_message_injection_setting_defaults_to_enabled(tmp_path: Path) -> None:
+    result = _run_isolated_config(
+        tmp_path,
+        """
+import json
+from src import config
+item = next(entry for entry in config.CONFIG_ITEMS if entry["key"] == "USER_MESSAGE_INJECTION_ENABLED")
+print(json.dumps({"value": config.USER_MESSAGE_INJECTION_ENABLED, "item": item}))
+""",
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["value"] is True
+    assert payload["item"] == {
+        "key": "USER_MESSAGE_INJECTION_ENABLED",
+        "label": "随用户消息附加系统信息",
+        "group": "system",
+        "type": "boolean",
+    }
+
+
+def test_user_message_injection_env_overrides_settings_true(tmp_path: Path) -> None:
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"system": {"USER_MESSAGE_INJECTION_ENABLED": "true"}}),
+        encoding="utf-8",
+    )
+    result = _run_isolated_config(
+        tmp_path,
+        """
+import json
+from src import config
+print(json.dumps(config.USER_MESSAGE_INJECTION_ENABLED))
+""",
+        {"USER_MESSAGE_INJECTION_ENABLED": "false"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) is False
+
+
+def test_user_message_injection_setting_can_be_disabled_and_persisted(
+    tmp_path: Path,
+) -> None:
+    result = _run_isolated_config(
+        tmp_path,
+        """
+import json
+from src import config
+updated = config.update_config({"USER_MESSAGE_INJECTION_ENABLED": False}, persist=True)
+stored = json.loads(config.SETTINGS_CONFIG_FILE.read_text(encoding="utf-8"))
+print(json.dumps({"updated": updated["USER_MESSAGE_INJECTION_ENABLED"], "stored": stored["system"]["USER_MESSAGE_INJECTION_ENABLED"]}))
+""",
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload == {"updated": False, "stored": "false"}
 
 
 def test_desktop_workspace_setting_overrides_redirected_data_dir(tmp_path: Path) -> None:

@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any
 from dotenv import load_dotenv
 
-from src.core.default_resources import provision_core_skills
+from src.core.default_resources import DEFAULT_RESOURCES_DIR, provision_core_skills
 from src.environment import get_determinflow_env
+from src.skills.storage import SkillStorageLayout, migrate_legacy_skill_layout
 
 load_dotenv()
 
@@ -21,6 +22,10 @@ DATA_DIR = Path(get_determinflow_env("DATA_DIR", str(BASE_DIR / "data"))).expand
 LOGS_DIR = Path(get_determinflow_env("LOGS_DIR", str(BASE_DIR / "logs"))).expanduser().resolve()
 CONFIG_DIR = Path(get_determinflow_env("CONFIG_DIR", str(BASE_DIR / "config"))).expanduser().resolve()
 SKILLS_DIR = DATA_DIR / "skills"
+SKILL_STORAGE = SkillStorageLayout.from_root(SKILLS_DIR)
+BUILTIN_SKILLS_DIR = SKILL_STORAGE.builtin
+LOCAL_SKILLS_DIR = SKILL_STORAGE.local
+MARKETPLACE_SKILLS_DIR = SKILL_STORAGE.marketplace
 RULES_DIR = DATA_DIR / "rules"
 SCRIPT_LIBRARY_DIR = DATA_DIR / "script-library"
 PLUGINS_DIR = DATA_DIR / "plugins"
@@ -84,6 +89,19 @@ def _get_int_config(key: str, default: int) -> int:
         return default
 
 
+def _get_determinflow_int_config(key: str, default: int) -> int:
+    """Read a current/legacy prefixed integer before settings.json fallback."""
+    raw = get_determinflow_env(
+        key,
+        str(_get_config_value(key, default)),
+    )
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        logger.warning(f"配置项 {key} 不是有效整数，使用默认值 {default}")
+        return default
+
+
 def _get_bool_config(key: str, default: bool) -> bool:
     """获取布尔配置值，支持 true/false/1/0/yes/no（不区分大小写）。"""
     raw = _get_config_value(key, str(default).lower())
@@ -137,6 +155,15 @@ if not 1 <= WORKFLOW_EXECUTOR_COUNT <= 32:
         "WORKFLOW_EXECUTOR_COUNT 必须在 1 到 32 之间，当前为 "
         f"{WORKFLOW_EXECUTOR_COUNT!r}"
     )
+WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS = _get_determinflow_int_config(
+    "WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS",
+    180,
+)
+if not 30 <= WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS <= 900:
+    raise ValueError(
+        "WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS 必须在 30 到 900 秒之间，当前为 "
+        f"{WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS!r}"
+    )
 
 AGENT_MESSAGE_HEADER = _get_config_value(
     "AGENT_MESSAGE_HEADER",
@@ -173,6 +200,10 @@ CODING_WORKSPACE_MAX_SIZE = _get_int_config("CODING_WORKSPACE_MAX_SIZE", 1048576
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
 WEB_PORT = _get_int_config("WEB_PORT", 8020)
 SHOW_SYSTEM_PROMPT_TAB = _get_bool_config("SHOW_SYSTEM_PROMPT_TAB", False)
+USER_MESSAGE_INJECTION_ENABLED = _get_bool_config(
+    "USER_MESSAGE_INJECTION_ENABLED",
+    True,
+)
 
 def ensure_dirs():
     """确保运行目录存在，并补齐缺失的 Core 内置资源。"""
@@ -180,13 +211,21 @@ def ensure_dirs():
     LOGS_DIR.mkdir(exist_ok=True)
     CONFIG_DIR.mkdir(exist_ok=True)
     SESSIONS_DIR.mkdir(exist_ok=True)
-    SKILLS_DIR.mkdir(exist_ok=True)
+    migration = migrate_legacy_skill_layout(
+        SKILL_STORAGE,
+        bundled_skills=DEFAULT_RESOURCES_DIR / "skills",
+    )
+    if migration.backup_directory is not None:
+        logger.warning(
+            "旧 Skill 平铺目录已迁移；需保留的原文件位于 %s",
+            migration.backup_directory,
+        )
     RULES_DIR.mkdir(exist_ok=True)
     SCRIPT_LIBRARY_DIR.mkdir(exist_ok=True)
     PLUGINS_DIR.mkdir(exist_ok=True)
     WORKFLOWS_DIR.mkdir(exist_ok=True)
     WORKFLOW_WORKSPACES_DIR.mkdir(exist_ok=True)
-    provision_core_skills(SKILLS_DIR)
+    provision_core_skills(BUILTIN_SKILLS_DIR)
 
 
 # ============================================================
@@ -216,6 +255,7 @@ CONFIG_ITEMS: list[dict[str, Any]] = [
     # LangGraph
     {"key": "LANGGRAPH_RECURSION_LIMIT", "label": "LangGraph 递归限制", "group": "system", "type": "number", "min": 5, "max": 100},
     {"key": "SHOW_SYSTEM_PROMPT_TAB", "label": "顶部展示系统提示词", "group": "system", "type": "boolean"},
+    {"key": "USER_MESSAGE_INJECTION_ENABLED", "label": "随用户消息附加系统信息", "group": "system", "type": "boolean"},
     # Web 服务（只读）
     {"key": "WEB_HOST", "label": "Web 服务地址", "group": "system", "type": "string", "readonly": True},
     {"key": "WEB_PORT", "label": "Web 服务端口", "group": "system", "type": "number", "readonly": True},

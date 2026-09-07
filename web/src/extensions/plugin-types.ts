@@ -127,6 +127,7 @@ export interface PluginRepositorySource {
   kind: "official" | "custom";
   builtin: boolean;
   mirrors: string[];
+  registry: PluginDistributionConfig | null;
 }
 
 export interface PluginCatalogSource extends PluginRepositorySource {
@@ -134,6 +135,7 @@ export interface PluginCatalogSource extends PluginRepositorySource {
   plugin_count: number;
   error: string;
   selected_url: string;
+  transport: "registry" | "git" | "";
 }
 
 export interface PluginCatalogResponse {
@@ -157,6 +159,12 @@ export interface PluginSourceRequest {
   name: string;
   url: string;
   ref: string;
+  registry: PluginDistributionConfig | null;
+}
+
+export interface PluginDistributionConfig {
+  endpoints: string[];
+  public_key: string;
 }
 
 export interface PluginSourceMutationResponse {

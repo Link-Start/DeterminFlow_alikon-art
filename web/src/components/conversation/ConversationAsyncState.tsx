@@ -26,15 +26,15 @@ export default function ConversationAsyncState({
 
   return (
     <div className={`flex min-h-40 flex-col items-center justify-center gap-3 px-4 py-8 text-center ${className}`} role={role}>
-      {kind === "loading" && <Loader2 size={22} className="animate-spin text-indigo-400 motion-reduce:animate-none" aria-hidden="true" />}
-      {kind === "empty" && <MessageSquare size={22} className="text-slate-600" aria-hidden="true" />}
-      {kind === "error" && <AlertTriangle size={22} className="text-red-400" aria-hidden="true" />}
-      <p className={`text-sm ${kind === "error" ? "text-red-300" : "text-slate-500"}`}>{visibleMessage}</p>
+      {kind === "loading" && <Loader2 size={22} className="animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />}
+      {kind === "empty" && <MessageSquare size={22} className="text-muted-foreground" aria-hidden="true" />}
+      {kind === "error" && <AlertTriangle size={22} className="text-destructive" aria-hidden="true" />}
+      <p className={`text-sm ${kind === "error" ? "text-destructive" : "text-muted-foreground"}`}>{visibleMessage}</p>
       {kind === "error" && onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-red-500/25 bg-red-500/10 px-3 text-sm text-red-300 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 text-sm text-destructive transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50"
         >
           <RefreshCw size={14} aria-hidden="true" />
           重试

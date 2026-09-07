@@ -15,37 +15,37 @@ interface Props {
 function EmptyCollapsed({ onToggle }: { onToggle?: () => void }) {
   return (
     <div
-      className="h-full flex flex-col items-center gap-1 py-2 cursor-pointer hover:bg-white/[0.03] transition-colors select-none rounded-r-lg border border-white/[0.04] bg-slate-950/60"
+      className="h-full flex flex-col items-center gap-1 py-2 cursor-pointer hover:bg-white/[0.03] transition-colors select-none rounded-r-lg border border-white/[0.04] bg-background/60"
       onClick={onToggle}
       role="button"
       tabIndex={0}
       aria-label="展开 Token 监控面板"
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle?.(); } }}
     >
-      <ChevronRight size={12} className="text-slate-600 shrink-0" aria-hidden="true" />
+      <ChevronRight size={12} className="text-muted-foreground shrink-0" aria-hidden="true" />
       <div className="flex-1 w-1.5 bg-white/[0.04] rounded-full min-h-[20px]" aria-hidden="true" />
-      <span className="text-xs text-slate-700 font-mono">-</span>
+      <span className="text-xs text-muted-foreground font-mono">-</span>
     </div>
   );
 }
 
 function EmptyExpanded({ onToggle }: { onToggle?: () => void }) {
   return (
-    <div className="h-full flex flex-col rounded-xl border border-white/[0.06] bg-slate-900 select-none">
+    <div className="h-full flex flex-col rounded-xl border border-white/[0.06] bg-card select-none">
       <div className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b border-white/[0.05]">
-        <BarChart3 size={14} className="text-slate-600" aria-hidden="true" />
-        <span className="text-xs font-semibold text-slate-500 tracking-wide">Token 监控</span>
+        <BarChart3 size={14} className="text-muted-foreground" aria-hidden="true" />
+        <span className="text-xs font-semibold text-muted-foreground tracking-wide">Token 监控</span>
         <button
           onClick={onToggle}
           className="ml-auto p-0.5 rounded hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="折叠 Token 监控面板"
         >
-          <ChevronLeft size={12} className="text-slate-600" aria-hidden="true" />
+          <ChevronLeft size={12} className="text-muted-foreground" aria-hidden="true" />
         </button>
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-4 text-center gap-2" role="status" aria-label="暂无 Token 监控数据">
-        <BarChart3 size={24} className="text-slate-700" aria-hidden="true" />
-        <span className="text-xs text-slate-600 leading-relaxed">
+        <BarChart3 size={24} className="text-muted-foreground" aria-hidden="true" />
+        <span className="text-xs text-muted-foreground leading-relaxed">
           暂无数据<br />发送消息后开始统计
         </span>
       </div>
@@ -88,22 +88,22 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
   const ctxPct = fmtPct(estimated.total_tokens, max_context_tokens);
   const ctxBarPct = Math.min((estimated.total_tokens / max_context_tokens) * 100, 100);
   // 占比 > 80% 变红，> 60% 变黄
-  const ctxBgClass = ctxBarPct > 80 ? "bg-red-500" : ctxBarPct > 60 ? "bg-amber-500" : "bg-green-500";
-  const ctxTextClass = ctxBarPct > 80 ? "text-red-500" : ctxBarPct > 60 ? "text-amber-500" : "text-green-500";
+  const ctxBgClass = ctxBarPct > 80 ? "bg-destructive" : ctxBarPct > 60 ? "bg-warning" : "bg-success";
+  const ctxTextClass = ctxBarPct > 80 ? "text-destructive" : ctxBarPct > 60 ? "text-warning" : "text-success";
 
   // ========== 折叠态：竖向窄条 ==========
   if (collapsed) {
     return (
       <div
-        className="h-full flex flex-col items-center gap-1 py-2 cursor-pointer hover:bg-white/[0.03] transition-colors select-none rounded-r-lg border border-white/[0.04] bg-slate-950/60"
+        className="h-full flex flex-col items-center gap-1 py-2 cursor-pointer hover:bg-white/[0.03] transition-colors select-none rounded-r-lg border border-white/[0.04] bg-background/60"
         onClick={onToggle}
         role="button"
         tabIndex={0}
         aria-label={`展开 Token 监控面板，当前上下文占用 ${ctxPct}，已调用 ${llm_call_count} 次`}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle?.(); } }}
       >
-        <ChevronRight size={12} className="text-slate-500 shrink-0" aria-hidden="true" />
-        <span className="text-xs text-slate-600 font-mono tabular-nums">
+        <ChevronRight size={12} className="text-muted-foreground shrink-0" aria-hidden="true" />
+        <span className="text-xs text-muted-foreground font-mono tabular-nums">
           {llm_call_count}
         </span>
         {/* 竖向占比条 */}
@@ -113,7 +113,7 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
             style={{ height: `${ctxBarPct}%` }}
           />
         </div>
-        <span className="text-xs text-slate-600 font-mono tabular-nums">
+        <span className="text-xs text-muted-foreground font-mono tabular-nums">
           {ctxPct}
         </span>
       </div>
@@ -122,11 +122,11 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
 
   // ========== 展开态：完整竖向面板 ==========
   return (
-    <div className="h-full flex flex-col rounded-xl border border-white/[0.06] bg-slate-900 select-none" role="region" aria-label="Token 监控面板">
+    <div className="h-full flex flex-col rounded-xl border border-white/[0.06] bg-card select-none" role="region" aria-label="Token 监控面板">
       {/* Header */}
       <div className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 border-b border-white/[0.05]">
-        <BarChart3 size={14} className="text-indigo-500" aria-hidden="true" />
-        <span className="text-xs font-semibold text-slate-300 tracking-wide">
+        <BarChart3 size={14} className="text-primary" aria-hidden="true" />
+        <span className="text-xs font-semibold text-foreground tracking-wide">
           Token 监控
         </span>
         <button
@@ -134,7 +134,7 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
           className="ml-auto p-0.5 rounded hover:bg-white/[0.06] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="折叠 Token 监控面板"
         >
-          <ChevronLeft size={12} className="text-slate-500" aria-hidden="true" />
+          <ChevronLeft size={12} className="text-muted-foreground" aria-hidden="true" />
         </button>
       </div>
 
@@ -144,7 +144,7 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
         {/* --- 上下文概览 --- */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">上下文占用</span>
+            <span className="text-muted-foreground">上下文占用</span>
             <span className={`font-mono tabular-nums ${ctxTextClass}`}>
               {formatTokens(estimated.total_tokens)} / {formatTokens(max_context_tokens)}
             </span>
@@ -155,7 +155,7 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
               style={{ width: `${ctxBarPct}%` }}
             />
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-600">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{ctxPct} 已用</span>
             <span>#{llm_call_count} 次调用</span>
           </div>
@@ -163,23 +163,23 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
 
         {/* --- API 原始数据 --- */}
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
-            <Zap size={14} className="text-indigo-500/70" aria-hidden="true" />
+          <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+            <Zap size={14} className="text-primary/70" aria-hidden="true" />
             API 返回
           </div>
           <div className="space-y-1" role="list" aria-label="API Token 统计">
-            <StatRow icon={Layers} label="Prompt" value={formatTokens(api.prompt_tokens)} colorClass="text-indigo-500" />
-            <StatRow icon={Eye} label="Completion" value={formatTokens(api.completion_tokens)} colorClass="text-purple-500" />
-            <StatRow icon={Cpu} label="Total" value={formatTokens(api.total_tokens)} colorClass="text-cyan-500" />
-            <StatRow icon={Database} label="Cached" value={formatTokens(api.cached_tokens)} colorClass="text-green-500" />
-            <StatRow icon={Brain} label="Reasoning" value={formatTokens(api.reasoning_tokens)} colorClass="text-amber-500" />
+            <StatRow icon={Layers} label="Prompt" value={formatTokens(api.prompt_tokens)} colorClass="text-primary" />
+            <StatRow icon={Eye} label="Completion" value={formatTokens(api.completion_tokens)} colorClass="text-primary" />
+            <StatRow icon={Cpu} label="Total" value={formatTokens(api.total_tokens)} colorClass="text-info" />
+            <StatRow icon={Database} label="Cached" value={formatTokens(api.cached_tokens)} colorClass="text-success" />
+            <StatRow icon={Brain} label="Reasoning" value={formatTokens(api.reasoning_tokens)} colorClass="text-warning" />
           </div>
         </div>
 
         {/* --- 估算 Token 占比 --- */}
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
-            <Database size={14} className="text-purple-500/70" aria-hidden="true" />
+          <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+            <Database size={14} className="text-primary/70" aria-hidden="true" />
             估算占比
           </div>
           <EstimateRow
@@ -187,41 +187,41 @@ function MonitoringCard({ tokenUsage, collapsed, onToggle }: Props) {
             value={estimated.system_prompt_tokens}
             pct={fmtPct(estimated.system_prompt_tokens, max_context_tokens)}
             width={barWidth(estimated.system_prompt_tokens, max_context_tokens)}
-            bgClass="bg-indigo-500"
+            bgClass="bg-primary"
           />
           <EstimateRow
             label="工具结果"
             value={estimated.tool_result_tokens}
             pct={fmtPct(estimated.tool_result_tokens, max_context_tokens)}
             width={barWidth(estimated.tool_result_tokens, max_context_tokens)}
-            bgClass="bg-amber-500"
+            bgClass="bg-warning"
           />
           <EstimateRow
             label="其他消息"
             value={estOther}
             pct={fmtPct(estOther, max_context_tokens)}
             width={barWidth(estOther, max_context_tokens)}
-            bgClass="bg-purple-500"
+            bgClass="bg-primary"
           />
         </div>
 
         {/* --- 命中率 --- */}
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
-            <Code2 size={14} className="text-emerald-400/70" aria-hidden="true" />
+          <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+            <Code2 size={14} className="text-success/70" aria-hidden="true" />
             缓存命中率
           </div>
-          <div className="text-center text-lg font-mono font-bold text-emerald-400" role="status" aria-label={`缓存命中率 ${cacheHitRate}`}>
+          <div className="text-center text-lg font-mono font-bold text-success" role="status" aria-label={`缓存命中率 ${cacheHitRate}`}>
             {cacheHitRate}
           </div>
         </div>
 
         {/* --- 模型信息 --- */}
         <div className="pt-2 border-t border-white/[0.04] space-y-1">
-          <div className="text-xs text-slate-600 truncate" title={model_id}>
+          <div className="text-xs text-muted-foreground truncate" title={model_id}>
             {model_id || "Unknown"}
           </div>
-          <div className="text-xs text-slate-600 tabular-nums">
+          <div className="text-xs text-muted-foreground tabular-nums">
             上限 {formatTokens(max_context_tokens)}
           </div>
         </div>
@@ -249,8 +249,8 @@ function StatRow({
   return (
     <div className="flex items-center gap-1.5 py-0.5" role="listitem">
       <Icon size={14} className={colorClass} aria-hidden="true" />
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="ml-auto text-xs font-mono text-slate-300 tabular-nums">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="ml-auto text-xs font-mono text-foreground tabular-nums">
         {value}
       </span>
     </div>
@@ -273,8 +273,8 @@ function EstimateRow({
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-slate-500">{label}</span>
-        <span className="text-slate-500 font-mono tabular-nums">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="text-muted-foreground font-mono tabular-nums">
           {formatTokens(value)} ({pct})
         </span>
       </div>

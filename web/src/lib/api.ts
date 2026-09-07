@@ -67,12 +67,31 @@ export async function fetchSessionSystemPrompt(sessionId: string) {
     session_id: string;
     agent_type: string;
     system_prompt: string;
-    tools: { name: string; description: string; parameters?: Record<string, { type: string; description: string; required: boolean }> }[];
+    tools: {
+      name: string;
+      description: string;
+      parameters?: Record<string, { type: string; description: string; required: boolean }>;
+      schema: {
+        type: "function";
+        function: {
+          name: string;
+          description?: string;
+          parameters: Record<string, unknown>;
+        };
+      };
+    }[];
     tools_count: number;
     message_counts: { system: number; user: number; assistant: number; tool: number };
-    token_estimate: { system_prompt: number; messages: number; total: number };
-    model_config: { model: string; temperature: number; max_context_tokens: number; max_tool_rounds: number };
+    token_estimate: { system_prompt: number; messages: number; tools: number; total: number };
+    model_config: {
+      model: string;
+      temperature: number;
+      model_params: Record<string, unknown>;
+      max_context_tokens: number;
+      max_tool_rounds: number;
+    };
     messages: import("../types").Message[];
+    context_scope: "current_effective";
   }>(`/sessions/${sessionId}/system-prompt`);
 }
 

@@ -291,7 +291,7 @@ def test_runner_reports_exit_failure_without_output_or_secret(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    secret = "do-not-expose-this-value"  # pragma: allowlist secret
+    secret = "do-not-expose-this-value"
     monkeypatch.setenv("PLUGIN_LIFECYCLE_SECRET", secret)
     lifecycle = ExtensionLifecycle(
         migrate_command=(

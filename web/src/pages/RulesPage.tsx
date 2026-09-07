@@ -294,17 +294,17 @@ export default function RulesPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto min-w-0 p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Rules 管理</h1>
           <p className="text-muted-foreground">管理必须遵守的规则</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={openCreateGroup} aria-label="管理规则组" type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+          <Button variant="outline" onClick={openCreateGroup} aria-label="管理规则组" type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
             <Layers className="w-4 h-4 mr-2" />管理组
           </Button>
-          <Button onClick={reloadRules} disabled={isReloading} aria-label="重新加载规则" type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+          <Button onClick={reloadRules} disabled={isReloading} aria-label="重新加载规则" type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
             {isReloading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin motion-reduce:animate-none" />
             ) : (
@@ -317,41 +317,41 @@ export default function RulesPage() {
 
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-secondary/50 border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-blue-400">总计规则</CardTitle>
+              <CardTitle className="text-sm font-medium text-info">总计规则</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-300 tabular-nums">{stats.total}</div>
+              <div className="text-2xl font-bold text-info tabular-nums">{stats.total}</div>
             </CardContent>
           </Card>
           {stats.enabled !== undefined && (
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-secondary/50 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-green-400">已启用</CardTitle>
+                <CardTitle className="text-sm font-medium text-success">已启用</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-300 tabular-nums">{stats.enabled}</div>
+                <div className="text-2xl font-bold text-success tabular-nums">{stats.enabled}</div>
               </CardContent>
             </Card>
           )}
           {stats.workflow_only !== undefined && (
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-secondary/50 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-purple-400">工作流专属</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">工作流专属</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-300 tabular-nums">{stats.workflow_only}</div>
+                <div className="text-2xl font-bold text-primary tabular-nums">{stats.workflow_only}</div>
               </CardContent>
             </Card>
           )}
           {stats.groups !== undefined && (
-            <Card className="bg-slate-800/50 border-slate-700">
+            <Card className="bg-secondary/50 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-orange-400">规则组</CardTitle>
+                <CardTitle className="text-sm font-medium text-warning">规则组</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-300 tabular-nums">{stats.groups}</div>
+                <div className="text-2xl font-bold text-warning tabular-nums">{stats.groups}</div>
               </CardContent>
             </Card>
           )}
@@ -449,10 +449,10 @@ export default function RulesPage() {
                       onClick={() => toggleWorkflowOnly(selectedRule.id, !selectedRule.workflow_only)}
                       aria-label={selectedRule.workflow_only ? '切换为通用规则' : '切换为工作流专属规则'}
                       type="button"
-                      className="focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                      className="focus-visible:ring-2 focus-visible:ring-primary/30"
                     >
                       {selectedRule.workflow_only ? (
-                        <><Workflow className="w-4 h-4 mr-2 text-purple-500" />工作流专属</>
+                        <><Workflow className="w-4 h-4 mr-2 text-primary" />工作流专属</>
                       ) : (
                         <><Workflow className="w-4 h-4 mr-2" />通用</>
                       )}
@@ -467,7 +467,7 @@ export default function RulesPage() {
                   <div>
                     <div className="font-medium">启用状态</div>
                     <div className="text-muted-foreground flex items-center gap-2">
-                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.enabled ? 'bg-green-500' : 'bg-red-500'}`} aria-hidden="true" />
+                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.enabled ? 'bg-success' : 'bg-destructive'}`} aria-hidden="true" />
                       {selectedRule.enabled ? '已启用' : '已禁用'}
                       <span className="sr-only">{selectedRule.enabled ? '规则已启用' : '规则已禁用'}</span>
                     </div>
@@ -475,7 +475,7 @@ export default function RulesPage() {
                   <div>
                     <div className="font-medium">工作流专属</div>
                     <div className="text-muted-foreground flex items-center gap-2">
-                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.workflow_only ? 'bg-blue-500' : 'bg-gray-500'}`} aria-hidden="true" />
+                      <span className={`inline-block w-2 h-2 rounded-full ${selectedRule.workflow_only ? 'bg-info' : 'bg-muted-foreground'}`} aria-hidden="true" />
                       {selectedRule.workflow_only ? '是' : '否'}
                       <span className="sr-only">{selectedRule.workflow_only ? '规则仅限工作流使用' : '规则通用'}</span>
                     </div>
@@ -487,15 +487,15 @@ export default function RulesPage() {
                   <div className="text-sm font-medium mb-2 flex items-center justify-between">
                     <span>所属组</span>
                     {!isEditingGroups ? (
-                      <Button variant="ghost" size="sm" onClick={startEditingGroups} aria-label="编辑规则组分配" type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+                      <Button variant="ghost" size="sm" onClick={startEditingGroups} aria-label="编辑规则组分配" type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
                         <Edit2 className="w-3 h-3 mr-1" />编辑
                       </Button>
                     ) : (
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={cancelEditingGroups} aria-label="取消编辑组分配" type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+                        <Button variant="ghost" size="sm" onClick={cancelEditingGroups} aria-label="取消编辑组分配" type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
                           <X className="w-3 h-3 mr-1" />取消
                         </Button>
-                        <Button variant="default" size="sm" onClick={saveRuleGroups} aria-label="保存组分配" type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+                        <Button variant="default" size="sm" onClick={saveRuleGroups} aria-label="保存组分配" type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
                           <Check className="w-3 h-3 mr-1" />保存
                         </Button>
                       </div>
@@ -579,11 +579,11 @@ export default function RulesPage() {
             if (e.key === 'Escape') setConfirmDialog(null);
           }}
         >
-          <div className="bg-slate-800 border border-border/50 rounded-xl p-6 w-[400px]" onClick={e => e.stopPropagation()}>
-            <h2 id="confirm-dialog-title" className="text-lg font-semibold text-slate-200 mb-2">{confirmDialog.title}</h2>
+          <div className="bg-secondary border border-border/50 rounded-xl p-6 w-[400px]" onClick={e => e.stopPropagation()}>
+            <h2 id="confirm-dialog-title" className="text-lg font-semibold text-foreground mb-2">{confirmDialog.title}</h2>
             <p className="text-sm text-muted-foreground mb-6">{confirmDialog.message}</p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setConfirmDialog(null)} type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+              <Button variant="outline" size="sm" onClick={() => setConfirmDialog(null)} type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
                 取消
               </Button>
               <Button
@@ -592,7 +592,7 @@ export default function RulesPage() {
                 size="sm"
                 onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
                 type="button"
-                className="focus-visible:ring-2 focus-visible:ring-red-500/30"
+                className="focus-visible:ring-2 focus-visible:ring-destructive/30"
               >
                 确认删除
               </Button>
@@ -613,12 +613,12 @@ export default function RulesPage() {
             if (e.key === 'Escape') setShowGroupDialog(false);
           }}
         >
-          <div className="bg-slate-800 border border-border/50 rounded-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-secondary border border-border/50 rounded-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 id="group-dialog-title" className="text-lg font-semibold text-slate-200">管理规则组</h2>
+              <h2 id="group-dialog-title" className="text-lg font-semibold text-foreground">管理规则组</h2>
               <button
                 onClick={() => setShowGroupDialog(false)}
-                className="p-1 text-muted-foreground hover:text-foreground cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-indigo-500/30 rounded"
+                className="p-1 text-muted-foreground hover:text-foreground cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-primary/30 rounded"
                 aria-label="关闭对话框"
                 type="button"
               >
@@ -628,15 +628,15 @@ export default function RulesPage() {
 
             <div className="space-y-2 mb-4">
               {groups.map(group => (
-                <div key={group.id} className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-border/30">
+                <div key={group.id} className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg border border-border/30">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-200">{group.name}</div>
+                    <div className="text-sm font-medium text-foreground">{group.name}</div>
                     <div className="text-xs text-muted-foreground truncate">{group.description || '无描述'}</div>
                   </div>
                   <div className="flex gap-1">
                     <button
                       onClick={() => openEditGroup(group)}
-                      className="p-1.5 text-muted-foreground hover:text-indigo-400 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-indigo-500/30 rounded"
+                      className="p-1.5 text-muted-foreground hover:text-primary cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-primary/30 rounded"
                       aria-label={`编辑组 ${group.name}`}
                       type="button"
                     >
@@ -644,7 +644,7 @@ export default function RulesPage() {
                     </button>
                     <button
                       onClick={() => handleDeleteGroup(group.id)}
-                      className="p-1.5 text-muted-foreground hover:text-red-400 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-red-500/30 rounded"
+                      className="p-1.5 text-muted-foreground hover:text-destructive cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-destructive/30 rounded"
                       aria-label={`删除组 ${group.name}`}
                       type="button"
                     >
@@ -659,7 +659,7 @@ export default function RulesPage() {
             </div>
 
             <div className="border-t border-border/30 pt-4">
-              <h3 className="text-sm font-medium text-slate-300 mb-3">{editingGroup ? '编辑组' : '新建组'}</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{editingGroup ? '编辑组' : '新建组'}</h3>
               <div className="space-y-3">
                 <div>
                   <label htmlFor="group-id" className="text-xs text-muted-foreground block mb-1">组 ID</label>
@@ -669,7 +669,7 @@ export default function RulesPage() {
                     onChange={e => setGroupForm(p => ({ ...p, id: e.target.value }))}
                     disabled={!!editingGroup}
                     placeholder="unique-group-id"
-                    className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 min-h-[44px]"
+                    className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 min-h-[44px]"
                     autoFocus={!editingGroup}
                   />
                 </div>
@@ -680,7 +680,7 @@ export default function RulesPage() {
                     value={groupForm.name}
                     onChange={e => setGroupForm(p => ({ ...p, name: e.target.value }))}
                     placeholder="我的规则组"
-                    className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 min-h-[44px]"
+                    className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 min-h-[44px]"
                     autoFocus={!!editingGroup}
                   />
                 </div>
@@ -691,12 +691,12 @@ export default function RulesPage() {
                     value={groupForm.description}
                     onChange={e => setGroupForm(p => ({ ...p, description: e.target.value }))}
                     placeholder="可选描述"
-                    className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 min-h-[44px]"
+                    className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 min-h-[44px]"
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowGroupDialog(false)} type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">取消</Button>
-                  <Button size="sm" onClick={saveGroup} disabled={!groupForm.id || !groupForm.name} type="button" className="focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+                  <Button variant="outline" size="sm" onClick={() => setShowGroupDialog(false)} type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">取消</Button>
+                  <Button size="sm" onClick={saveGroup} disabled={!groupForm.id || !groupForm.name} type="button" className="focus-visible:ring-2 focus-visible:ring-primary/30">
                     {editingGroup ? '保存修改' : '创建'}
                   </Button>
                 </div>

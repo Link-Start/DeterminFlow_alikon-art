@@ -304,6 +304,87 @@ test("a recoverable terminal error rolls back the draft and tracks retry progres
   assert.equal(state.retryingFailureId, null);
 });
 
+test("a retried failed turn remains visible while the new stream starts", () => {
+  let state = createConversationState("main-session");
+  state = dispatchWire(state, {
+    type: "snapshot",
+    session_id: "main-session",
+    status: "running",
+    revision: 3,
+    active_stream: null,
+    messages: [{ type: "assistant", content: "stable answer" }],
+    failed_turn: {
+      failure_id: "failure-retry",
+      content: "retry this question",
+      attachments: [],
+      retryable: true,
+      retry_block_reason: null,
+      tool_started: false,
+      attempt_count: 1,
+      model_id: "provider:model",
+      error: {
+        code: "service_unavailable",
+        message: "模型服务暂时不可用，请稍后再试",
+        occurred_at: "2026-08-15T12:01:00+00:00",
+      },
+    },
+  });
+  state = conversationReducer(state, {
+    type: "retry_requested",
+    sessionId: "main-session",
+    failureId: "failure-retry",
+  });
+  state = dispatchWire(state, {
+    type: "stream_start",
+    session_id: "main-session",
+    generation_id: "generation-retry",
+    revision: 4,
+  });
+
+  assert.deepEqual(
+    state.messages.map((message) => [message.type, message.content]),
+    [
+      ["assistant", "stable answer"],
+      ["user", "retry this question"],
+    ],
+  );
+  assert.equal(state.phase, "streaming");
+  assert.equal(state.failedTurn, null);
+
+  state = dispatchWire(state, {
+    type: "error",
+    session_id: "main-session",
+    generation_id: "generation-retry",
+    revision: 5,
+    message: "模型服务暂时不可用，请稍后再试",
+    terminal: true,
+    session_status: "running",
+    messages: [{ type: "assistant", content: "stable answer" }],
+    failed_turn: {
+      failure_id: "failure-retry-2",
+      content: "retry this question",
+      attachments: [],
+      retryable: true,
+      retry_block_reason: null,
+      tool_started: false,
+      attempt_count: 2,
+      model_id: "provider:model",
+      error: {
+        code: "service_unavailable",
+        message: "模型服务暂时不可用，请稍后再试",
+        occurred_at: "2026-08-15T12:02:00+00:00",
+      },
+    },
+  });
+
+  assert.deepEqual(
+    state.messages.map((message) => message.content),
+    ["stable answer"],
+  );
+  assert.equal(state.phase, "ready");
+  assert.equal(state.failedTurn?.failureId, "failure-retry-2");
+});
+
 test("optimistic edit truncates later messages only after the command was accepted", () => {
   let state = createConversationState("session-a");
   state = dispatchWire(state, {

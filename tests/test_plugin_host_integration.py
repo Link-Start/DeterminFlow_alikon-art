@@ -216,6 +216,64 @@ def test_external_plugin_is_loaded_from_locked_checkout_with_process_and_config(
     assert manager.process_manager.statuses("demo-plugin")[0]["status"] == "stopped"
 
 
+def test_in_process_plugin_receives_file_secret_only_in_memory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _RUNTIME_EVENTS.clear()
+    repo = _create_plugin_repo(tmp_path)
+    (repo / "settings.schema.json").write_text(
+        json.dumps({
+            "type": "object",
+            "properties": {
+                "message": {"type": "string"},
+                "SECRET": {"type": "string", "format": "password"},
+            },
+            "required": ["SECRET"],
+        }),
+        encoding="utf-8",
+    )
+    _git(repo, "add", "settings.schema.json")
+    _git(repo, "commit", "-m", "require runtime secret")
+    store = PluginStore(
+        tmp_path / "runtime" / "plugins",
+        official_sources=[str(repo)],
+    )
+    store.install("demo-plugin", str(repo), ref="main")
+    config_root = store.root / "config"
+    config_root.mkdir()
+    (config_root / "demo-plugin.json").write_text(
+        '{"message":"persisted"}',
+        encoding="utf-8",
+    )
+    secret = tmp_path / "runtime-secret"
+    secret.write_text("not-in-snapshot\n", encoding="utf-8")
+    monkeypatch.setenv("SECRET_FILE", str(secret))
+    config_file = _write_enabled(tmp_path / "core", ["demo-plugin"])
+
+    manager = ExtensionManager(
+        tmp_path / "core",
+        config_file=config_file,
+        plugin_store=store,
+        discover_entry_points=False,
+    )
+    applied_config = manager.applied_plugin_config_store.path_for("demo-plugin")
+
+    async def run_lifecycle() -> None:
+        await manager.start(_runtime())
+        assert _RUNTIME_EVENTS[1] == {
+            "message": "persisted",
+            "SECRET": "not-in-snapshot",
+        }
+        assert json.loads(applied_config.read_text(encoding="utf-8")) == {
+            "message": "persisted",
+        }
+        assert "not-in-snapshot" not in applied_config.read_text(encoding="utf-8")
+        await manager.stop()
+
+    asyncio.run(run_lifecycle())
+
+
 def test_extension_driven_process_exit_is_normal_shutdown(tmp_path: Path):
     _RUNTIME_EVENTS.clear()
     repo = _create_plugin_repo(tmp_path)

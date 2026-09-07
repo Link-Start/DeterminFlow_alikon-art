@@ -34,7 +34,7 @@ def test_absolute_override_allows_external_data_dir(
     override = data_root / "plugins" / "data" / "example-plugin" / "batches"
 
     resolved = manager.resolve_workflow_workspace(
-        "example-workflow",
+        "teardown-l1",
         override=str(override),
     )
 
@@ -81,9 +81,9 @@ def test_pure_workspace_resolver_matches_runtime_without_creating_directory(
     monkeypatch.setattr(config, "BASE_DIR", project_root)
     monkeypatch.setattr(config, "DATA_DIR", data_root)
 
-    override = "data/workspaces/shared-example"
+    override = "data/book/00000000-0000-0000-0000-000000000001"
     resolved = resolve_workflow_workspace_path(
-        "example-workflow",
+        "rewrite",
         override=override,
         base_dir=default_root,
     )
@@ -93,10 +93,7 @@ def test_pure_workspace_resolver_matches_runtime_without_creating_directory(
 
     runtime_resolved = WorkspaceManager(
         base_dir=str(default_root)
-    ).resolve_workflow_workspace(
-        "example-workflow",
-        override=override,
-    )
+    ).resolve_workflow_workspace("rewrite", override=override)
     assert runtime_resolved == resolved
     assert runtime_resolved.is_dir()
 

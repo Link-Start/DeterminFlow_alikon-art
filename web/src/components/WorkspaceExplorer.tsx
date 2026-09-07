@@ -93,28 +93,28 @@ function TreeItem({
           }
         }}
         className={`w-full flex items-center gap-1 py-0.5 px-1 rounded text-xs hover:bg-white/5 transition-colors cursor-pointer min-h-[44px] ${
-          isSelected ? "bg-indigo-500/10 text-indigo-500" : "text-slate-300"
+          isSelected ? "bg-primary/10 text-primary" : "text-foreground"
         }`}
         style={{ paddingLeft: `${depth * 14 + 4}px` }}
         aria-label={isDir ? `${expanded ? '折叠' : '展开'}文件夹 ${node.name}` : `打开文件 ${node.name}`}
       >
         {isDir ? (
           expanded ? (
-            <ChevronDown size={14} className="text-slate-500 flex-shrink-0" aria-hidden="true" />
+            <ChevronDown size={14} className="text-muted-foreground flex-shrink-0" aria-hidden="true" />
           ) : (
-            <ChevronRight size={14} className="text-slate-500 flex-shrink-0" aria-hidden="true" />
+            <ChevronRight size={14} className="text-muted-foreground flex-shrink-0" aria-hidden="true" />
           )
         ) : (
           <span className="w-3 flex-shrink-0" aria-hidden="true" />
         )}
         {isDir ? (
           expanded ? (
-            <FolderOpen size={14} className="text-cyan-500 flex-shrink-0" aria-hidden="true" />
+            <FolderOpen size={14} className="text-info flex-shrink-0" aria-hidden="true" />
           ) : (
-            <FolderClosed size={14} className="text-cyan-500/70 flex-shrink-0" aria-hidden="true" />
+            <FolderClosed size={14} className="text-info/70 flex-shrink-0" aria-hidden="true" />
           )
         ) : (
-          <File size={14} className="text-slate-500 flex-shrink-0" aria-hidden="true" />
+          <File size={14} className="text-muted-foreground flex-shrink-0" aria-hidden="true" />
         )}
         <span className="truncate">{node.name}</span>
       </button>
@@ -217,8 +217,8 @@ export default function WorkspaceExplorer({ sessionId, workspacePath }: Workspac
       <div className="px-3 py-2 border-b border-border/50 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1.5">
-            <Code size={14} className="text-cyan-500" aria-hidden="true" />
-            <span className="text-xs font-medium text-slate-200">工作空间</span>
+            <Code size={14} className="text-info" aria-hidden="true" />
+            <span className="text-xs font-medium text-foreground">工作空间</span>
             <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/30">
               {entries.length}
             </Badge>
@@ -226,7 +226,7 @@ export default function WorkspaceExplorer({ sessionId, workspacePath }: Workspac
           <button
             onClick={loadTree}
             disabled={loading}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-slate-800/60 transition-colors cursor-pointer disabled:opacity-40 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer disabled:opacity-40 min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="刷新工作空间文件树"
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} aria-hidden="true" />
@@ -245,7 +245,7 @@ export default function WorkspaceExplorer({ sessionId, workspacePath }: Workspac
       )}
 
       {error && (
-        <div className="px-3 py-2 text-xs text-red-500" role="alert">{error}</div>
+        <div className="px-3 py-2 text-xs text-destructive" role="alert">{error}</div>
       )}
 
       {/* File Tree */}
@@ -270,8 +270,8 @@ export default function WorkspaceExplorer({ sessionId, workspacePath }: Workspac
         /* File Preview */
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-3 py-1.5 border-b border-border/50 flex items-center gap-2 flex-shrink-0">
-            <File size={12} className="text-slate-500" aria-hidden="true" />
-            <span className="text-xs font-mono text-cyan-500 truncate flex-1">{selectedFile}</span>
+            <File size={12} className="text-muted-foreground" aria-hidden="true" />
+            <span className="text-xs font-mono text-info truncate flex-1">{selectedFile}</span>
             <button
               onClick={() => { setSelectedFile(null); setFileContent(null); }}
               className="p-0.5 rounded text-muted-foreground hover:text-foreground cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -287,7 +287,7 @@ export default function WorkspaceExplorer({ sessionId, workspacePath }: Workspac
                 加载中...
               </div>
             ) : (
-              <pre className="p-2 text-xs font-mono text-slate-300 leading-relaxed whitespace-pre-wrap">
+              <pre className="p-2 text-xs font-mono text-foreground leading-relaxed whitespace-pre-wrap">
                 {fileContent ?? ""}
               </pre>
             )}

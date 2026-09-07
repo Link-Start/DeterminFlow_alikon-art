@@ -9,6 +9,25 @@ use std::sync::Arc;
 
 use backend::{BackendState, LaunchedBackend};
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_deep_link::DeepLinkExt;
+
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+fn is_auth_complete_deep_link(url: &tauri::Url) -> bool {
+    url.scheme() == "determinflow"
+        && url.host_str() == Some("auth")
+        && url.path() == "/complete"
+        && url.query().is_none()
+        && url.fragment().is_none()
+        && url.username().is_empty()
+        && url.password().is_none()
+}
 
 fn is_allowed_external_url(url: &tauri::Url) -> bool {
     let has_safe_authority =
@@ -63,12 +82,10 @@ fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(
             |app, _arguments, _cwd| {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(app);
             },
         ))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(backend_state)
@@ -81,6 +98,16 @@ fn main() {
             updater::check_update_sources,
         ])
         .setup(|app| {
+            let app_handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                if event.urls().iter().any(is_auth_complete_deep_link) {
+                    show_main_window(&app_handle);
+                }
+            });
+
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            app.deep_link().register_all()?;
+
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .title("DeterminFlow")
@@ -117,7 +144,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::is_allowed_external_url;
+    use super::{is_allowed_external_url, is_auth_complete_deep_link};
 
     fn url(value: &str) -> tauri::Url {
         value.parse().expect("test URL should parse")
@@ -141,5 +168,19 @@ mod tests {
         )));
         assert!(!is_allowed_external_url(&url("file:///tmp/example")));
         assert!(!is_allowed_external_url(&url("javascript:alert(1)")));
+    }
+
+    #[test]
+    fn auth_complete_deep_link_accepts_only_the_fixed_return_action() {
+        assert!(is_auth_complete_deep_link(&url(
+            "determinflow://auth/complete"
+        )));
+        assert!(!is_auth_complete_deep_link(&url(
+            "determinflow://auth/complete?token=secret"
+        )));
+        assert!(!is_auth_complete_deep_link(&url(
+            "determinflow://marketplace/open"
+        )));
+        assert!(!is_auth_complete_deep_link(&url("https://auth/complete")));
     }
 }

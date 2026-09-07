@@ -291,10 +291,10 @@ function HeaderStatusItem({
   }, [entry.source, onLoad, payload.refresh_after_ms]);
 
   const toneClass = {
-    normal: "border-emerald-500/35 text-emerald-300 hover:bg-emerald-500/10",
-    attention: "border-amber-500/40 text-amber-300 hover:bg-amber-500/10",
-    critical: "border-rose-500/45 text-rose-300 hover:bg-rose-500/10",
-    stale: "border-slate-500/60 text-slate-300 hover:bg-slate-700/60",
+    normal: "border-success/35 text-success hover:bg-success/10",
+    attention: "border-warning/40 text-warning hover:bg-warning/10",
+    critical: "border-destructive/45 text-destructive hover:bg-destructive/10",
+    stale: "border-border/60 text-foreground hover:bg-muted/60",
   }[payload.tone];
   const metricColumns = payload.metrics.length === 1
     ? "grid-cols-1"
@@ -339,7 +339,7 @@ function HeaderStatusItem({
         type="button"
         data-status-trigger
         className={cn(
-          "flex h-9 items-center gap-1.5 rounded-md border bg-slate-900/35 px-2.5 text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+          "flex h-9 items-center gap-1.5 rounded-md border bg-card/35 px-2.5 text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           toneClass,
         )}
         aria-expanded={open}
@@ -356,18 +356,18 @@ function HeaderStatusItem({
         <div className="absolute right-0 top-full z-[70] w-[min(22rem,calc(100vw-2rem))] pt-2.5 max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-14 max-sm:w-auto max-sm:pt-0">
           <section
             id={popoverId}
-            className="rounded-xl border border-slate-700 bg-slate-950 p-4 text-slate-100 shadow-2xl shadow-black/40"
+            className="rounded-xl border border-border bg-background p-4 text-foreground shadow-2xl shadow-black/40"
             aria-label={payload.title}
           >
             <div>
               <h2 className="text-sm font-semibold">{payload.title}</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-400">
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 {payload.summary_href ? (
                   <a
                     href={payload.summary_href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-slate-300 underline-offset-2 hover:text-slate-100 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                    className="inline-flex items-center gap-1 text-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {payload.summary}
                     <ExternalLink className="h-3 w-3" aria-hidden="true" />
@@ -378,26 +378,26 @@ function HeaderStatusItem({
 
             <dl className={cn("mt-4 grid gap-2", metricColumns)}>
               {payload.metrics.map((metric) => (
-                <div key={metric.label} className="min-w-0 rounded-lg bg-slate-900 px-3 py-2.5">
-                  <dt className="truncate text-[11px] text-slate-500">{metric.label}</dt>
-                  <dd className="mt-1 truncate text-sm font-semibold tabular-nums text-slate-100">{metric.value}</dd>
+                <div key={metric.label} className="min-w-0 rounded-lg bg-card px-3 py-2.5">
+                  <dt className="truncate text-[11px] text-muted-foreground">{metric.label}</dt>
+                  <dd className="mt-1 truncate text-sm font-semibold tabular-nums text-foreground">{metric.value}</dd>
                 </div>
               ))}
             </dl>
 
-            <dl className="mt-4 space-y-2 border-t border-slate-800 pt-3 text-xs">
+            <dl className="mt-4 space-y-2 border-t border-border pt-3 text-xs">
               {payload.metadata.map((item) => (
                 <div key={item.label} className="flex items-center justify-between gap-4">
-                  <dt className="text-slate-500">{item.label}</dt>
-                  <dd className="text-right text-slate-300">{item.value}</dd>
+                  <dt className="text-muted-foreground">{item.label}</dt>
+                  <dd className="text-right text-foreground">{item.value}</dd>
                 </div>
               ))}
             </dl>
 
-            <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-800 pt-3">
+            <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
               <button
                 type="button"
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-700 px-2.5 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-foreground hover:bg-secondary disabled:opacity-50"
                 onClick={() => void refresh()}
                 disabled={refreshing}
               >
@@ -408,7 +408,7 @@ function HeaderStatusItem({
                 <button
                   key={action.id}
                   type="button"
-                  className="inline-flex h-8 items-center rounded-md bg-indigo-500 px-3 text-xs font-medium text-white hover:bg-indigo-400"
+                  className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-white hover:bg-primary"
                   onClick={onManage}
                 >
                   {action.label}
@@ -417,7 +417,7 @@ function HeaderStatusItem({
                 <button
                   key={action.id}
                   type="button"
-                  className="inline-flex h-8 items-center rounded-md border border-slate-700 px-3 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                  className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium text-foreground hover:bg-secondary"
                   onClick={() => {
                     dismiss(false);
                     onOpenPage(action.label);
@@ -429,7 +429,7 @@ function HeaderStatusItem({
                 <button
                   key={action.id}
                   type="button"
-                  className="inline-flex h-8 items-center rounded-md bg-indigo-500 px-3 text-xs font-medium text-white hover:bg-indigo-400 disabled:cursor-wait disabled:opacity-60"
+                  className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-white hover:bg-primary disabled:cursor-wait disabled:opacity-60"
                   onClick={() => void request(action)}
                   disabled={actionBusy !== null}
                 >
@@ -441,14 +441,14 @@ function HeaderStatusItem({
                   href={action.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-500 px-3 text-xs font-medium text-white hover:bg-indigo-400"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-white hover:bg-primary"
                 >
                   {action.label}<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                 </a>
               ))}
             </div>
             {actionError ? (
-              <p className="mt-2 text-right text-xs text-rose-300" role="alert">
+              <p className="mt-2 text-right text-xs text-destructive" role="alert">
                 {actionError}
               </p>
             ) : null}

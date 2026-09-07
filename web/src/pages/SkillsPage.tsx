@@ -1,12 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { MarketplaceSkillUpdateButton } from "@/components/marketplace/MarketplaceSkillUpdateButton";
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BookOpen, Code, Search, MessageSquare, Brain, Workflow, GraduationCap, RefreshCw, Eye, Power, PowerOff, Edit2, Check, X, Layers, Trash2, Loader2, AlertCircle, Zap, Snowflake } from 'lucide-react';
+import { BookOpen, Code, Search, MessageSquare, Brain, Workflow, GraduationCap, RefreshCw, Eye, Power, PowerOff, Edit2, Check, X, Layers, Trash2, Loader2, AlertCircle, Zap, Snowflake, ChevronRight } from 'lucide-react';
 import { SkillGroup } from '../types';
 import { fetchSkillGroups, createSkillGroup, updateSkillGroup, deleteSkillGroup, setSkillGroups } from '../lib/api';
 import { useToast } from '@/components/ui/use-toast';
+import { useUrlParam } from '../hooks/useUrlParam';
+import { setSkillEnabled } from '../lib/skill-activation';
+import { skillContentLicense, skillUsageAuthorization } from '../lib/skill-license';
+import { uninstallLocalSkill } from '../lib/skill-uninstall';
+import { filterSkillsBySource, skillMatchesSource, skillSourceFilterForOpen, skillSourceFilters, type SkillSourceFilter } from '../lib/skill-source-filter';
 
 interface Skill {
   id: string;
@@ -22,6 +29,35 @@ interface Skill {
   workflow_only: boolean;
   version: string;
   author: string;
+  language: string;
+  scope: 'all' | 'workflow';
+  scope_override?: 'all' | 'workflow' | null;
+  license: string;
+  compatibility: string;
+  requires_core: string;
+  allowed_tools: string[];
+  required_tools: string[];
+  required_plugins: string[];
+  required_apps: string[];
+  validation_warnings: string[];
+  resource_read_only?: boolean;
+  local_modified?: boolean;
+  provenance?: {
+    source?: {
+      kind?: 'local' | 'core' | 'plugin' | 'marketplace';
+      registry?: string;
+      resource_id?: string;
+      version_id?: string;
+      publisher_id?: string;
+      plugin_id?: string;
+    };
+    package?: {
+      version?: string;
+      sha256?: string;
+      license?: string;
+    };
+    installed_at?: string | null;
+  } | null;
   auto_inject: boolean;
   config?: {
     group_ids?: string[];
@@ -39,11 +75,46 @@ const categoryIcons: Record<string, typeof BookOpen> = {
   memory: Brain, workflow: Workflow, domain: GraduationCap,
 };
 
+const sourceLabels: Record<string, string> = {
+  local: '本地创建',
+  core: 'Core 内置',
+  plugin: '插件提供',
+  marketplace: '资源广场',
+};
+
+function MetadataFact({ label, value, title, href }: { label: string; value: string; title?: string; href?: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 block truncate text-sm font-medium text-primary underline-offset-4 hover:underline"
+          title={title || value}
+          aria-label={`查看 ${value} 许可条款`}
+        >
+          {value}
+        </a>
+      ) : (
+        <div className="mt-1 truncate text-sm font-medium" title={title || value}>{value}</div>
+      )}
+    </div>
+  );
+}
+
 export default function SkillsPage() {
   const { toast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<SkillSourceFilter>('all');
+  const [requestedSkill, setRequestedSkill] = useUrlParam('skill');
+  const openRetryRef = useRef<string | null>(null);
+  const detailRequestRef = useRef(0);
+  const detailPanelRef = useRef<HTMLDivElement>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // 组管理状态
   const [groups, setGroups] = useState<SkillGroup[]>([]);
@@ -62,6 +133,23 @@ export default function SkillsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isReloading, setIsReloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uninstallOpen, setUninstallOpen] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
+
+  const filteredSkills = useMemo(
+    () => filterSkillsBySource(skills, sourceFilter),
+    [skills, sourceFilter],
+  );
+
+  const changeSourceFilter = (filter: SkillSourceFilter) => {
+    detailRequestRef.current += 1;
+    setDetailLoading(false);
+    setSourceFilter(filter);
+    if (selectedSkill && !skillMatchesSource(selectedSkill, filter)) {
+      setSelectedSkill(null);
+      setIsEditingGroups(false);
+    }
+  };
 
   const loadGroups = useCallback(async () => {
     try {
@@ -73,13 +161,11 @@ export default function SkillsPage() {
   }, []);
 
   const loadSkills = useCallback(async () => {
-    try {
-      const res = await fetch('/api/skills/summary');
-      const data = await res.json();
-      setSkills(data.skills || []);
-    } catch (error) {
-      console.error('Failed to load skills:', error);
-    }
+    const res = await fetch('/api/skills/summary');
+    if (!res.ok) throw new Error('无法加载 Skill 列表');
+    const data = await res.json();
+    if (!Array.isArray(data.skills)) throw new Error('Skill 列表无效');
+    setSkills(data.skills);
   }, []);
 
   const loadStats = useCallback(async () => {
@@ -106,26 +192,116 @@ export default function SkillsPage() {
 
   useEffect(() => {
     loadInitialData();
+    return () => { detailRequestRef.current += 1; };
   }, [loadInitialData]);
 
-  const loadDetail = async (id: string) => {
-    const res = await fetch(`/api/skills/${id}`);
-    const detail = await res.json();
-    // 从config读取group_ids
-    if (detail.config?.group_ids) {
-      detail.group_ids = detail.config.group_ids;
-    }
-    setSelectedSkill(detail);
-  };
-
-  const toggleSkill = async (id: string, enabled: boolean) => {
+  const loadDetail = useCallback(async (id: string) => {
+    const request = ++detailRequestRef.current;
+    setDetailLoading(true);
+    setSelectedSkill(null);
     try {
-      await fetch(`/api/skills/${id}/toggle?enabled=${enabled}`, { method: 'POST' });
+      const res = await fetch(`/api/skills/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error('无法加载 Skill 详情');
+      const detail = await res.json();
+      if (request !== detailRequestRef.current) return;
+      if (!detail || detail.id !== id) throw new Error('Skill 详情无效');
+      if (detail.config?.group_ids) detail.group_ids = detail.config.group_ids;
+      setSelectedSkill(detail);
+    } catch {
+      if (request === detailRequestRef.current) {
+        toast({ title: '无法加载 Skill 详情', description: '请重新选择该 Skill 重试。', variant: 'destructive' });
+      }
+    } finally {
+      if (request === detailRequestRef.current) setDetailLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (!requestedSkill) {
+      openRetryRef.current = null;
+      return;
+    }
+    if (isLoading || error || !requestedSkill) return;
+    const skillId = requestedSkill;
+    const summary = skills.find((skill) => skill.id === skillId);
+    if (!summary) {
+      if (openRetryRef.current !== skillId) {
+        openRetryRef.current = skillId;
+        void loadSkills().catch(() => {
+          setRequestedSkill(null, { replace: true });
+          toast({ title: '该 Skill 已不可用', description: '请刷新 Skill 列表后重试。', variant: 'destructive' });
+        });
+        return;
+      }
+      setRequestedSkill(null, { replace: true });
+      toast({ title: '该 Skill 已不可用', description: '请刷新 Skill 列表后重试。', variant: 'destructive' });
+      return;
+    }
+    openRetryRef.current = null;
+    setRequestedSkill(null, { replace: true });
+    setSourceFilter(skillSourceFilterForOpen(summary));
+    setIsEditingGroups(false);
+    void loadDetail(skillId);
+  }, [error, isLoading, loadDetail, loadSkills, requestedSkill, setRequestedSkill, skills, toast]);
+
+  useEffect(() => {
+    if (selectedSkill?.id && window.matchMedia('(max-width: 1023px)').matches) {
+      detailPanelRef.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [selectedSkill?.id]);
+
+  useEffect(() => {
+    setUninstallOpen(false);
+  }, [selectedSkill?.id]);
+
+  const uninstallMarketplaceSkill = async () => {
+    if (!selectedSkill || selectedSkill.provenance?.source?.kind !== 'marketplace' || uninstalling) return;
+    const skillId = selectedSkill.id;
+    const skillName = selectedSkill.name;
+    const detailGeneration = detailRequestRef.current;
+    setUninstalling(true);
+    let removed = false;
+    try {
+      await uninstallLocalSkill(skillId);
+      removed = true;
+      if (detailRequestRef.current === detailGeneration) {
+        setSelectedSkill(null);
+        setUninstallOpen(false);
+      }
       await loadSkills();
       loadStats();
-      if (selectedSkill?.id === id) await loadDetail(id);
+      toast({ title: '已卸载', description: `已从本机移除「${skillName}」。` });
     } catch (error) {
-      console.error('Error toggling skill:', error);
+      toast({
+        title: removed ? '已卸载，但列表刷新失败' : '卸载失败',
+        description: removed
+          ? '请刷新列表查看当前状态。'
+          : error instanceof Error ? error.message : '请检查连接并重试。',
+        variant: 'destructive',
+      });
+    } finally {
+      setUninstalling(false);
+    }
+  };
+
+  const selectedContentLicense = selectedSkill ? skillContentLicense(selectedSkill) : null;
+  const selectedUsageAuthorization = selectedSkill ? skillUsageAuthorization(selectedSkill) : null;
+
+  const toggleSkill = async (id: string, enabled: boolean) => {
+    const detailGeneration = detailRequestRef.current;
+    let updated = false;
+    try {
+      await setSkillEnabled(id, enabled);
+      updated = true;
+      await loadSkills();
+      loadStats();
+      if (selectedSkill?.id === id && detailRequestRef.current === detailGeneration) await loadDetail(id);
+    } catch {
+      toast({
+        title: updated ? '状态已更新，但列表刷新失败' : 'Skill 状态未更新',
+        description: updated ? '请刷新列表查看当前状态。' : '请检查连接并重试。',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -289,7 +465,7 @@ export default function SkillsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6" role="main" aria-label="技能管理页面">
+    <div className="container mx-auto min-w-0 p-6 space-y-6" role="main" aria-label="技能管理页面">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Skills 管理</h1>
@@ -310,19 +486,36 @@ export default function SkillsPage() {
           <Card><CardHeader className="pb-3"><CardTitle className="text-sm">总计</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold tabular-nums">{stats.total}</div></CardContent></Card>
           <Card><CardHeader className="pb-3"><CardTitle className="text-sm">已启用</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-emerald-500 tabular-nums">{stats.enabled}</div></CardContent></Card>
+            <CardContent><div className="text-2xl font-bold text-success tabular-nums">{stats.enabled}</div></CardContent></Card>
           <Card><CardHeader className="pb-3"><CardTitle className="text-sm">已禁用</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-slate-400 tabular-nums">{stats.disabled}</div></CardContent></Card>
+            <CardContent><div className="text-2xl font-bold text-muted-foreground tabular-nums">{stats.disabled}</div></CardContent></Card>
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card>
-          <CardHeader><CardTitle>Skills 列表</CardTitle></CardHeader>
+          <CardHeader className="space-y-3">
+            <CardTitle>Skills 列表</CardTitle>
+            <div className="flex rounded-md border bg-muted/40 p-1" role="group" aria-label="按来源筛选 Skill">
+              {skillSourceFilters.map((filter) => (
+                <Button
+                  key={filter.value}
+                  type="button"
+                  variant={sourceFilter === filter.value ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={sourceFilter === filter.value}
+                  className="h-8 flex-1 px-2 text-xs"
+                  onClick={() => changeSourceFilter(filter.value)}
+                >
+                  {filter.label}
+                </Button>
+              ))}
+            </div>
+          </CardHeader>
           <CardContent>
             <ScrollArea className="h-[600px]">
               <div className="space-y-2">
-                {skills.map((skill) => {
+                {filteredSkills.map((skill) => {
                   const Icon = categoryIcons[skill.category] || BookOpen;
                   const skillGroupIds = skill.group_ids || skill.config?.group_ids || [];
                   return (
@@ -339,7 +532,7 @@ export default function SkillsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm flex items-center gap-2">
                               {skill.name}
-                              {skill.auto_inject && <Zap className="w-3 h-3 text-amber-400" aria-hidden="true" />}
+                              {skill.auto_inject && <Zap className="w-3 h-3 text-warning" aria-hidden="true" />}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{skill.description}</div>
                             <div className="flex gap-1 mt-2 flex-wrap">
@@ -350,45 +543,156 @@ export default function SkillsPage() {
                             </div>
                           </div>
                         </div>
-                        {skill.enabled ? <><Power className="w-4 h-4 text-emerald-500" aria-hidden="true" /><span className="sr-only">已启用</span></> : <><PowerOff className="w-4 h-4 text-slate-400" aria-hidden="true" /><span className="sr-only">已禁用</span></>}
+                        {skill.enabled ? <><Power className="w-4 h-4 text-success" aria-hidden="true" /><span className="sr-only">已启用</span></> : <><PowerOff className="w-4 h-4 text-muted-foreground" aria-hidden="true" /><span className="sr-only">已禁用</span></>}
                       </div>
                     </div>
                   );
                 })}
+                {filteredSkills.length === 0 && (
+                  <div className="py-10 text-center text-sm text-muted-foreground" role="status">
+                    该来源暂无 Skill
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </CardContent>
         </Card>
 
-        <div className="col-span-2">
-          {selectedSkill ? (
+        <div ref={detailPanelRef} className="min-w-0 scroll-mt-4 lg:col-span-2">
+          {detailLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground" role="status">
+              <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              正在加载 Skill
+            </div>
+          ) : selectedSkill ? (
             <Card>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div><CardTitle>{selectedSkill.name}</CardTitle><CardDescription>{selectedSkill.description}</CardDescription></div>
-                  <div className="flex gap-2">
+                <div className="flex flex-col items-start gap-3">
+                  <div className="min-w-0 break-words"><CardTitle>{selectedSkill.name}</CardTitle><CardDescription>{selectedSkill.description}</CardDescription></div>
+                  <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => toggleAutoInject(selectedSkill.id, !selectedSkill.auto_inject)} aria-label={selectedSkill.auto_inject ? '关闭自动注入' : '开启自动注入'} className="focus-visible:ring-2 focus-visible:ring-primary/50">
-                      {selectedSkill.auto_inject ? <><Zap className="w-4 h-4 mr-2 text-amber-400" aria-hidden="true" />自动注入</> : <><Snowflake className="w-4 h-4 mr-2" aria-hidden="true" />手动获取</>}
+                      {selectedSkill.auto_inject ? <><Zap className="w-4 h-4 mr-2 text-warning" aria-hidden="true" />自动注入</> : <><Snowflake className="w-4 h-4 mr-2" aria-hidden="true" />手动获取</>}
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => toggleWorkflowOnly(selectedSkill.id, !selectedSkill.workflow_only)} aria-label={selectedSkill.workflow_only ? '设为通用' : '设为工作流专属'} className="focus-visible:ring-2 focus-visible:ring-primary/50">
-                      {selectedSkill.workflow_only ? <><Workflow className="w-4 h-4 mr-2 text-purple-400" aria-hidden="true" />工作流专属</> : <><Workflow className="w-4 h-4 mr-2" aria-hidden="true" />通用</>}
+                      {selectedSkill.workflow_only ? <><Workflow className="w-4 h-4 mr-2 text-primary" aria-hidden="true" />工作流专属</> : <><Workflow className="w-4 h-4 mr-2" aria-hidden="true" />通用</>}
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => toggleSkill(selectedSkill.id, !selectedSkill.enabled)} aria-label={selectedSkill.enabled ? '禁用技能' : '启用技能'} className="focus-visible:ring-2 focus-visible:ring-primary/50">
                       {selectedSkill.enabled ? <><PowerOff className="w-4 h-4 mr-2" aria-hidden="true" />禁用</> : <><Power className="w-4 h-4 mr-2" aria-hidden="true" />启用</>}
                     </Button>
+                    {selectedSkill.provenance?.source?.kind === 'marketplace' && (
+                      <>
+                        <MarketplaceSkillUpdateButton key={selectedSkill.id} skillId={selectedSkill.id} version={selectedSkill.version} />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uninstalling}
+                          aria-label={`卸载本机 Skill ${selectedSkill.name}`}
+                          className="focus-visible:ring-2 focus-visible:ring-primary/50"
+                          onClick={() => setUninstallOpen(true)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />卸载
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg text-sm">
-                  <div><div className="font-medium">分类</div><div className="text-muted-foreground">{selectedSkill.category}</div></div>
-                  <div><div className="font-medium">优先级</div><div className="text-muted-foreground">{selectedSkill.priority}</div></div>
-                  <div><div className="font-medium">版本</div><div className="text-muted-foreground">{selectedSkill.version}</div></div>
-                  <div><div className="font-medium">作者</div><div className="text-muted-foreground">{selectedSkill.author || '未知'}</div></div>
-                  <div><div className="font-medium">自动注入</div><div className="text-muted-foreground">{selectedSkill.auto_inject ? '是' : '否'}</div></div>
-                  <div><div className="font-medium">工作流专属</div><div className="text-muted-foreground">{selectedSkill.workflow_only ? '是' : '否'}</div></div>
-                  <div><div className="font-medium">状态</div><div className="text-muted-foreground flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${selectedSkill.enabled ? 'bg-emerald-500' : 'bg-slate-500'}`} aria-hidden="true" />{selectedSkill.enabled ? '已启用' : '已禁用'}</div></div>
-                </div>
+                <details key={selectedSkill.id} className="group rounded-md border">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-sm font-medium outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/50 [&::-webkit-details-marker]:hidden">
+                    <span className="flex items-center gap-2">
+                      <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
+                      元数据
+                    </span>
+                  </summary>
+                  <div className="space-y-4 border-t p-4">
+                <section aria-labelledby="skill-content-metadata">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 id="skill-content-metadata" className="text-sm font-medium">内容元数据</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-md border bg-muted/40 p-4 sm:grid-cols-3">
+                    <MetadataFact label="资源标识" value={selectedSkill.id} />
+                    <MetadataFact label="版本" value={selectedSkill.version || '未填写'} />
+                    <MetadataFact label="作者" value={selectedSkill.author || '未填写'} />
+                    <MetadataFact label="主要语言" value={selectedSkill.language || '未填写'} />
+                    {selectedContentLicense && (
+                      <MetadataFact label="许可证" value={selectedContentLicense} />
+                    )}
+                    <MetadataFact label="清单适用范围" value={selectedSkill.scope === 'workflow' ? '仅工作流' : '全部场景'} />
+                    <MetadataFact label="兼容 Core" value={selectedSkill.requires_core || selectedSkill.compatibility || '未声明'} />
+                  </div>
+                  {selectedSkill.tags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2" aria-label="Skill 标签">
+                      {selectedSkill.tags.map(t => <Badge key={t} variant="outline">{t}</Badge>)}
+                    </div>
+                  )}
+                </section>
+
+                <section aria-labelledby="skill-local-settings">
+                  <h3 id="skill-local-settings" className="mb-2 text-sm font-medium">本地运行设置</h3>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-md border bg-muted/40 p-4 sm:grid-cols-4">
+                    <MetadataFact label="优先级" value={String(selectedSkill.priority)} />
+                    <MetadataFact label="自动注入" value={selectedSkill.auto_inject ? '是' : '否'} />
+                    <MetadataFact
+                      label="生效范围"
+                      value={selectedSkill.workflow_only ? '仅工作流' : '全部场景'}
+                      title={selectedSkill.scope_override ? '使用本机覆盖值' : '沿用 SKILL.md 声明'}
+                    />
+                    <div>
+                      <div className="text-xs text-muted-foreground">状态</div>
+                      <div className="mt-1 flex items-center gap-1.5 text-sm font-medium">
+                        <span className={`h-2 w-2 rounded-full ${selectedSkill.enabled ? 'bg-success' : 'bg-muted-foreground'}`} aria-hidden="true" />
+                        {selectedSkill.enabled ? '已启用' : '已禁用'}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section aria-labelledby="skill-source">
+                  <h3 id="skill-source" className="mb-2 text-sm font-medium">来源与完整性</h3>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-md border bg-muted/40 p-4 sm:grid-cols-3">
+                    <MetadataFact label="来源" value={sourceLabels[selectedSkill.provenance?.source?.kind || 'local'] || '未知来源'} />
+                    <MetadataFact label="安装版本" value={selectedSkill.provenance?.package?.version || selectedSkill.version || '未记录'} />
+                    <MetadataFact label="本地修改" value={selectedSkill.local_modified ? '已偏离安装版本' : '未检测到'} />
+                    {selectedUsageAuthorization && (
+                      <MetadataFact
+                        label="使用授权"
+                        value={selectedUsageAuthorization.label}
+                        href={selectedUsageAuthorization.href || undefined}
+                        title={selectedUsageAuthorization.id}
+                      />
+                    )}
+                    {selectedSkill.provenance?.source?.publisher_id && (
+                      <MetadataFact label="发布者标识" value={selectedSkill.provenance.source.publisher_id} />
+                    )}
+                    {selectedSkill.provenance?.source?.resource_id && (
+                      <MetadataFact label="社区资源标识" value={selectedSkill.provenance.source.resource_id} />
+                    )}
+                    {selectedSkill.provenance?.package?.sha256 && (
+                      <MetadataFact label="内容摘要" value={selectedSkill.provenance.package.sha256.slice(0, 12)} title={selectedSkill.provenance.package.sha256} />
+                    )}
+                  </div>
+                </section>
+
+                {(selectedSkill.required_tools.length > 0 || selectedSkill.required_plugins.length > 0 || selectedSkill.required_apps.length > 0) && (
+                  <section aria-labelledby="skill-dependencies">
+                    <h3 id="skill-dependencies" className="mb-2 text-sm font-medium">运行依赖</h3>
+                    <div className="space-y-2 rounded-md border bg-muted/40 p-4 text-sm">
+                      {selectedSkill.required_tools.length > 0 && <div><span className="text-muted-foreground">工具：</span>{selectedSkill.required_tools.join('、')}</div>}
+                      {selectedSkill.required_plugins.length > 0 && <div><span className="text-muted-foreground">插件：</span>{selectedSkill.required_plugins.join('、')}</div>}
+                      {selectedSkill.required_apps.length > 0 && <div><span className="text-muted-foreground">App：</span>{selectedSkill.required_apps.join('、')}</div>}
+                    </div>
+                  </section>
+                )}
+                  </div>
+                </details>
+
+                {selectedSkill.validation_warnings.length > 0 && (
+                  <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm" role="status">
+                    {selectedSkill.validation_warnings.join('；')}
+                  </div>
+                )}
 
                 {/* 组配置 (替代 agent_types) */}
                 <div>
@@ -454,12 +758,6 @@ export default function SkillsPage() {
                   )}
                 </div>
 
-                {selectedSkill.tags.length > 0 && (
-                  <div>
-                    <div className="text-sm font-medium mb-2">标签</div>
-                    <div className="flex flex-wrap gap-2">{selectedSkill.tags.map(t => <Badge key={t} variant="outline">{t}</Badge>)}</div>
-                  </div>
-                )}
                 <div>
                   <div className="text-sm font-medium mb-2">内容</div>
                   <ScrollArea className="h-[400px] rounded-md border p-4">
@@ -479,9 +777,9 @@ export default function SkillsPage() {
       {/* 组管理对话框 */}
       {showGroupDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowGroupDialog(false)}>
-          <div className="bg-slate-800 border border-border/50 rounded-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="group-dialog-title" onClick={e => e.stopPropagation()}>
+          <div className="bg-secondary border border-border/50 rounded-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="group-dialog-title" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 id="group-dialog-title" className="text-lg font-semibold text-slate-200">管理技能组</h2>
+              <h2 id="group-dialog-title" className="text-lg font-semibold text-foreground">管理技能组</h2>
               <button type="button" onClick={() => setShowGroupDialog(false)} className="p-1 text-muted-foreground hover:text-foreground cursor-pointer" aria-label="关闭">
                 <X size={16} aria-hidden="true" />
               </button>
@@ -490,16 +788,16 @@ export default function SkillsPage() {
             {/* 已有组列表 */}
             <div className="space-y-2 mb-4">
               {groups.map(group => (
-                <div key={group.id} className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-border/30">
+                <div key={group.id} className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg border border-border/30">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-200">{group.name}</div>
+                    <div className="text-sm font-medium text-foreground">{group.name}</div>
                     <div className="text-xs text-muted-foreground truncate">{group.description || '无描述'}</div>
                   </div>
                   <div className="flex gap-1">
-                    <button type="button" onClick={() => openEditGroup(group)} className="p-1.5 text-muted-foreground hover:text-indigo-400 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={`编辑组 ${group.name}`}>
+                    <button type="button" onClick={() => openEditGroup(group)} className="p-1.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={`编辑组 ${group.name}`}>
                       <Edit2 size={14} aria-hidden="true" />
                     </button>
-                    <button type="button" onClick={() => handleDeleteGroup(group.id)} className="p-1.5 text-muted-foreground hover:text-red-400 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={`删除组 ${group.name}`}>
+                    <button type="button" onClick={() => handleDeleteGroup(group.id)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={`删除组 ${group.name}`}>
                       <Trash2 size={14} aria-hidden="true" />
                     </button>
                   </div>
@@ -512,7 +810,7 @@ export default function SkillsPage() {
 
             {/* 创建/编辑表单 */}
             <div className="border-t border-border/30 pt-4">
-              <h3 className="text-sm font-medium text-slate-300 mb-3">{editingGroup ? '编辑组' : '新建组'}</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{editingGroup ? '编辑组' : '新建组'}</h3>
               <div className="space-y-3">
                 <div>
                   <label htmlFor="group-id" className="text-xs text-muted-foreground block mb-1">组 ID</label>
@@ -523,7 +821,7 @@ export default function SkillsPage() {
                     onChange={e => setGroupForm(p => ({ ...p, id: e.target.value }))}
                     disabled={!!editingGroup}
                     placeholder="unique-group-id"
-                    className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 min-h-[44px]"
+                    className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 min-h-[44px]"
                   />
                 </div>
                 <div>
@@ -533,7 +831,7 @@ export default function SkillsPage() {
                     value={groupForm.name}
                     onChange={e => setGroupForm(p => ({ ...p, name: e.target.value }))}
                     placeholder="我的技能组"
-                    className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 min-h-[44px]"
+                    className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 min-h-[44px]"
                   />
                 </div>
                 <div>
@@ -543,7 +841,7 @@ export default function SkillsPage() {
                     value={groupForm.description}
                     onChange={e => setGroupForm(p => ({ ...p, description: e.target.value }))}
                     placeholder="可选描述"
-                    className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 min-h-[44px]"
+                    className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 min-h-[44px]"
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
@@ -558,11 +856,36 @@ export default function SkillsPage() {
         </div>
       )}
 
+      {selectedSkill?.provenance?.source?.kind === 'marketplace' && (
+        <Dialog
+          open={uninstallOpen}
+          title="卸载本机 Skill"
+          description={`将删除本机安装的「${selectedSkill.name}」及其来源记录和本地配置。资源广场上的在线资源和其他 Skill 不受影响。`}
+          onClose={() => { if (!uninstalling) setUninstallOpen(false); }}
+        >
+          <div className="mt-6 flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={uninstalling} onClick={() => setUninstallOpen(false)}>
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={uninstalling}
+              aria-busy={uninstalling}
+              onClick={() => { void uninstallMarketplaceSkill(); }}
+            >
+              {uninstalling ? '正在卸载' : '确认卸载'}
+            </Button>
+          </div>
+        </Dialog>
+      )}
+
       {/* 自定义确认对话框 */}
       {confirmDialog.open && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>
-          <div className="bg-slate-800 border border-border/50 rounded-xl p-6 w-[400px]" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" onClick={e => e.stopPropagation()}>
-            <h2 id="confirm-dialog-title" className="text-lg font-semibold text-slate-200 mb-2">{confirmDialog.title}</h2>
+          <div className="bg-secondary border border-border/50 rounded-xl p-6 w-[400px]" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" onClick={e => e.stopPropagation()}>
+            <h2 id="confirm-dialog-title" className="text-lg font-semibold text-foreground mb-2">{confirmDialog.title}</h2>
             <p className="text-sm text-muted-foreground mb-6">{confirmDialog.message}</p>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))} className="focus-visible:ring-2 focus-visible:ring-primary/50">取消</Button>

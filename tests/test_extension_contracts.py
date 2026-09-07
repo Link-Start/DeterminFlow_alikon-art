@@ -163,11 +163,11 @@ def test_workflow_runtime_facade_exposes_non_sensitive_effective_agent_definitio
         model="openai:test",
         max_turns=12,
         system_prompt_template="private prompt body",
-        extension_options={"provider": {"api_key": "never-expose"}},  # pragma: allowlist secret
+        extension_options={"provider": {"api_key": "never-expose"}},
         model_params={
             "temperature": 0.2,
             "response_format": None,
-            "api_key": "never-expose",  # pragma: allowlist secret
+            "api_key": "never-expose",
         },
     )
     monkeypatch.setattr(

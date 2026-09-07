@@ -38,7 +38,7 @@ function CollapsibleSection({
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        className="flex items-center gap-1 w-full text-left text-xs text-muted-foreground hover:text-slate-300 transition-colors duration-200 cursor-pointer mb-1 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+        className="flex items-center gap-1 w-full text-left text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 cursor-pointer mb-1 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
       >
         {expanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
         {icon}
@@ -206,8 +206,8 @@ export default function AgentDefinitionEditor({
 
   const toolColor = (t: string[] | null) => {
     if (!t) return "text-muted-foreground";
-    if (t.includes("*")) return "text-green-500";
-    return "text-cyan-400";
+    if (t.includes("*")) return "text-success";
+    return "text-info";
   };
 
   const toolLabel = (t: string[] | null) => {
@@ -230,15 +230,15 @@ export default function AgentDefinitionEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-slate-200">Agent 定义</h3>
-          <Badge variant="outline" className="text-xs text-indigo-500 border-indigo-500/30">
+          <h3 className="text-sm font-semibold text-foreground">Agent 定义</h3>
+          <Badge variant="outline" className="text-xs text-primary border-primary/30">
             {agents.length} 个
           </Badge>
         </div>
         <button
           type="button"
           onClick={addAgent}
-          className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:outline-none"
+          className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-primary/15 text-primary hover:bg-primary/25 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
         >
           <Plus size={12} aria-hidden="true" /> 新增
         </button>
@@ -254,8 +254,8 @@ export default function AgentDefinitionEditor({
               role="button"
               tabIndex={0}
               aria-label={`选择 ${agent.agent_type}`}
-              className={`bg-slate-800/80 border border-border/30 rounded-lg px-3 py-3 transition-all cursor-pointer ${
-                isSelected ? "border-indigo-500/50 bg-indigo-500/5" : "hover:border-indigo-500/30"
+              className={`bg-secondary/80 border border-border/30 rounded-lg px-3 py-3 transition-all cursor-pointer ${
+                isSelected ? "border-primary/50 bg-primary/5" : "hover:border-primary/30"
               }`}
               onClick={() => onSelectAgent(isSelected ? null : agent.agent_type)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectAgent(isSelected ? null : agent.agent_type); }}}
@@ -267,12 +267,12 @@ export default function AgentDefinitionEditor({
                   onClick={(e) => { e.stopPropagation(); setExpandedAgent(isExpanded ? null : agent.agent_type); }}
                   aria-expanded={isExpanded}
                   aria-label={`${isExpanded ? "折叠" : "展开"} ${agent.agent_type}`}
-                  className="p-0.5 text-muted-foreground hover:text-foreground cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+                  className="p-0.5 text-muted-foreground hover:text-foreground cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                 >
                   {isExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                 </button>
-                <Bot size={14} aria-hidden="true" className="text-indigo-500 flex-shrink-0" />
-                <span className="text-xs font-medium text-slate-200 flex-1">{agent.agent_type}</span>
+                <Bot size={14} aria-hidden="true" className="text-primary flex-shrink-0" />
+                <span className="text-xs font-medium text-foreground flex-1">{agent.agent_type}</span>
                 <div className="flex items-center gap-1">
                   <Wrench size={12} aria-hidden="true" className={toolColor(agent.tools)} />
                   <span className={`text-xs ${toolColor(agent.tools)}`}>{toolLabel(agent.tools)}</span>
@@ -285,7 +285,7 @@ export default function AgentDefinitionEditor({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); removeAgent(agent.agent_type); }}
                     aria-label={`删除 ${agent.agent_type}`}
-                    className="p-0.5 text-red-500/60 hover:text-red-500 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none"
+                    className="p-0.5 text-destructive/60 hover:text-destructive cursor-pointer focus-visible:ring-2 focus-visible:ring-destructive/30 focus-visible:outline-none"
                   >
                     <Trash2 size={12} aria-hidden="true" />
                   </button>
@@ -303,7 +303,7 @@ export default function AgentDefinitionEditor({
                       id={`desc-${agent.agent_type}`}
                       value={agent.description}
                       onChange={(e) => updateAgent(agent.agent_type, { description: e.target.value })}
-                      className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                      className="w-full bg-secondary/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
                     />
                   </div>
 
@@ -316,7 +316,7 @@ export default function AgentDefinitionEditor({
                         type="number" min={1} max={50}
                         value={agent.max_turns}
                         onChange={(e) => updateAgent(agent.agent_type, { max_turns: parseInt(e.target.value) || 10 })}
-                        className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                        className="w-full bg-secondary/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
                       />
                     </div>
                     <div className="flex-1">
@@ -325,7 +325,7 @@ export default function AgentDefinitionEditor({
                         id={`model-${agent.agent_type}`}
                         value={agent.model || ""}
                         onChange={(e) => updateAgent(agent.agent_type, { model: e.target.value || null })}
-                        className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 cursor-pointer"
+                        className="w-full bg-secondary/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 cursor-pointer"
                       >
                         <option value="">{agent.agent_type === "main" ? "自动使用首个模型" : "继承 Main"}</option>
                         {availableModels.map((m) => (
@@ -349,7 +349,7 @@ export default function AgentDefinitionEditor({
                           copy_main_workspace: val === "null" ? null : val === "true"
                         });
                       }}
-                      className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 cursor-pointer"
+                      className="w-full bg-secondary/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 cursor-pointer"
                     >
                       <option value="null">继承全局配置</option>
                       <option value="true">强制复制（需要访问代码）</option>
@@ -386,8 +386,8 @@ export default function AgentDefinitionEditor({
                     defaultExpanded={false}
                   >
                     {agent.tools?.includes("*") ? (
-                      <div className="bg-green-500/5 border border-green-500/20 rounded-md p-3 text-center">
-                        <p className="text-xs text-green-500 font-medium mb-1">
+                      <div className="bg-success/5 border border-success/20 rounded-md p-3 text-center">
+                        <p className="text-xs text-success font-medium mb-1">
                           全部工具已启用（共 {allTools.length} 个）
                         </p>
                         <p className="text-xs text-muted-foreground mb-2">
@@ -400,7 +400,7 @@ export default function AgentDefinitionEditor({
                             const allToolNames = allTools.map((t) => t.name);
                             updateAgent(agent.agent_type, { tools: [...allToolNames], disallowed_tools: agent.disallowed_tools });
                           }}
-                          className="px-2 py-0.5 text-xs rounded bg-slate-800/60 text-muted-foreground hover:text-foreground hover:bg-slate-800 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+                          className="px-2 py-0.5 text-xs rounded bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                         >
                           切换到选择性模式
                         </button>
@@ -410,14 +410,14 @@ export default function AgentDefinitionEditor({
                         {groupOrder.map((gid) => {
                           const groupToolList = toolsByGroup[gid];
                           const groupName = groups.find((g) => g.id === gid)?.name || toolGroupLabel[gid] || gid;
-                          const colorClass = toolGroupColor[gid] || "bg-slate-800/40 text-muted-foreground border-transparent";
+                          const colorClass = toolGroupColor[gid] || "bg-secondary/40 text-muted-foreground border-transparent";
                           const agentTools = agent.tools || [];
                           const selectedInGroup = groupToolList.filter((t) => agentTools.includes(t.name));
                           const allInGroup = groupToolList.every((t) => agentTools.includes(t.name));
                           const someInGroup = selectedInGroup.length > 0 && !allInGroup;
 
                           return (
-                            <div key={gid} className="bg-slate-800/30 rounded-md p-2">
+                            <div key={gid} className="bg-secondary/30 rounded-md p-2">
                               <div className="flex items-center justify-between mb-1.5">
                                 <span className={`text-xs font-medium ${colorClass.split(" ")[0] || "text-muted-foreground"}`}>
                                   {groupName}
@@ -428,12 +428,12 @@ export default function AgentDefinitionEditor({
                                 <button
                                   type="button"
                                   onClick={() => toggleGroupTools(agent.agent_type, gid, "tools")}
-                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none ${
+                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
                                     allInGroup
-                                      ? "bg-green-500/15 text-green-500"
+                                      ? "bg-success/15 text-success"
                                       : someInGroup
-                                      ? "bg-amber-500/15 text-amber-500"
-                                      : "bg-slate-800/40 text-muted-foreground hover:text-foreground"
+                                      ? "bg-warning/15 text-warning"
+                                      : "bg-secondary/40 text-muted-foreground hover:text-foreground"
                                   }`}
                                 >
                                   {allInGroup ? <CheckSquare size={12} aria-hidden="true" /> : <Square size={12} aria-hidden="true" />}
@@ -450,10 +450,10 @@ export default function AgentDefinitionEditor({
                                       onClick={() => toggleTool(agent.agent_type, t.name, "tools")}
                                       aria-pressed={active}
                                       aria-label={`${active ? "取消" : "启用"}工具 ${t.name}`}
-                                      className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-cyan-500/30 focus-visible:outline-none ${
+                                      className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-info/30 focus-visible:outline-none ${
                                         active
-                                          ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                                          : "bg-slate-800/40 text-muted-foreground border border-transparent hover:border-border"
+                                          ? "bg-info/20 text-info border border-info/30"
+                                          : "bg-secondary/40 text-muted-foreground border border-transparent hover:border-border"
                                       }`}
                                       title={t.description}
                                     >
@@ -475,19 +475,19 @@ export default function AgentDefinitionEditor({
                       title="禁用工具黑名单"
                       subtitle={agent.disallowed_tools?.length ? `${agent.disallowed_tools.length} 个` : "无"}
                       defaultExpanded={false}
-                      icon={<AlertCircle size={12} className="text-amber-500" aria-hidden="true" />}
+                      icon={<AlertCircle size={12} className="text-warning" aria-hidden="true" />}
                     >
                       <div className="space-y-2">
                         {groupOrder.map((gid) => {
                           const groupToolList = toolsByGroup[gid];
                           const groupName = groups.find((g) => g.id === gid)?.name || toolGroupLabel[gid] || gid;
-                          const colorClass = toolGroupColor[gid] || "bg-slate-800/40 text-muted-foreground border-transparent";
+                          const colorClass = toolGroupColor[gid] || "bg-secondary/40 text-muted-foreground border-transparent";
                           const disallowedList = agent.disallowed_tools || [];
                           const allInGroup = groupToolList.every((t) => disallowedList.includes(t.name));
                           const someInGroup = groupToolList.filter((t) => disallowedList.includes(t.name)).length > 0 && !allInGroup;
 
                           return (
-                            <div key={gid} className="bg-slate-800/30 rounded-md p-2">
+                            <div key={gid} className="bg-secondary/30 rounded-md p-2">
                               <div className="flex items-center justify-between mb-1.5">
                                 <span className={`text-xs font-medium ${colorClass.split(" ")[0] || "text-muted-foreground"}`}>
                                   {groupName}
@@ -495,12 +495,12 @@ export default function AgentDefinitionEditor({
                                 <button
                                   type="button"
                                   onClick={() => toggleGroupTools(agent.agent_type, gid, "disallowed_tools")}
-                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none ${
+                                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
                                     allInGroup
-                                      ? "bg-red-500/15 text-red-500"
+                                      ? "bg-destructive/15 text-destructive"
                                       : someInGroup
-                                      ? "bg-amber-500/15 text-amber-500"
-                                      : "bg-slate-800/40 text-muted-foreground hover:text-foreground"
+                                      ? "bg-warning/15 text-warning"
+                                      : "bg-secondary/40 text-muted-foreground hover:text-foreground"
                                   }`}
                                 >
                                   {allInGroup ? <CheckSquare size={12} aria-hidden="true" /> : <Square size={12} aria-hidden="true" />}
@@ -517,10 +517,10 @@ export default function AgentDefinitionEditor({
                                       onClick={() => toggleTool(agent.agent_type, t.name, "disallowed_tools")}
                                       aria-pressed={active}
                                       aria-label={`${active ? "取消禁用" : "禁用"}工具 ${t.name}`}
-                                      className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none ${
+                                      className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-destructive/30 focus-visible:outline-none ${
                                         active
-                                          ? "bg-red-500/20 text-red-500 border border-red-500/30"
-                                          : "bg-slate-800/40 text-muted-foreground border border-transparent hover:border-border"
+                                          ? "bg-destructive/20 text-destructive border border-destructive/30"
+                                          : "bg-secondary/40 text-muted-foreground border border-transparent hover:border-border"
                                       }`}
                                       title={t.description}
                                     >
@@ -539,8 +539,8 @@ export default function AgentDefinitionEditor({
                   {/* ===== 可见性配置 ===== */}
                   <div className="border-t border-border/30 pt-3">
                     <div className="mb-2">
-                      <h4 className="text-xs font-semibold text-slate-300 flex items-center gap-1">
-                        <Eye size={12} className="text-amber-500" aria-hidden="true" />
+                      <h4 className="text-xs font-semibold text-foreground flex items-center gap-1">
+                        <Eye size={12} className="text-warning" aria-hidden="true" />
                         可见性
                       </h4>
                     </div>
@@ -551,7 +551,7 @@ export default function AgentDefinitionEditor({
                     {/* Skill 组可见性 */}
                     <div className="mb-3">
                       <label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                        <Layers size={12} className="text-cyan-400" aria-hidden="true" />
+                        <Layers size={12} className="text-info" aria-hidden="true" />
                         可见的 Skill 组
                         {getVisibleSkillGroupNames(agent).length > 0 && (
                           <Badge variant="outline" className="text-xs ml-1">
@@ -568,10 +568,10 @@ export default function AgentDefinitionEditor({
                                 type="button"
                                 key={g.id}
                                 onClick={() => toggleSkillGroup(agent.agent_type, g.id)}
-                                className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-cyan-500/30 focus-visible:outline-none ${
+                                className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-info/30 focus-visible:outline-none ${
                                   active
-                                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                                    : "bg-slate-800/40 text-muted-foreground border border-transparent hover:border-border"
+                                    ? "bg-info/20 text-info border border-info/30"
+                                    : "bg-secondary/40 text-muted-foreground border border-transparent hover:border-border"
                                 }`}
                                 title={g.description || g.name}
                               >
@@ -588,7 +588,7 @@ export default function AgentDefinitionEditor({
                     {/* Rule 组可见性 */}
                     <div>
                       <label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                        <Layers size={12} className="text-purple-500" aria-hidden="true" />
+                        <Layers size={12} className="text-primary" aria-hidden="true" />
                         可见的 Rule 组
                         {getVisibleRuleGroupNames(agent).length > 0 && (
                           <Badge variant="outline" className="text-xs ml-1">
@@ -605,10 +605,10 @@ export default function AgentDefinitionEditor({
                                 type="button"
                                 key={g.id}
                                 onClick={() => toggleRuleGroup(agent.agent_type, g.id)}
-                                className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-purple-500/30 focus-visible:outline-none ${
+                                className={`px-1.5 py-0.5 rounded text-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
                                   active
-                                    ? "bg-purple-500/20 text-purple-500 border border-purple-500/30"
-                                    : "bg-slate-800/40 text-muted-foreground border border-transparent hover:border-border"
+                                    ? "bg-primary/20 text-primary border border-primary/30"
+                                    : "bg-secondary/40 text-muted-foreground border border-transparent hover:border-border"
                                 }`}
                                 title={g.description || g.name}
                               >
@@ -637,13 +637,13 @@ export default function AgentDefinitionEditor({
                   {/* Prompt Template 选择器 */}
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
-                      <FileText size={12} className="text-indigo-500" aria-hidden="true" />
+                      <FileText size={12} className="text-primary" aria-hidden="true" />
                       提示词模板 (prompt_template)
                     </label>
                     <select
                       value={agent.prompt_template || "subagent"}
                       onChange={(e) => updateAgent(agent.agent_type, { prompt_template: e.target.value })}
-                      className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 cursor-pointer"
+                      className="w-full bg-secondary/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary/50 cursor-pointer"
                     >
                       {(availableTemplates.length > 0 ? availableTemplates : ["main", "subagent", "compressor"]).map((tmpl) => (
                         <option key={tmpl} value={tmpl}>{tmpl}</option>
@@ -661,7 +661,7 @@ export default function AgentDefinitionEditor({
                       value={agent.system_prompt_template}
                       onChange={(e) => updateAgent(agent.agent_type, { system_prompt_template: e.target.value })}
                       rows={3}
-                      className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-slate-300 leading-relaxed resize-y outline-none focus:border-indigo-500/50"
+                      className="w-full bg-secondary/60 border border-border/50 rounded-md px-2 py-1.5 text-xs text-foreground leading-relaxed resize-y outline-none focus:border-primary/50"
                       placeholder="可选的额外 prompt..."
                     />
                   </div>
@@ -670,14 +670,14 @@ export default function AgentDefinitionEditor({
                   {onSave && (
                     <div className="flex flex-col items-end gap-1">
                       {saveError && (
-                        <span role="alert" className="text-xs text-red-500">{saveError}</span>
+                        <span role="alert" className="text-xs text-destructive">{saveError}</span>
                       )}
                       <button
                         type="button"
                         onClick={() => handleSaveAll(agent.agent_type)}
                         disabled={saving === agent.agent_type}
                         aria-label={`保存 ${agent.agent_type}`}
-                        className="flex items-center gap-1 px-3 py-1.5 min-h-[44px] text-xs rounded-md bg-indigo-500/15 text-indigo-500 hover:bg-indigo-500/25 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+                        className="flex items-center gap-1 px-3 py-1.5 min-h-[44px] text-xs rounded-md bg-primary/15 text-primary hover:bg-primary/25 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                       >
                         <Save size={12} aria-hidden="true" />
                         {saving === agent.agent_type ? "保存中..." : "保存"}

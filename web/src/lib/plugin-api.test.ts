@@ -50,11 +50,16 @@ test("uses the plugin management endpoint contract", async (context) => {
     name: "Team Plugins",
     url: "ssh://git@example.invalid/team/plugins.git",
     ref: "main",
+    registry: {
+      endpoints: ["https://cdn.example.invalid/plugins/v1"],
+      public_key: "public-key",
+    },
   }, adminToken);
   await updatePluginSource("team/plugins", {
     name: "Team Stable",
     url: "ssh://git@example.invalid/team/plugins.git",
     ref: "stable",
+    registry: null,
   }, adminToken);
   await deletePluginSource("team/plugins", adminToken);
   await installPlugin({
@@ -112,6 +117,10 @@ test("uses the plugin management endpoint contract", async (context) => {
         name: "Team Plugins",
         url: "ssh://git@example.invalid/team/plugins.git",
         ref: "main",
+        registry: {
+          endpoints: ["https://cdn.example.invalid/plugins/v1"],
+          public_key: "public-key",
+        },
       },
       authorization: "Bearer admin-secret",
       contentType: "application/json",
@@ -123,6 +132,7 @@ test("uses the plugin management endpoint contract", async (context) => {
         name: "Team Stable",
         url: "ssh://git@example.invalid/team/plugins.git",
         ref: "stable",
+        registry: null,
       },
       authorization: "Bearer admin-secret",
       contentType: "application/json",

@@ -31,12 +31,12 @@ export function formatRelativeTime(isoString: string): string {
 // ============ 状态颜色映射 ============
 
 export const statusConfig: Record<string, { color: string; bg: string; dotColor: string; label: string }> = {
-  running: { color: "text-green-400", bg: "bg-green-500/20", dotColor: "bg-green-400", label: "运行中" },
-  streaming: { color: "text-cyan-400", bg: "bg-cyan-500/20", dotColor: "bg-cyan-400", label: "流式传输" },
-  completed: { color: "text-blue-400", bg: "bg-blue-500/20", dotColor: "bg-blue-400", label: "已完成" },
-  error: { color: "text-red-400", bg: "bg-red-500/20", dotColor: "bg-red-400", label: "错误" },
-  waiting: { color: "text-amber-400", bg: "bg-amber-500/20", dotColor: "bg-amber-400", label: "等待中" },
-  idle: { color: "text-slate-400", bg: "bg-slate-500/20", dotColor: "bg-slate-400", label: "空闲" },
+  running: { color: "text-success", bg: "bg-success/20", dotColor: "bg-success", label: "运行中" },
+  streaming: { color: "text-info", bg: "bg-info/20", dotColor: "bg-info", label: "流式传输" },
+  completed: { color: "text-info", bg: "bg-info/20", dotColor: "bg-info", label: "已完成" },
+  error: { color: "text-destructive", bg: "bg-destructive/20", dotColor: "bg-destructive", label: "错误" },
+  waiting: { color: "text-warning", bg: "bg-warning/20", dotColor: "bg-warning", label: "等待中" },
+  idle: { color: "text-muted-foreground", bg: "bg-muted-foreground/20", dotColor: "bg-muted-foreground", label: "空闲" },
 };
 
 export function getStatusConfig(status: string) {
@@ -80,10 +80,10 @@ export const toolGroupLabel: Record<string, string> = {
 };
 
 export const toolGroupColor: Record<string, string> = {
-  memory: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  coding: "bg-green-500/20 text-green-400 border-green-500/30",
-  session_main: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
-  communication: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
-  config: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  skills: "bg-pink-500/20 text-pink-400 border-pink-500/30",
+  memory: "bg-primary/20 text-primary border-primary/30",
+  coding: "bg-success/20 text-success border-success/30",
+  session_main: "bg-primary/20 text-primary border-primary/30",
+  communication: "bg-info/20 text-info border-info/30",
+  config: "bg-warning/20 text-warning border-warning/30",
+  skills: "bg-primary/20 text-primary border-primary/30",
 };

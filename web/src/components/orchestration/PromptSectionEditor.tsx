@@ -165,15 +165,15 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-slate-200">Prompt Sections</h3>
-          <Badge variant="outline" className="text-xs text-purple-500 border-purple-500/30">
+          <h3 className="text-sm font-semibold text-foreground">Prompt Sections</h3>
+          <Badge variant="outline" className="text-xs text-primary border-primary/30">
             {sections.filter((s) => s.enabled).length}/{sections.length}
           </Badge>
           {saveFeedback && (
             <span
               role="status"
               aria-live="polite"
-              className={`text-xs ${saveFeedback.includes("成功") ? "text-green-500" : "text-red-500"}`}
+              className={`text-xs ${saveFeedback.includes("成功") ? "text-success" : "text-destructive"}`}
             >
               {saveFeedback}
             </span>
@@ -186,7 +186,7 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
               onClick={handleSave}
               disabled={saving}
               aria-label="保存 sections"
-              className="flex items-center gap-1 px-2 py-1 min-h-[44px] text-xs rounded-md bg-indigo-500/15 text-indigo-500 hover:bg-indigo-500/25 transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+              className="flex items-center gap-1 px-2 py-1 min-h-[44px] text-xs rounded-md bg-primary/15 text-primary hover:bg-primary/25 transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
             >
               {saving ? "保存中..." : "保存"}
             </button>
@@ -194,7 +194,7 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
           <button
             type="button"
             onClick={addSection}
-            className="flex items-center gap-1 px-2 py-1 min-h-[44px] text-xs rounded-md bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:outline-none"
+            className="flex items-center gap-1 px-2 py-1 min-h-[44px] text-xs rounded-md bg-primary/15 text-primary hover:bg-primary/25 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
           >
             <Plus size={12} aria-hidden="true" /> 新增
           </button>
@@ -209,7 +209,7 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
               const wfActive = section.workflow_only && section.enabled;
               return (
                 <SortableCard key={section.name} id={section.name}
-                  className={wfActive ? "bg-violet-500/[0.06] border border-violet-500/20" : ""}>
+                  className={wfActive ? "bg-primary/[0.06] border border-primary/20" : ""}>
                   <div className={`${!section.enabled ? "opacity-40" : ""} transition-opacity`}>
                     {/* Header */}
                     <div className="flex items-center gap-2">
@@ -218,7 +218,7 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
                         onClick={() => setExpandedSection(isExpanded ? null : section.name)}
                         aria-expanded={isExpanded}
                         aria-label={`${isExpanded ? "折叠" : "展开"} ${section.name}`}
-                        className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+                        className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                       >
                         {isExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                       </button>
@@ -236,11 +236,11 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
                           }}
                           autoFocus
                           aria-label="Section 名称"
-                          className="flex-1 text-xs font-medium bg-slate-800/60 border border-indigo-500/50 rounded px-1.5 py-0.5 text-slate-200 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                          className="flex-1 text-xs font-medium bg-secondary/60 border border-primary/50 rounded px-1.5 py-0.5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                         />
                       ) : (
                         <span
-                          className="text-xs font-medium text-slate-200 flex-1 truncate cursor-pointer hover:text-indigo-500"
+                          className="text-xs font-medium text-foreground flex-1 truncate cursor-pointer hover:text-primary"
                           role="button"
                           tabIndex={0}
                           onClick={() => startEditingName(section.name)}
@@ -253,18 +253,18 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
                       )}
 
                       {section.cache_break ? (
-                        <Unlock size={14} aria-label="缓存中断" className="text-amber-500 flex-shrink-0" />
+                        <Unlock size={14} aria-label="缓存中断" className="text-warning flex-shrink-0" />
                       ) : (
-                        <Lock size={14} aria-label="缓存安全" className="text-green-500 flex-shrink-0" />
+                        <Lock size={14} aria-label="缓存安全" className="text-success flex-shrink-0" />
                       )}
-                      <Badge variant="outline" className="text-xs text-cyan-400 border-cyan-500/30 flex-shrink-0">
+                      <Badge variant="outline" className="text-xs text-info border-info/30 flex-shrink-0">
                         {section.token_estimate}t
                       </Badge>
                       <button
                         type="button"
                         onClick={() => toggleEnabled(section.name)}
                         aria-label={section.enabled ? `禁用 ${section.name}` : `启用 ${section.name}`}
-                        className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+                        className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                         title={section.enabled ? "禁用" : "启用"}
                       >
                         {section.enabled ? <Eye size={16} aria-hidden="true" /> : <EyeOff size={16} aria-hidden="true" />}
@@ -273,7 +273,7 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
                         type="button"
                         onClick={() => toggleWorkflowOnly(section.name)}
                         aria-label={section.workflow_only ? `${section.name}: 工作流专属` : `${section.name}: 通用`}
-                        className={`p-1 min-w-[44px] min-h-[44px] flex items-center justify-center rounded cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-violet-500/30 focus-visible:outline-none ${section.workflow_only ? "text-violet-400 bg-violet-500/10 hover:bg-violet-500/20" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
+                        className={`p-1 min-w-[44px] min-h-[44px] flex items-center justify-center rounded cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${section.workflow_only ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}
                         title={section.workflow_only ? "工作流专属（仅工作流中组装）" : "通用（所有场景组装）"}
                       >
                         <Workflow size={16} aria-hidden="true" />
@@ -282,10 +282,10 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
                         type="button"
                         onClick={() => removeSection(section.name)}
                         aria-label={deleteConfirm === section.name ? `确认删除 ${section.name}` : `删除 ${section.name}`}
-                        className={`p-1 min-w-[44px] min-h-[44px] flex items-center justify-center rounded cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none ${
+                        className={`p-1 min-w-[44px] min-h-[44px] flex items-center justify-center rounded cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-destructive/30 focus-visible:outline-none ${
                           deleteConfirm === section.name
-                            ? "text-red-500 bg-red-500/10"
-                            : "text-red-500/60 hover:text-red-500"
+                            ? "text-destructive bg-destructive/10"
+                            : "text-destructive/60 hover:text-destructive"
                         }`}
                         title={deleteConfirm === section.name ? "再次点击确认删除" : "删除"}
                       >
@@ -301,7 +301,7 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
                     {isExpanded && (
                       <div className="mt-2">
                         {section.cache_break && section.cache_break_reason && (
-                          <p className="text-xs text-amber-500/70 mb-1.5">
+                          <p className="text-xs text-warning/70 mb-1.5">
                             动态: {section.cache_break_reason}
                           </p>
                         )}
@@ -309,7 +309,7 @@ export default function PromptSectionEditor({ sections, onSectionsChange, onSave
                           value={section.content}
                           onChange={(e) => updateContent(section.name, e.target.value)}
                           aria-label={`${section.name} 内容`}
-                          className="w-full min-h-[120px] bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-2 text-xs text-slate-300 leading-relaxed resize-y outline-none focus:border-indigo-500/50 focus-visible:ring-2 focus-visible:ring-indigo-500/30 transition-colors"
+                          className="w-full min-h-[120px] bg-secondary/60 border border-border/50 rounded-md px-2.5 py-2 text-xs text-foreground leading-relaxed resize-y outline-none focus:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/30 transition-colors"
                           placeholder="输入 section 内容..."
                         />
                       </div>

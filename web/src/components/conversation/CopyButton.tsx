@@ -55,10 +55,10 @@ export default function CopyButton({ value, label, className = "" }: CopyButtonP
       onClick={handleCopy}
       aria-label={accessibleLabel}
       title={accessibleLabel}
-      className={`inline-flex min-h-8 min-w-8 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-700/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${className}`}
+      className={`inline-flex min-h-8 min-w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${className}`}
     >
       {state === "copied" ? (
-        <Check size={14} className="text-green-400" aria-hidden="true" />
+        <Check size={14} className="text-success" aria-hidden="true" />
       ) : (
         <Copy size={14} aria-hidden="true" />
       )}

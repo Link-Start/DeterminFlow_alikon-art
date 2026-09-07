@@ -80,9 +80,9 @@ export function GroupManagementDialog({
       aria-modal="true"
       aria-labelledby="group-dialog-title"
     >
-      <div className="bg-slate-800 border border-border/50 rounded-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-secondary border border-border/50 rounded-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 id="group-dialog-title" className="text-lg font-semibold text-slate-200">
+          <h2 id="group-dialog-title" className="text-lg font-semibold text-foreground">
             管理{itemType === 'skill' ? '技能' : '规则'}组
           </h2>
           <button
@@ -97,15 +97,15 @@ export function GroupManagementDialog({
         {/* 已有组列表 */}
         <div className="space-y-2 mb-4">
           {groups.map(group => (
-            <div key={group.id} className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-border/30">
+            <div key={group.id} className="flex items-center justify-between p-3 bg-secondary/60 rounded-lg border border-border/30">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-slate-200">{group.name}</div>
+                <div className="text-sm font-medium text-foreground">{group.name}</div>
                 <div className="text-xs text-muted-foreground truncate">{group.description || '无描述'}</div>
               </div>
               <div className="flex gap-1">
                 <button
                   onClick={() => openEditGroup(group)}
-                  className="p-1.5 text-muted-foreground hover:text-indigo-500 transition-colors cursor-pointer"
+                  className="p-1.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                   title="编辑"
                   aria-label={`编辑组 ${group.name}`}
                 >
@@ -113,7 +113,7 @@ export function GroupManagementDialog({
                 </button>
                 <button
                   onClick={() => handleDelete(group.id)}
-                  className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
+                  className="p-1.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                   title="删除"
                   aria-label={`删除组 ${group.name}`}
                 >
@@ -129,7 +129,7 @@ export function GroupManagementDialog({
 
         {/* 创建/编辑表单 */}
         <div className="border-t border-border/30 pt-4">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">{editingGroup ? '编辑组' : '新建组'}</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">{editingGroup ? '编辑组' : '新建组'}</h3>
           <div className="space-y-3">
             <div>
               <label htmlFor="group-id" className="text-xs text-muted-foreground block mb-1">组 ID</label>
@@ -140,7 +140,7 @@ export function GroupManagementDialog({
                 onChange={e => setGroupForm(p => ({ ...p, id: e.target.value }))}
                 disabled={!!editingGroup}
                 placeholder="unique-group-id"
-                className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
               />
             </div>
             <div>
@@ -150,7 +150,7 @@ export function GroupManagementDialog({
                 value={groupForm.name}
                 onChange={e => setGroupForm(p => ({ ...p, name: e.target.value }))}
                 placeholder={`我的${itemType === 'skill' ? '技能' : '规则'}组`}
-                className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
               />
             </div>
             <div>
@@ -160,7 +160,7 @@ export function GroupManagementDialog({
                 value={groupForm.description}
                 onChange={e => setGroupForm(p => ({ ...p, description: e.target.value }))}
                 placeholder="可选描述"
-                className="w-full bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                className="w-full bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">

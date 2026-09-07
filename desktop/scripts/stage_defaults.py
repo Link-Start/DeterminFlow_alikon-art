@@ -43,7 +43,9 @@ DESKTOP_OVERRIDES: dict[str, Any] = {
                 ],
                 "ref": "main",
                 "registry": {
-                    "url": "https://downloads.determinflow.com/plugins/v1",
+                    "endpoints": [
+                        "https://downloads.determinflow.com/plugins/v1"
+                    ],
                     "public_key": "C4oDxekhIr8Czlx0zpkRx46k26KK3d1T3HIZGsIxIr0=",
                 },
             }

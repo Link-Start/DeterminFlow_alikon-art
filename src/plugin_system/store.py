@@ -29,7 +29,7 @@ from .registry import (
     PluginRegistryError,
     download_registry_package,
     extract_plugin_zip,
-    load_verified_manifest,
+    fetch_signed_manifest,
     select_registry_plugin,
 )
 from .source_selection import canonicalize_plugin_source, select_git_source
@@ -61,6 +61,7 @@ class PluginStore:
         official_sources: Iterable[str] = (),
         official_source_mirrors: Mapping[str, Iterable[str]] | None = None,
         official_registries: Mapping[str, PluginRegistryConfig] | None = None,
+        source_registries: Mapping[str, PluginRegistryConfig] | None = None,
         git_binary: str = "git",
         registry_http_get: HttpGet | None = None,
     ):
@@ -86,11 +87,14 @@ class PluginStore:
             self._official_source_candidates[canonical] = tuple(
                 dict.fromkeys(candidates)
             )
-        self._official_registries: dict[str, PluginRegistryConfig] = {}
-        for source, registry in (official_registries or {}).items():
-            canonical = self.canonicalize_source(source)[0]
-            if canonical in self._official_sources:
-                self._official_registries[canonical] = registry
+        configured_registries = {
+            **(official_registries or {}),
+            **(source_registries or {}),
+        }
+        self._source_registries: dict[str, PluginRegistryConfig] = {
+            self.canonicalize_source(source)[0]: registry
+            for source, registry in configured_registries.items()
+        }
 
     def install(
         self,
@@ -412,7 +416,7 @@ class PluginStore:
         requested_ref = self._validate_ref(ref)
         stage_root: Path | None = None
         try:
-            registry = self._official_registries.get(canonical_source)
+            registry = self._source_registries.get(canonical_source)
             if registry is not None:
                 stage_root = Path(
                     tempfile.mkdtemp(prefix=f"{plugin_id}-", dir=self.staging_dir)
@@ -463,18 +467,20 @@ class PluginStore:
         *,
         preflight: Callable[[Path], None] | None,
     ) -> PluginRevision:
-        manifest = load_verified_manifest(
+        fetched = fetch_signed_manifest(
             registry,
-            canonical_source,
             http_get=self._registry_http_get,
+            required_source=canonical_source,
         )
-        plugin = select_registry_plugin(manifest, plugin_id, requested_ref)
+        plugin = select_registry_plugin(fetched.manifest, plugin_id, requested_ref)
         if plugin.subdirectory != subdirectory:
             raise PluginRegistryError(
                 f"Registry Plugin 子目录与安装请求不一致: {plugin_id}"
             )
         payload = download_registry_package(
             plugin,
+            endpoints=registry.endpoints,
+            preferred_endpoint=fetched.endpoint,
             http_get=self._registry_http_get,
         )
         prepared = stage_root / "package"
@@ -937,6 +943,14 @@ class PluginStore:
             seen.add(key)
             result.append(item)
         return tuple(result)
+
+    def set_source_registry(self, source: str, registry: PluginRegistryConfig | None) -> None:
+        canonical = self.canonicalize_source(source)[0]
+        with self._mutex:
+            if registry is None:
+                self._source_registries.pop(canonical, None)
+            else:
+                self._source_registries[canonical] = registry
 
     def _require_source_trust(
         self,

@@ -9,6 +9,7 @@ def test_non_empty_output_validation_rejects_whitespace() -> None:
 
     assert result.success is False
     assert "最终输出为空" in result.error
+    assert result.error_code == "empty_output"
 
 
 def test_json_field_validation_supports_nested_array_paths() -> None:
@@ -31,6 +32,8 @@ def test_json_field_length_must_be_strictly_greater_than_threshold() -> None:
     assert result.success is False
     assert "字数为 3" in result.error
     assert "必须大于 3" in result.error
+    assert result.error_code == "json_field_too_short"
+    assert result.field_path == "body"
 
 
 def test_json_field_validation_rejects_missing_and_non_string_values() -> None:
@@ -47,8 +50,11 @@ def test_json_field_validation_rejects_missing_and_non_string_values() -> None:
 
     assert missing.success is False
     assert "缺少字段 'body'" in missing.error
+    assert missing.error_code == "json_field_missing"
+    assert missing.field_path == "body"
     assert non_string.success is False
     assert "必须是字符串" in non_string.error
+    assert non_string.error_code == "json_field_not_string"
 
 
 def test_agent_output_validation_definition_round_trip_and_validation() -> None:
@@ -77,12 +83,12 @@ def test_agent_output_validation_definition_round_trip_and_validation() -> None:
     ).validate()
     assert any("字段路径和最小字数必须同时配置" in error for error in invalid)
 
-    invalid_retry = WorkflowDef(
-        workflow_id="invalid-output-retry",
+    legacy_retry = WorkflowDef(
+        workflow_id="legacy-output-retry",
         nodes=[WorkflowNode(
             id="writer",
             node_type="agent",
             retry_empty_output_in_session=True,
         )],
     ).validate()
-    assert any("非空输出校验" in error for error in invalid_retry)
+    assert not any("非空输出校验" in error for error in legacy_retry)

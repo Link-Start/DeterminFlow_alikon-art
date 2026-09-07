@@ -298,63 +298,63 @@ export default function TaskParamFill({
   // ---- 渲染工具 ----
 
   const inputClass =
-    "w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-200 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors placeholder-slate-500";
+    "w-full px-3 py-2.5 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors placeholder-muted-foreground";
   const selectClass = `${inputClass} appearance-none`;
-  const errorInputClass = "border-red-500/50 focus:border-red-500";
+  const errorInputClass = "border-destructive/50 focus:border-destructive";
   const highlightClass = (key: string) =>
     highlightedKey === key
-      ? "ring-2 ring-green-500 transition-all duration-300"
+      ? "ring-2 ring-success transition-all duration-300"
       : "";
 
   // ============ 渲染 ============
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] bg-slate-950 flex flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
       {/* Top Bar */}
-      <div className="h-12 px-4 bg-slate-900 border-b border-indigo-500/10 flex items-center shrink-0">
+      <div className="h-12 px-4 bg-card border-b border-primary/10 flex items-center shrink-0">
         <button
           type="button"
           onClick={onBack}
           aria-label="返回"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-indigo-500/10 text-sm text-slate-400 hover:text-slate-200 transition-colors cursor-pointer min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-primary/10 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-h-[44px]"
         >
           <ArrowLeft size={14} aria-hidden="true" />
           返回
         </button>
-        <span className="text-sm text-slate-200 ml-4">启动新任务</span>
+        <span className="text-sm text-foreground ml-4">启动新任务</span>
         {workflowName && (
-          <span className="text-xs text-slate-500 ml-3">{workflowName}</span>
+          <span className="text-xs text-muted-foreground ml-3">{workflowName}</span>
         )}
       </div>
 
       <div className="flex-1 flex min-h-0" ref={containerRef}>
         {/* Left: Form */}
         <div
-          className="min-w-0 overflow-y-auto flex items-start justify-center p-6 border-r border-indigo-500/10"
+          className="min-w-0 overflow-y-auto flex items-start justify-center p-6 border-r border-primary/10"
           style={{ width: `${splitRatio * 100}%` }}
         >
           <div className="w-full max-w-md mt-4">
             {/* 工作空间覆盖卡片（独立于任务参数卡片） */}
-            <div className="bg-slate-900 border border-indigo-500/10 rounded-2xl overflow-hidden shadow-2xl mb-4">
-              <div className="px-6 py-5 border-b border-indigo-500/10">
+            <div className="bg-card border border-primary/10 rounded-2xl overflow-hidden shadow-2xl mb-4">
+              <div className="px-6 py-5 border-b border-primary/10">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center" aria-hidden="true">
-                    <FolderOpen size={14} className="text-green-500" />
+                  <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center" aria-hidden="true">
+                    <FolderOpen size={14} className="text-success" />
                   </div>
                   <div>
-                    <h2 className="text-base font-semibold text-slate-200">
+                    <h2 className="text-base font-semibold text-foreground">
                       工作空间
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       覆盖默认工作空间路径
                     </p>
                   </div>
                 </div>
               </div>
               <div className="px-6 py-5">
-                <label htmlFor="ws-override" className="text-xs font-medium text-slate-400 mb-1.5 block">
+                <label htmlFor="ws-override" className="text-xs font-medium text-muted-foreground mb-1.5 block">
                   覆盖路径
-                  <span className="text-xs text-slate-500 font-normal ml-2">（可选）</span>
+                  <span className="text-xs text-muted-foreground font-normal ml-2">（可选）</span>
                 </label>
                 <input
                   id="ws-override"
@@ -363,26 +363,26 @@ export default function TaskParamFill({
                   onChange={(e) => setWorkspaceOverride(e.target.value)}
                   placeholder={`data/workspaces/${workflowId}/`}
                   aria-label="覆盖工作空间路径"
-                  className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-200 text-sm focus:outline-none focus:border-green-500/50 transition-colors placeholder-slate-500 font-mono"
+                  className="w-full px-3 py-2.5 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-success/50 transition-colors placeholder-muted-foreground font-mono"
                 />
-                <p className="text-xs text-slate-500 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   支持绝对路径或相对路径（相对项目根目录）。留空使用默认路径。
                 </p>
               </div>
             </div>
 
-            <div className="bg-slate-900 border border-indigo-500/10 rounded-2xl overflow-hidden shadow-2xl">
-              <div className="px-6 py-5 border-b border-indigo-500/10">
+            <div className="bg-card border border-primary/10 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="px-6 py-5 border-b border-primary/10">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center" aria-hidden="true">
-                    <Variable size={14} className="text-indigo-500" />
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center" aria-hidden="true">
+                    <Variable size={14} className="text-primary" />
                   </div>
                   <div>
-                    <h2 className="text-base font-semibold text-slate-200">
+                    <h2 className="text-base font-semibold text-foreground">
                       任务参数
                     </h2>
                     {nodeCount != null && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {nodeCount} 个节点
                       </p>
                     )}
@@ -391,31 +391,31 @@ export default function TaskParamFill({
               </div>
               <div className="px-6 py-5">
                 {loading ? (
-                  <div className="flex items-center justify-center py-12 text-slate-500" role="status" aria-label="加载变量中">
+                  <div className="flex items-center justify-center py-12 text-muted-foreground" role="status" aria-label="加载变量中">
                     <Loader size={20} className="animate-spin motion-reduce:animate-none mr-2" aria-hidden="true" />
                     加载变量...
                   </div>
                 ) : error && !submitting ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-red-500" role="alert" aria-live="polite">
+                  <div className="flex flex-col items-center justify-center py-8 text-destructive" role="alert" aria-live="polite">
                     <AlertCircle size={24} className="mb-2 opacity-60" aria-hidden="true" />
                     <p className="text-sm">{error}</p>
                     <button
                       type="button"
                       onClick={onBack}
-                      className="mt-3 px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs transition-colors cursor-pointer min-h-[36px]"
+                      className="mt-3 px-4 py-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-xs transition-colors cursor-pointer min-h-[36px]"
                     >
                       返回
                     </button>
                   </div>
                 ) : inputVariables.length === 0 && outputVariables.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-slate-500">
-                    <div className="w-16 h-16 rounded-full bg-indigo-500/5 flex items-center justify-center mb-4" aria-hidden="true">
-                      <Variable size={28} className="text-indigo-500/30" />
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                    <div className="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center mb-4" aria-hidden="true">
+                      <Variable size={28} className="text-primary/30" />
                     </div>
-                    <p className="text-sm font-medium text-slate-400 mb-1">
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
                       无需填写参数
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       此工作流没有定义参数变量，点击下方按钮直接启动
                     </p>
                   </div>
@@ -424,12 +424,12 @@ export default function TaskParamFill({
                     {/* 可见变量 */}
                     {inputVariables.filter(v => !v.hidden).map((v) => (
                       <div key={v.key}>
-                        <label htmlFor={`var-${v.key}`} className="flex items-center gap-1 text-xs font-medium text-slate-400 mb-1.5">
+                        <label htmlFor={`var-${v.key}`} className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1.5">
                           {v.name}
                           {v.required && (
-                            <span className="text-red-500">*</span>
+                            <span className="text-destructive">*</span>
                           )}
-                          <span className="text-xs text-slate-500 font-mono ml-2">
+                          <span className="text-xs text-muted-foreground font-mono ml-2">
                             {`{{${v.key}}}`}
                           </span>
                         </label>
@@ -469,7 +469,7 @@ export default function TaskParamFill({
                                 validationErrors[v.key] ? errorInputClass : ""
                               } ${highlightClass(v.key)}`}
                             />
-                            <p className="text-xs text-slate-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               相对路径基于 workspace: data/workspaces/{workflowId}/<br />
                               以 / 开头则为绝对路径
                             </p>
@@ -504,12 +504,12 @@ export default function TaskParamFill({
                           />
                         )}
                         {v.description && (
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             {v.description}
                           </p>
                         )}
                         {validationErrors[v.key] && (
-                          <p className="text-xs text-red-500 mt-1">
+                          <p className="text-xs text-destructive mt-1">
                             {validationErrors[v.key]}
                           </p>
                         )}
@@ -518,7 +518,7 @@ export default function TaskParamFill({
 
                     {/* 隐藏变量（可折叠） */}
                     {inputVariables.filter(v => v.hidden).length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-indigo-500/10">
+                      <div className="mt-4 pt-4 border-t border-primary/10">
                         <button
                           type="button"
                           aria-expanded={expandedHiddenVars.size > 0}
@@ -532,12 +532,12 @@ export default function TaskParamFill({
                               setExpandedHiddenVars(new Set(hiddenKeys));
                             }
                           }}
-                          className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 transition-colors mb-3 min-h-[44px] cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 min-h-[44px] cursor-pointer"
                         >
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-muted-foreground">
                             隐藏变量（点击展开）
                           </span>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-muted-foreground">
                             ({inputVariables.filter(v => v.hidden).length})
                           </span>
                         </button>
@@ -560,18 +560,18 @@ export default function TaskParamFill({
                                     return next;
                                   });
                                 }}
-                                className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 transition-colors w-full min-h-[44px] cursor-pointer"
+                                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full min-h-[44px] cursor-pointer"
                               >
                                 {isExpanded ? (
-                                  <ChevronDown size={14} className="text-slate-500" aria-hidden="true" />
+                                  <ChevronDown size={14} className="text-muted-foreground" aria-hidden="true" />
                                 ) : (
-                                  <ChevronRight size={14} className="text-slate-500" aria-hidden="true" />
+                                  <ChevronRight size={14} className="text-muted-foreground" aria-hidden="true" />
                                 )}
-                                <span className="text-sm text-slate-200">{v.name}</span>
+                                <span className="text-sm text-foreground">{v.name}</span>
                                 {v.required && (
-                                  <span className="text-red-500">*</span>
+                                  <span className="text-destructive">*</span>
                                 )}
-                                <span className="text-xs text-slate-500 font-mono ml-auto">
+                                <span className="text-xs text-muted-foreground font-mono ml-auto">
                                   {`{{${v.key}}}`}
                                 </span>
                               </button>
@@ -612,7 +612,7 @@ export default function TaskParamFill({
                                           validationErrors[v.key] ? errorInputClass : ""
                                         } ${highlightClass(v.key)}`}
                                       />
-                                      <p className="text-xs text-slate-500 mt-1">
+                                      <p className="text-xs text-muted-foreground mt-1">
                                         相对路径基于 workspace: data/workspaces/{workflowId}/<br />
                                         以 / 开头则为绝对路径
                                       </p>
@@ -645,12 +645,12 @@ export default function TaskParamFill({
                                     />
                                   )}
                                   {v.description && (
-                                    <p className="text-xs text-slate-500 mt-1">
+                                    <p className="text-xs text-muted-foreground mt-1">
                                       {v.description}
                                     </p>
                                   )}
                                   {validationErrors[v.key] && (
-                                    <p className="text-xs text-red-500 mt-1">
+                                    <p className="text-xs text-destructive mt-1">
                                       {validationErrors[v.key]}
                                     </p>
                                   )}
@@ -663,25 +663,25 @@ export default function TaskParamFill({
                     )}
                     {/* 输出变量：只读展示 */}
                     {outputVariables.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-indigo-500/10">
+                      <div className="mt-4 pt-4 border-t border-primary/10">
                         <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-muted-foreground">
                             输出变量（运行时自动写入）
                           </span>
                         </div>
                         {outputVariables.map((v) => (
                           <div key={v.key} className="mb-2 last:mb-0">
-                            <label className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+                            <label className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                               {v.name}
-                              <span className="text-xs text-indigo-500 font-mono ml-2">
+                              <span className="text-xs text-primary font-mono ml-2">
                                 {`{{${v.key}}}`}
                               </span>
                             </label>
-                          <div className="w-full px-3 py-2 rounded-lg bg-slate-950/40 border border-indigo-500/10 text-sm text-slate-500 font-mono" role="status">
+                          <div className="w-full px-3 py-2 rounded-lg bg-background/40 border border-primary/10 text-sm text-muted-foreground font-mono" role="status">
                       (由节点运行时生成)
                             </div>
                             {v.description && (
-                              <p className="text-xs text-slate-500 mt-0.5">
+                              <p className="text-xs text-muted-foreground mt-0.5">
                                 {v.description}
                               </p>
                             )}
@@ -692,14 +692,14 @@ export default function TaskParamFill({
                   </div>
                 )}
               </div>
-              <div className="px-6 py-4 border-t border-indigo-500/10 bg-slate-950/50">
+              <div className="px-6 py-4 border-t border-primary/10 bg-background/50">
                 {loading ? null : error && !submitting ? null : (
                   <button
                     type="button"
                     onClick={handleSubmit}
                     disabled={submitting}
                     aria-label="启动任务"
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-all cursor-pointer min-h-[44px]"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-success hover:bg-success disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-all cursor-pointer min-h-[44px]"
                   >
                     {submitting ? (
                       <>
@@ -716,7 +716,7 @@ export default function TaskParamFill({
                 )}
               </div>
             </div>
-            <p className="text-center text-xs text-slate-500 mt-4 px-6">
+            <p className="text-center text-xs text-muted-foreground mt-4 px-6">
               参数值将在任务启动时替换节点中对应的 {"{{key}}"} 占位符。
             </p>
           </div>
@@ -730,14 +730,14 @@ export default function TaskParamFill({
           tabIndex={0}
           onMouseDown={handleSplitMouseDown}
           onKeyDown={handleSplitKeyDown}
-          className={`w-1 shrink-0 cursor-col-resize transition-colors relative z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+          className={`w-1 shrink-0 cursor-col-resize transition-colors relative z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             isDraggingSplit
-              ? "bg-indigo-500/60"
-              : "bg-indigo-500/10 hover:bg-indigo-500/30"
+              ? "bg-primary/60"
+              : "bg-primary/10 hover:bg-primary/30"
           }`}
         >
           <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true">
-            <GripVertical size={16} className="text-indigo-500" />
+            <GripVertical size={16} className="text-primary" />
           </div>
         </div>
 

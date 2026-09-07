@@ -31,10 +31,10 @@ export default function SortableCard({ id, children, disabled, className = "" }:
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-slate-800/80 border border-border/40 rounded-lg px-3 py-3 flex items-start gap-2 group transition-all duration-200 ${className} ${
+      className={`bg-secondary/80 border border-border/40 rounded-lg px-3 py-3 flex items-start gap-2 group transition-all duration-200 ${className} ${
         isDragging
-          ? "border-purple-500/60 shadow-lg shadow-purple-500/10 scale-[0.98]"
-          : "hover:border-indigo-500/30"
+          ? "border-primary/60 shadow-lg shadow-primary/10 scale-[0.98]"
+          : "hover:border-primary/30"
       }`}
     >
       {!disabled && (
@@ -42,7 +42,7 @@ export default function SortableCard({ id, children, disabled, className = "" }:
           {...attributes}
           {...listeners}
           aria-label="拖拽排序"
-          className="mt-1 p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded cursor-grab active:cursor-grabbing text-muted-foreground hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors flex-shrink-0"
+          className="mt-1 p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded cursor-grab active:cursor-grabbing text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors flex-shrink-0"
           tabIndex={-1}
         >
           <GripVertical size={14} aria-hidden="true" />

@@ -52,7 +52,7 @@ function VariableDropdown({
   return (
     <div
       ref={dropdownRef}
-      className="absolute left-0 right-0 top-full mt-1 z-20 bg-slate-900 border border-indigo-500/30 rounded-lg shadow-xl max-h-36 overflow-y-auto"
+      className="absolute left-0 right-0 top-full mt-1 z-20 bg-card border border-primary/30 rounded-lg shadow-xl max-h-36 overflow-y-auto"
       role="listbox"
       aria-label="变量选择列表"
     >
@@ -62,15 +62,15 @@ function VariableDropdown({
           onClick={() => onSelect(variable.key)}
           className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
             index === selectedIndex
-              ? "bg-indigo-500/20 text-slate-100"
-              : "text-slate-400 hover:bg-indigo-500/10"
+              ? "bg-primary/20 text-foreground"
+              : "text-muted-foreground hover:bg-primary/10"
           }`}
           role="option"
           aria-selected={index === selectedIndex}
         >
-          <span className="text-green-500 font-mono">{`{{${variable.key}}}`}</span>
-          <span className="text-slate-500 truncate">{variable.name}</span>
-          <span className="text-xs text-slate-500 ml-auto">
+          <span className="text-success font-mono">{`{{${variable.key}}}`}</span>
+          <span className="text-muted-foreground truncate">{variable.name}</span>
+          <span className="text-xs text-muted-foreground ml-auto">
             {variableTypeLabel(variable.type)}
           </span>
         </button>
@@ -94,11 +94,11 @@ function PlaceholderTags({
         return (
           <span
             key={key}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-green-500/10 text-green-500 border border-green-500/20 font-mono"
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-success/10 text-success border border-success/20 font-mono"
           >
             {`{{${key}}}`}
             {variable && (
-              <span className="text-green-500/60">{variable.name}</span>
+              <span className="text-success/60">{variable.name}</span>
             )}
           </span>
         );
@@ -350,8 +350,8 @@ export function FieldHookButton({
       aria-label={isHooked ? "取消变量" : "转为变量"}
       className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1 rounded transition-all duration-150 ${
         isHooked
-          ? "text-green-500 hover:text-red-500"
-          : "text-slate-500 hover:text-indigo-500"
+          ? "text-success hover:text-destructive"
+          : "text-muted-foreground hover:text-primary"
       } ${isReadOnly ? "opacity-30 cursor-not-allowed" : "cursor-pointer hover:scale-110"}`}
     >
       <Link2 size={14} className={isHooked ? "" : "opacity-60"} />

@@ -8,16 +8,50 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
 
 from src.agent.session import AgentSession, _persistence_manager
+from src.agent.message_context import normalize_model_context
+from src.agent.tool_resume import (
+    blocks_new_user_message, is_recoverable_accepted_resume, parse_accepted_tool_resume,
+)
 from src.config import DETACHED_SESSION_MAX_CONCURRENT_INVOCATIONS
 
 _SAFE_REF = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _SAFE_CONTEXT_KEY = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,63}$")
 _PROFILE = "detached_conversation"
+DETACHED_CONVERSATION_PROFILE = _PROFILE
 _MAX_CONTEXT_ENTRIES = 16
 _MAX_CONTEXT_VALUE_BYTES = 4096
 _MAX_CONTEXT_BYTES = 8192
+
+
+def build_detached_session_tools(
+    session_manager,
+    session: AgentSession,
+    *,
+    agent_definition=None,
+) -> list[Any]:
+    """Resolve the current detached Agent tool set without creating its Graph."""
+    from src.agent.definition import get_agent_definition
+
+    agent_def = agent_definition or get_agent_definition(session.agent_type)
+    if agent_def is None:
+        raise RuntimeError(
+            f"Detached session Agent 定义不存在: {session.agent_type}"
+        )
+    assembler = getattr(session_manager, "_tool_assembler", None)
+    if assembler is None:
+        return []
+    return assembler.build(
+        session.agent_type,
+        is_workflow_node=False,
+        agent_definition=agent_def,
+        workspace_path="",
+        enable_complete_node_task=False,
+        enable_reject_upstream=False,
+    )
 
 
 @dataclass(frozen=True)
@@ -150,17 +184,11 @@ class ExtensionSessionRuntime:
             raise RuntimeError(
                 f"Detached session Agent 定义不存在: {session.agent_type}"
             )
-        assembler = getattr(self._manager, "_tool_assembler", None)
-        tools = []
-        if assembler is not None:
-            tools = assembler.build(
-                session.agent_type,
-                is_workflow_node=False,
-                agent_definition=agent_def,
-                workspace_path="",
-                enable_complete_node_task=False,
-                enable_reject_upstream=False,
-            )
+        tools = build_detached_session_tools(
+            self._manager,
+            session,
+            agent_definition=agent_def,
+        )
         llm = create_llm(
             model_override=session.model_id or agent_def.model,
             streaming=True,
@@ -170,6 +198,25 @@ class ExtensionSessionRuntime:
         session.start_consumer()
         self._manager.register_runtime_session(session)
 
+    def _refresh_prompt(self, session: AgentSession) -> None:
+        from src.agent.definition import get_agent_definition
+
+        agent_def = get_agent_definition(session.agent_type)
+        if agent_def is None:
+            raise RuntimeError(f"Detached session Agent 定义不存在: {session.agent_type}")
+        builder = getattr(self._manager, "_prompt_builder", None)
+        if builder is None:
+            raise RuntimeError("SessionManager 缺少 PromptBuilder")
+        prompt = builder.build(
+            session.agent_type,
+            session=session,
+            custom_append=agent_def.system_prompt_template or "",
+            is_workflow=False,
+            upstream_summary="",
+        )
+        if prompt != session.system_prompt:
+            session.refresh_system_prompt(prompt)
+
     async def ensure_detached(
         self,
         *,
@@ -177,6 +224,8 @@ class ExtensionSessionRuntime:
         agent_type: str,
         scope_hash: str,
     ) -> DetachedSessionRef:
+        from src.agent.definition import get_agent_definition
+
         owner = self._require_owner()
         external_ref = self._validate_ref(external_ref, "external_ref")
         scope_hash = self._validate_ref(scope_hash, "scope_hash")
@@ -189,9 +238,39 @@ class ExtensionSessionRuntime:
                     agent_type=agent_type,
                     scope_hash=scope_hash,
                 )
-                return DetachedSessionRef(existing.session_id, external_ref, False)
-
-            from src.agent.definition import get_agent_definition
+                reusable = existing.status != "error"
+                if not reusable:
+                    error_session = self._manager.get_session(existing.session_id)
+                    reusable = (
+                        error_session is not None
+                        and parse_accepted_tool_resume(error_session.accepted_tool_resume) is not None
+                    )
+                if reusable:
+                    agent_def = get_agent_definition(agent_type)
+                    if agent_def is None:
+                        raise RuntimeError(
+                            f"Detached session Agent 定义不存在: {agent_type}"
+                        )
+                    async with self._serialized_invocation(existing.session_id):
+                        session = self._manager.get_session(existing.session_id)
+                        if session is None:
+                            raise LookupError(
+                                f"Detached session 不存在: {existing.session_id}"
+                            )
+                        next_params = dict(agent_def.model_params or {})
+                        if (
+                            session.model_id != agent_def.model
+                            or session.model_params != next_params
+                        ):
+                            await session.stop_consumer()
+                            session.model_id = agent_def.model
+                            session.model_params = next_params
+                            session.compiled_graph = None
+                            self._configure_graph(session)
+                            await session.async_save(force=True, strict=True)
+                    return DetachedSessionRef(existing.session_id, external_ref, False)
+                async with self._serialized_invocation(existing.session_id):
+                    await self._delete_unlocked(existing.session_id)
 
             agent_def = get_agent_definition(agent_type)
             if agent_def is None:
@@ -211,16 +290,7 @@ class ExtensionSessionRuntime:
                 scope_hash=scope_hash,
             )
             session.status = "completed"
-            builder = getattr(self._manager, "_prompt_builder", None)
-            if builder is None:
-                raise RuntimeError("SessionManager 缺少 PromptBuilder")
-            session.system_prompt = builder.build(
-                agent_type,
-                session=session,
-                custom_append=agent_def.system_prompt_template or "",
-                is_workflow=False,
-                upstream_summary="",
-            )
+            self._refresh_prompt(session)
             session.model_id = agent_def.model
             self._configure_graph(session)
             await session.async_save(force=True, strict=True)
@@ -232,7 +302,10 @@ class ExtensionSessionRuntime:
         if session is None:
             raise LookupError(f"Detached session 不存在: {session_id}")
         self._assert_binding(session, owner=owner)
-        if session.status == "error":
+        if session.status == "streaming":
+            session.status = "cancelled"
+            session.updated_at = datetime.now(timezone.utc).isoformat()
+        if session.status == "error" and not is_recoverable_accepted_resume(session):
             raise RuntimeError("Detached session 处于 error 状态")
         if session.compiled_graph is None:
             self._configure_graph(session)
@@ -263,24 +336,63 @@ class ExtensionSessionRuntime:
     async def invoke(
         self,
         session_id: str,
-        message: str,
+        message: str | None,
         *,
         event_callback: Callable[[dict], Awaitable[None]] | None = None,
         max_rounds: int | None = None,
+        invocation_context: Mapping[str, str] | None = None,
+        model_context: Mapping[str, Any] | None = None,
+    ) -> str:
+        trusted_context = self._validate_invocation_context(invocation_context)
+        trusted_model_context = normalize_model_context(model_context)
+        async with self._serialized_invocation(session_id), self._semaphore:
+            session = self._load_owned(session_id)
+            try:
+                # Refresh only at a new message boundary, never while a tool
+                # confirmation or accepted resume still owns the current turn.
+                if message and not blocks_new_user_message(session):
+                    self._refresh_prompt(session)
+                return await session.send_message(
+                    content=message or "",
+                    event_callback=event_callback,
+                    max_rounds=max_rounds,
+                    invocation_context=trusted_context,
+                    model_context=trusted_model_context,
+                )
+            except asyncio.CancelledError:
+                self._mark_cancelled(session)
+                raise
+            finally:
+                await asyncio.shield(self._deactivate(session))
+
+    async def resume_tools(
+        self,
+        session_id: str,
+        resolutions: dict[str, object],
+        *,
+        event_callback: Callable[[dict], Awaitable[None]] | None = None,
         invocation_context: Mapping[str, str] | None = None,
     ) -> str:
         trusted_context = self._validate_invocation_context(invocation_context)
         async with self._serialized_invocation(session_id), self._semaphore:
             session = self._load_owned(session_id)
             try:
-                return await session.send_message(
-                    content=message,
+                return await session.resume_tools(
+                    resolutions,
                     event_callback=event_callback,
-                    max_rounds=max_rounds,
                     invocation_context=trusted_context,
                 )
+            except asyncio.CancelledError:
+                self._mark_cancelled(session)
+                raise
             finally:
-                await self._deactivate(session)
+                await asyncio.shield(self._deactivate(session))
+
+    @staticmethod
+    def _mark_cancelled(session: AgentSession) -> None:
+        if session.status == "streaming":
+            session.status = "cancelled"
+            session.updated_at = datetime.now(timezone.utc).isoformat()
 
     async def _deactivate(self, session: AgentSession) -> None:
         await session.async_save(force=True, strict=True)

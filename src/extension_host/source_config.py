@@ -26,8 +26,9 @@ from src.plugin_system.registry import (
     PluginRegistryConfig,
     PluginRegistryError,
     catalog_plugins_from_manifest,
-    load_verified_manifest,
+    fetch_signed_manifest,
     parse_registry_config,
+    serialize_registry_config,
 )
 from src.plugin_system.source_selection import select_git_source
 
@@ -91,8 +92,6 @@ def _parse_source(item: Any, *, kind: str) -> PluginSourceConfig:
     raw_registry = item.get("registry")
     registry: PluginRegistryConfig | None = None
     if raw_registry is not None:
-        if kind != "official":
-            raise ValueError("自定义仓库不能配置官方 Registry")
         registry = parse_registry_config(raw_registry, label=label)
     raw_id = item.get("id")
     if raw_id is None:
@@ -171,10 +170,7 @@ def load_official_sources(path: Path) -> list[str]:
 def source_config_response(source: PluginSourceConfig) -> dict[str, Any]:
     registry = None
     if source.registry is not None:
-        registry = {
-            "url": source.registry.url,
-            "public_key": source.registry.public_key_text,
-        }
+        registry = serialize_registry_config(source.registry)
     return {
         "id": source.id,
         "name": source.name,
@@ -185,6 +181,18 @@ def source_config_response(source: PluginSourceConfig) -> dict[str, Any]:
         "mirrors": list(source.mirrors),
         "registry": registry,
     }
+
+
+def _custom_source_document(source: PluginSourceConfig) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": source.id,
+        "name": source.name,
+        "url": source.url,
+        "ref": source.ref,
+    }
+    if source.registry is not None:
+        payload["registry"] = serialize_registry_config(source.registry)
+    return payload
 
 
 class PluginSourceStore:
@@ -198,13 +206,20 @@ class PluginSourceStore:
         with self._lock:
             return load_plugin_sources(self.path)
 
-    def create(self, *, name: str, url: str, ref: str = "HEAD") -> PluginSourceConfig:
+    def create(
+        self,
+        *,
+        name: str,
+        url: str,
+        ref: str = "HEAD",
+        registry: Any = None,
+    ) -> PluginSourceConfig:
         with self._lock:
             current = self.list()
-            candidate = _parse_source(
-                {"name": name, "url": url, "ref": ref},
-                kind="custom",
-            )
+            payload: dict[str, Any] = {"name": name, "url": url, "ref": ref}
+            if registry is not None:
+                payload["registry"] = registry
+            candidate = _parse_source(payload, kind="custom")
             self._ensure_unique(candidate, current)
             self._write_custom([source for source in current if source.kind == "custom"] + [candidate])
             return candidate
@@ -216,20 +231,21 @@ class PluginSourceStore:
         name: str,
         url: str | None = None,
         ref: str,
+        registry: Any = None,
     ) -> PluginSourceConfig:
         with self._lock:
             current = self.list()
             existing = self._get(source_id, current)
             self._ensure_mutable(existing)
-            candidate = _parse_source(
-                {
-                    "id": existing.id,
-                    "name": name,
-                    "url": url or existing.url,
-                    "ref": ref,
-                },
-                kind="custom",
-            )
+            payload: dict[str, Any] = {
+                "id": existing.id,
+                "name": name,
+                "url": url or existing.url,
+                "ref": ref,
+            }
+            if registry is not None:
+                payload["registry"] = registry
+            candidate = _parse_source(payload, kind="custom")
             self._ensure_unique(candidate, current, exclude_id=source_id)
             custom = [
                 candidate if source.id == source_id else source
@@ -284,13 +300,7 @@ class PluginSourceStore:
     def _write_custom(self, custom_sources: list[PluginSourceConfig]) -> None:
         document = _load_source_document(self.path)
         document["custom_sources"] = [
-            {
-                "id": source.id,
-                "name": source.name,
-                "url": source.url,
-                "ref": source.ref,
-            }
-            for source in custom_sources
+            _custom_source_document(source) for source in custom_sources
         ]
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
@@ -432,17 +442,20 @@ def _catalog_from_registry(
     source_result: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if source.registry is None:
-        raise PluginRegistryError("官方来源未配置 Registry")
-    manifest = load_verified_manifest(source.registry, source.url)
+        raise PluginRegistryError("来源未配置 Registry")
+    fetched = fetch_signed_manifest(
+        source.registry,
+        required_source=source.url,
+    )
     plugins = catalog_plugins_from_manifest(
-        manifest,
+        fetched.manifest,
         canonical_source=source.url,
         source_id=source.id,
         source_name=source.name,
         source_kind=source.kind,
     )
-    source_result["selected_url"] = source.registry.url
-    source_result["resolved_commit"] = manifest.resolved_commit
+    source_result["selected_url"] = fetched.endpoint
+    source_result["resolved_commit"] = fetched.manifest.resolved_commit
     source_result["plugin_count"] = len(plugins)
     source_result["transport"] = "registry"
     source_result["error"] = ""
@@ -452,7 +465,7 @@ def _catalog_from_registry(
 def fetch_plugin_catalog(
     configured_sources: Iterable[PluginSourceConfig],
 ) -> dict[str, Any]:
-    """Fetch official Registry catalogs, with Git fallback and custom Git sources."""
+    """Fetch signed Registry catalogs, with Git fallback for every source."""
     plugins: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
     for source in tuple(configured_sources):
@@ -466,7 +479,7 @@ def fetch_plugin_catalog(
         }
         source_plugins: list[dict[str, Any]] = []
         try:
-            if source.kind == "official" and source.registry is not None:
+            if source.registry is not None:
                 try:
                     source_plugins, source_result = _catalog_from_registry(
                         source,

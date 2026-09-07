@@ -498,7 +498,7 @@ export default function ChatPage() {
   }, []);
 
   return (
-    <div className="relative flex h-[calc(100dvh-3.5rem)]">
+    <div className="relative flex h-full min-h-0 min-w-0 overflow-hidden">
       {/* Token 监控竖向边栏 - 左侧，可折叠 */}
       <div
         className={`shrink-0 flex flex-col transition-all duration-300 ${monitoringCollapsed ? "w-7" : "w-64"}`}
@@ -515,7 +515,7 @@ export default function ChatPage() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0" role="main" aria-label="聊天区域">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background" role="main" aria-label="聊天区域">
         <button
           type="button"
           onClick={() => setMobilePanelOpen(true)}
@@ -562,10 +562,10 @@ export default function ChatPage() {
           contentClassName="w-full max-w-4xl mx-auto px-6 py-4"
           emptyState={(
             <div className="flex flex-col items-center justify-center h-64 text-center" role="status" aria-label="暂无消息">
-              <div className="mb-4 h-16 w-16 animate-float motion-reduce:animate-none">
+              <div className="mb-4 h-16 w-16">
                 <BrandMark className="h-full w-full" />
               </div>
-              <h2 className="text-xl font-semibold text-slate-200 mb-2">
+              <h2 className="text-xl font-semibold text-foreground mb-2">
                 {isViewingOther ? "此会话暂无消息" : PRODUCT_NAME}
               </h2>
               <p className="text-muted-foreground text-sm">
@@ -593,7 +593,7 @@ export default function ChatPage() {
                       onClick={() => handlePresetSend(phrase.content)}
                       disabled={!canSend}
                       aria-label={`发送预设短语: ${phrase.label}`}
-                      className="px-2.5 py-1 text-xs rounded-full bg-slate-700/60 text-slate-300 hover:bg-indigo-500/20 hover:text-indigo-400 border border-border/40 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                      className="px-2.5 py-1 text-xs rounded-full bg-muted/60 text-foreground hover:bg-primary/20 hover:text-primary border border-border/40 transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
                     >
                       {phrase.label}
                     </button>
@@ -606,7 +606,7 @@ export default function ChatPage() {
                 onClick={openAddDialog}
                 title="编辑预设短语"
                 aria-label="编辑预设短语"
-                className="p-1.5 rounded-md text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <Edit3 size={14} aria-hidden="true" />
               </button>
@@ -622,8 +622,8 @@ export default function ChatPage() {
                 aria-label="手动触发上下文压缩"
                 className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded-md transition-colors duration-200 cursor-pointer ${
                   compressing
-                    ? "bg-slate-700 text-muted-foreground cursor-not-allowed"
-                    : "bg-slate-700/60 text-slate-400 hover:bg-purple-500/20 hover:text-purple-400 border border-border/40"
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-muted/60 text-muted-foreground hover:bg-primary/20 hover:text-primary border border-border/40"
                 }`}
               >
                 <Minimize2 size={12} aria-hidden="true" />
@@ -675,7 +675,7 @@ export default function ChatPage() {
               ) : null}
             />
             {!connected && targetSessionId && phase !== "loading" && (
-              <div className="text-center text-red-400 text-xs mt-2" role="alert" aria-live="polite">WebSocket 未连接，请检查后端服务</div>
+              <div className="text-center text-destructive text-xs mt-2" role="alert" aria-live="polite">WebSocket 未连接，请检查后端服务</div>
             )}
           </div>
         </div>
@@ -690,21 +690,21 @@ export default function ChatPage() {
           >
             <div
               ref={dialogRef}
-              className="bg-slate-800 border border-border/60 rounded-xl p-4 sm:p-5 w-[460px] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto shadow-2xl"
+              className="bg-secondary border border-border/60 rounded-xl p-4 sm:p-5 w-[460px] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto shadow-2xl"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
               aria-label={editingId ? "编辑预设短语" : "新增预设短语"}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-slate-200">
+                <h3 className="text-sm font-medium text-foreground">
                   {editingId ? "编辑预设短语" : "新增预设短语"}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setEditDialogOpen(false)}
                   aria-label="关闭对话框"
-                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-slate-700 cursor-pointer"
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
                 >
                   <X size={16} aria-hidden="true" />
                 </button>
@@ -718,19 +718,19 @@ export default function ChatPage() {
                       key={phrase.id}
                       className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${
                         editingId === phrase.id
-                      ? "bg-indigo-500/15 border border-indigo-500/30"
-                      : "bg-slate-700/50 hover:bg-slate-700 border border-transparent"
+                      ? "bg-primary/15 border border-primary/30"
+                      : "bg-muted/50 hover:bg-muted border border-transparent"
                       }`}
                     >
                       <div className="flex-1 min-w-0 mr-2">
-                        <div className="text-slate-200 font-medium truncate">{phrase.label}</div>
+                        <div className="text-foreground font-medium truncate">{phrase.label}</div>
                         <div className="text-muted-foreground truncate">{phrase.content}</div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           type="button"
                           onClick={() => openEditDialog(phrase)}
-                          className="p-1 rounded text-muted-foreground hover:text-cyan-400 hover:bg-slate-600 cursor-pointer"
+                          className="p-1 rounded text-muted-foreground hover:text-info hover:bg-muted-foreground cursor-pointer"
                           title="编辑"
                           aria-label={`编辑短语: ${phrase.label}`}
                         >
@@ -739,7 +739,7 @@ export default function ChatPage() {
                         <button
                           type="button"
                           onClick={() => handleDeletePresetPhrase(phrase.id)}
-                          className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-slate-600 cursor-pointer"
+                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-muted-foreground cursor-pointer"
                           title="删除"
                           aria-label={`删除短语: ${phrase.label}`}
                         >
@@ -760,7 +760,7 @@ export default function ChatPage() {
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     placeholder="例如：自我介绍"
-                    className="w-full px-3 py-2 text-sm bg-slate-700 border border-border/60 rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-indigo-500/60 transition-colors"
+                    className="w-full px-3 py-2 text-sm bg-muted border border-border/60 rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/60 transition-colors"
                   />
                 </div>
                 <div>
@@ -771,7 +771,7 @@ export default function ChatPage() {
                     onChange={(e) => setEditContent(e.target.value)}
                     placeholder="输入发送给 LLM 的实际文本..."
                     rows={3}
-                    className="w-full px-3 py-2 text-sm bg-slate-700 border border-border/60 rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-indigo-500/60 transition-colors resize-none"
+                    className="w-full px-3 py-2 text-sm bg-muted border border-border/60 rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/60 transition-colors resize-none"
                   />
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-1">
@@ -783,7 +783,7 @@ export default function ChatPage() {
                         setEditLabel("");
                         setEditContent("");
                       }}
-                      className="px-3 py-1.5 text-xs rounded-lg bg-slate-700 text-muted-foreground hover:text-foreground hover:bg-slate-600 transition-colors cursor-pointer min-h-[44px]"
+                      className="px-3 py-1.5 text-xs rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted-foreground transition-colors cursor-pointer min-h-[44px]"
                     >
                       取消编辑
                     </button>
@@ -791,7 +791,7 @@ export default function ChatPage() {
                   <button
                     type="button"
                     onClick={() => setEditDialogOpen(false)}
-                    className="px-3 py-1.5 text-xs rounded-lg bg-slate-700 text-muted-foreground hover:text-foreground hover:bg-slate-600 transition-colors cursor-pointer min-h-[44px]"
+                    className="px-3 py-1.5 text-xs rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted-foreground transition-colors cursor-pointer min-h-[44px]"
                   >
                     取消
                   </button>
@@ -799,7 +799,7 @@ export default function ChatPage() {
                     type="button"
                     onClick={handleSavePresetPhrase}
                     disabled={!editLabel.trim() || !editContent.trim()}
-                    className="px-4 py-1.5 text-xs rounded-lg bg-indigo-500 text-white hover:bg-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[44px]"
+                    className="px-4 py-1.5 text-xs rounded-lg bg-primary text-white hover:bg-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[44px]"
                   >
                     {editingId ? "保存" : "添加"}
                   </button>
@@ -839,19 +839,19 @@ export default function ChatPage() {
           role="presentation"
         >
           <div
-            className="bg-slate-800 border border-border/60 rounded-xl p-5 w-[400px] max-w-[calc(100vw-2rem)] shadow-2xl"
+            className="bg-secondary border border-border/60 rounded-xl p-5 w-[400px] max-w-[calc(100vw-2rem)] shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-label={confirmDialog.title}
           >
-            <h3 className="text-sm font-medium text-slate-200 mb-2">{confirmDialog.title}</h3>
+            <h3 className="text-sm font-medium text-foreground mb-2">{confirmDialog.title}</h3>
             <p className="text-xs text-muted-foreground mb-5">{confirmDialog.message}</p>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
-                className="px-3 py-1.5 text-xs rounded-lg bg-slate-700 text-muted-foreground hover:text-foreground hover:bg-slate-600 transition-colors duration-200 cursor-pointer min-h-[44px]"
+                className="px-3 py-1.5 text-xs rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted-foreground transition-colors duration-200 cursor-pointer min-h-[44px]"
               >
                 取消
               </button>
@@ -862,7 +862,7 @@ export default function ChatPage() {
                   confirmDialog.onConfirm();
                   setConfirmDialog((prev) => ({ ...prev, open: false }));
                 }}
-                className="px-4 py-1.5 text-xs rounded-lg bg-red-500 text-white hover:bg-red-400 transition-colors duration-200 cursor-pointer min-h-[44px]"
+                className="px-4 py-1.5 text-xs rounded-lg bg-destructive text-white hover:bg-destructive transition-colors duration-200 cursor-pointer min-h-[44px]"
               >
                 确认
               </button>
@@ -874,15 +874,15 @@ export default function ChatPage() {
       {/* 操作错误提示 */}
       {actionError && (
         <div
-          className="fixed bottom-4 right-4 z-50 max-w-sm bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 flex items-center gap-3 shadow-lg"
+          className="fixed bottom-4 right-4 z-50 max-w-sm bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3 flex items-center gap-3 shadow-lg"
           role="alert"
           aria-live="polite"
         >
-          <span className="text-xs text-red-300 flex-1">{actionError}</span>
+          <span className="text-xs text-destructive flex-1">{actionError}</span>
           <button
             type="button"
             onClick={() => setActionError(null)}
-            className="text-red-400 hover:text-red-300 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="text-destructive hover:text-destructive cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="关闭错误提示"
           >
             <X size={14} aria-hidden="true" />

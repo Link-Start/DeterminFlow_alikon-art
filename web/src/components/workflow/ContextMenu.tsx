@@ -131,7 +131,7 @@ export default function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[150px] rounded-lg bg-slate-900 border border-indigo-500/20 shadow-2xl shadow-black/40 overflow-hidden"
+      className="fixed z-50 min-w-[150px] rounded-lg bg-card border border-primary/20 shadow-2xl shadow-black/40 overflow-hidden"
       style={{ left: adjustedX, top: adjustedY }}
       role="menu"
       aria-label={type === "node" ? "节点操作菜单" : "连线操作菜单"}
@@ -141,10 +141,10 @@ export default function ContextMenu({
           <button
             type="button"
             onClick={() => handleClick(item)}
-            className={`flex items-center gap-2.5 w-full px-3 py-2.5 min-h-[44px] text-xs transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none cursor-pointer ${
+            className={`flex items-center gap-2.5 w-full px-3 py-2.5 min-h-[44px] text-xs transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none cursor-pointer ${
               item.danger
-                ? "text-red-500 hover:bg-red-500/10"
-                : "text-slate-100 hover:bg-indigo-500/10"
+                ? "text-destructive hover:bg-destructive/10"
+                : "text-foreground hover:bg-primary/10"
             }`}
             role="menuitem"
             aria-label={item.label}
@@ -153,7 +153,7 @@ export default function ContextMenu({
             <span>{item.label}</span>
           </button>
           {item.dividerAfter && (
-            <div className="border-t border-indigo-500/10 my-0.5" role="separator" />
+            <div className="border-t border-primary/10 my-0.5" role="separator" />
           )}
         </div>
       ))}

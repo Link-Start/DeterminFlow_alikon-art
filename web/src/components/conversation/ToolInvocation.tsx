@@ -19,39 +19,39 @@ interface StatusPresentation {
 const STATUS_PRESENTATION: Record<ToolInvocationStatus, StatusPresentation> = {
   pending: {
     label: "等待结果",
-    badgeClass: "bg-slate-500/15 text-slate-400",
-    borderClass: "border-slate-700/50",
-    icon: <CircleDashed size={16} className="text-slate-400" aria-hidden="true" />,
+    badgeClass: "bg-muted-foreground/15 text-muted-foreground",
+    borderClass: "border-border/50",
+    icon: <CircleDashed size={16} className="text-muted-foreground" aria-hidden="true" />,
   },
   building: {
     label: "生成参数",
-    badgeClass: "bg-amber-500/15 text-amber-300",
-    borderClass: "border-amber-500/20",
-    icon: <Pencil size={16} className="animate-pulse text-amber-400 motion-reduce:animate-none" aria-hidden="true" />,
+    badgeClass: "bg-warning/15 text-warning",
+    borderClass: "border-warning/20",
+    icon: <Pencil size={16} className="animate-pulse text-warning motion-reduce:animate-none" aria-hidden="true" />,
   },
   running: {
     label: "执行中",
-    badgeClass: "bg-amber-500/15 text-amber-300",
-    borderClass: "border-amber-500/25",
-    icon: <Loader2 size={16} className="animate-spin text-amber-400 motion-reduce:animate-none" aria-hidden="true" />,
+    badgeClass: "bg-warning/15 text-warning",
+    borderClass: "border-warning/25",
+    icon: <Loader2 size={16} className="animate-spin text-warning motion-reduce:animate-none" aria-hidden="true" />,
   },
   succeeded: {
     label: "已完成",
-    badgeClass: "bg-green-500/15 text-green-300",
-    borderClass: "border-green-500/20",
-    icon: <CheckCircle2 size={16} className="text-green-400" aria-hidden="true" />,
+    badgeClass: "bg-success/15 text-success",
+    borderClass: "border-success/20",
+    icon: <CheckCircle2 size={16} className="text-success" aria-hidden="true" />,
   },
   failed: {
     label: "执行失败",
-    badgeClass: "bg-red-500/15 text-red-300",
-    borderClass: "border-red-500/25",
-    icon: <CircleX size={16} className="text-red-400" aria-hidden="true" />,
+    badgeClass: "bg-destructive/15 text-destructive",
+    borderClass: "border-destructive/25",
+    icon: <CircleX size={16} className="text-destructive" aria-hidden="true" />,
   },
   cancelled: {
     label: "已取消",
-    badgeClass: "bg-slate-500/15 text-slate-300",
-    borderClass: "border-slate-500/25",
-    icon: <Ban size={16} className="text-slate-400" aria-hidden="true" />,
+    badgeClass: "bg-muted-foreground/15 text-foreground",
+    borderClass: "border-border/25",
+    icon: <Ban size={16} className="text-muted-foreground" aria-hidden="true" />,
   },
 };
 
@@ -68,11 +68,11 @@ export default function ToolInvocation({ invocation, className = "" }: ToolInvoc
   return (
     <article
       aria-label={`工具调用 ${invocation.name}，${presentation.label}`}
-      className={`ml-10 rounded-lg border bg-slate-800/50 px-3 py-2 ${presentation.borderClass} ${className}`}
+      className={`ml-10 rounded-lg border bg-secondary/50 px-3 py-2 ${presentation.borderClass} ${className}`}
     >
       <header className="flex min-h-8 items-center gap-2">
         {presentation.icon}
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-amber-300" title={invocation.name}>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-warning" title={invocation.name}>
           {invocation.name}
         </span>
         <span

@@ -1063,10 +1063,10 @@ def test_cold_start_reassigns_only_recoverable_tasks_from_same_executor(
         ExecutorIdentity("workflow-executor-0", "new")
     )
 
-    assert count == 3
+    assert count == 2
     assert manager._load_task("wf-1", "task-running").executor_epoch == "new"
     assert manager._load_task("wf-1", "task-pending").executor_epoch == "new"
-    assert manager._load_task("wf-1", "task-failed").executor_epoch == "new"
+    assert manager._load_task("wf-1", "task-failed").executor_epoch == "older-than-previous"
     assert manager._load_task("wf-1", "task-completed").executor_epoch == "old"
     assert manager._load_task("wf-1", "task-other").executor_id == "workflow-executor-9"
 

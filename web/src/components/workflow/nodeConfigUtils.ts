@@ -41,7 +41,6 @@ interface ScriptNodeParamInput {
   useScriptArgv: boolean;
   timeout: string;
   enableRejectUpstream: boolean;
-  maxRejectCount: string;
 }
 
 export function buildScriptNodeParams(
@@ -55,8 +54,8 @@ export function buildScriptNodeParams(
     script_name: input.scriptName,
     timeout: input.timeout,
     enable_reject_upstream: String(input.enableRejectUpstream),
-    max_reject_count: String(parseInt(input.maxRejectCount, 10) || 3),
   };
+  delete params.max_reject_count;
   if (input.useScriptArgv) {
     params.script_argv = [...input.scriptArgv];
     delete params.script_args;

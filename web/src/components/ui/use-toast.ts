@@ -8,6 +8,17 @@ export interface Toast {
   duration?: number;
 }
 
+export const MAX_VISIBLE_TOASTS = 3;
+
+export function enqueueToast(current: Toast[], next: Toast): Toast[] {
+  const withoutDuplicate = current.filter((item) => (
+    item.title !== next.title
+    || item.description !== next.description
+    || item.variant !== next.variant
+  ));
+  return [...withoutDuplicate, next].slice(-MAX_VISIBLE_TOASTS);
+}
+
 export interface ToastContextType {
   toasts: Toast[];
   addToast: (toast: Omit<Toast, "id">) => void;
@@ -34,7 +45,7 @@ export function useToastState() {
   const addToast = React.useCallback((toast: Omit<Toast, "id">) => {
     const id = Math.random().toString(36).substr(2, 9);
     const newToast = { ...toast, id };
-    setToasts((prev) => [...prev, newToast]);
+    setToasts((prev) => enqueueToast(prev, newToast));
 
     // Auto remove after duration
     const duration = toast.duration || 3000;

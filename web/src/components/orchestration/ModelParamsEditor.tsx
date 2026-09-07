@@ -33,8 +33,8 @@ export default function ModelParamsEditor({
 
   return (
     <section className="border-t border-border/30 pt-3">
-      <h4 className="mb-3 flex items-center gap-1 text-xs font-semibold text-slate-300">
-        <Bot size={12} className="text-indigo-500" aria-hidden="true" />
+      <h4 className="mb-3 flex items-center gap-1 text-xs font-semibold text-foreground">
+        <Bot size={12} className="text-primary" aria-hidden="true" />
         模型参数
       </h4>
 
@@ -47,7 +47,7 @@ export default function ModelParamsEditor({
             const checked = field.type === "json_mode" ? Boolean(value) : value === true;
             return (
               <div key={name} className="flex items-center justify-between gap-4">
-                <span id={`${inputId}-label`} className="text-xs text-slate-300">
+                <span id={`${inputId}-label`} className="text-xs text-foreground">
                   {field.label}
                 </span>
                 <button
@@ -63,13 +63,13 @@ export default function ModelParamsEditor({
                   )}
                   className={`relative h-5 w-10 rounded-full border transition-colors ${
                     checked
-                      ? "border-indigo-500/60 bg-indigo-500/30"
-                      : "border-slate-600 bg-slate-800"
+                      ? "border-primary/60 bg-primary/30"
+                      : "border-border bg-secondary"
                   }`}
                 >
                   <span
                     className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${
-                      checked ? "left-5 bg-indigo-400" : "left-0.5 bg-slate-500"
+                      checked ? "left-5 bg-primary" : "left-0.5 bg-muted-foreground"
                     }`}
                   />
                 </button>
@@ -80,13 +80,13 @@ export default function ModelParamsEditor({
           if (field.type === "select") {
             const selected = typeof value === "string" ? value : String(field.default ?? "");
             return (
-              <label key={name} htmlFor={inputId} className="block text-xs text-slate-300">
+              <label key={name} htmlFor={inputId} className="block text-xs text-foreground">
                 {field.label}
                 <select
                   id={inputId}
                   value={selected}
                   onChange={(event) => update(name, event.target.value)}
-                  className="mt-1 w-full rounded-md border border-border/50 bg-slate-800/60 px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                  className="mt-1 w-full rounded-md border border-border/50 bg-secondary/60 px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
                 >
                   {(field.options || []).map((option) => (
                     <option key={option} value={option}>
@@ -105,7 +105,7 @@ export default function ModelParamsEditor({
             return (
               <div key={name}>
                 <div className="mb-1 flex items-center justify-between gap-3 text-xs">
-                  <label htmlFor={inputId} className="text-slate-300">{field.label}</label>
+                  <label htmlFor={inputId} className="text-foreground">{field.label}</label>
                   <span className="text-muted-foreground">{numericValue}</span>
                 </div>
                 <input
@@ -116,7 +116,7 @@ export default function ModelParamsEditor({
                   step={field.step}
                   value={numericValue}
                   onChange={(event) => update(name, Number(event.target.value))}
-                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-800 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500"
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
                 />
               </div>
             );
@@ -126,7 +126,7 @@ export default function ModelParamsEditor({
             <label
               key={name}
               htmlFor={inputId}
-              className="flex items-center justify-between gap-4 text-xs text-slate-300"
+              className="flex items-center justify-between gap-4 text-xs text-foreground"
             >
               {field.label}
               <input
@@ -141,7 +141,7 @@ export default function ModelParamsEditor({
                   name,
                   event.target.value === "" ? null : Number(event.target.value),
                 )}
-                className="min-h-9 w-36 rounded-md border border-border/50 bg-slate-800/60 px-2 text-right text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                className="min-h-9 w-36 rounded-md border border-border/50 bg-secondary/60 px-2 text-right text-xs text-foreground outline-none focus:border-primary/50"
               />
             </label>
           );

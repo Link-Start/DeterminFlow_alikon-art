@@ -272,14 +272,14 @@ export default function WorkflowMainDrawer({
       : "";
 
   const chatHeader = (
-    <div className="px-4 py-3 border-b border-indigo-500/10 bg-slate-900/50 flex items-center gap-2 shrink-0">
-      <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center">
+    <div className="px-4 py-3 border-b border-primary/10 bg-card/50 flex items-center gap-2 shrink-0">
+      <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
         <Bot size={14} className="text-white" aria-hidden="true" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-slate-200">Workflow Main</div>
+        <div className="text-sm font-medium text-foreground">Workflow Main</div>
         {takeoverStatusLabel && (
-          <div className="text-xs text-slate-500">{takeoverStatusLabel}</div>
+          <div className="text-xs text-muted-foreground">{takeoverStatusLabel}</div>
         )}
       </div>
       {/* drawer 模式关闭按钮 */}
@@ -288,7 +288,7 @@ export default function WorkflowMainDrawer({
           type="button"
           onClick={collapseDrawer}
           aria-label="关闭 Main 对话"
-          className="p-1 rounded hover:bg-indigo-500/10 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+          className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>
@@ -300,24 +300,24 @@ export default function WorkflowMainDrawer({
 
   if (mode === "inline") {
     return (
-      <div className={`flex-1 flex flex-col min-h-0 bg-slate-950 ${className}`}>
+      <div className={`flex-1 flex flex-col min-h-0 bg-background ${className}`}>
         {takeoverState === "idle" || takeoverState === "connecting" ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center max-w-sm">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
-                <Sparkles size={36} className="text-indigo-500" aria-hidden="true" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Sparkles size={36} className="text-primary" aria-hidden="true" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-200 mb-2">Main 接管模式</h3>
-              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Main 接管模式</h3>
+              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
                 提前启动一个 AI Main Agent 来接管此工作流。它可以帮你智能填写全局变量、了解工作流结构，并在任务执行时审批每个节点的产出。
               </p>
-              {startError && <p className="mb-4 text-sm text-red-300" role="alert">{startError}</p>}
+              {startError && <p className="mb-4 text-sm text-destructive" role="alert">{startError}</p>}
               <button
                 type="button"
                 onClick={handleStartMain}
                 disabled={takeoverState === "connecting"}
                 aria-label="启动 Main 会话并接管工作流"
-                className="group relative inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-all cursor-pointer min-h-[44px]"
+                className="group relative inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-primary hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-all cursor-pointer min-h-[44px]"
               >
                 {takeoverState === "connecting" ? (
                   <>
@@ -367,14 +367,14 @@ export default function WorkflowMainDrawer({
         {/* 可拖拽把手 */}
         <div
           onMouseDown={handleGripMouseDown}
-          className="absolute inset-0 flex flex-col items-center justify-center gap-1 cursor-col-resize bg-slate-900/80 hover:bg-slate-900 border-l border-indigo-500/20 hover:border-indigo-500/40 transition-colors group"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 cursor-col-resize bg-card/80 hover:bg-card border-l border-primary/20 hover:border-primary/40 transition-colors group"
           title="拖拽打开 Main 对话"
         >
-          <ChevronLeft size={12} className="text-indigo-500/60 group-hover:text-indigo-500 transition-colors" aria-hidden="true" />
-          <span className="text-xs text-indigo-500/50 group-hover:text-indigo-500/70 transition-colors leading-tight text-center">
+          <ChevronLeft size={12} className="text-primary/60 group-hover:text-primary transition-colors" aria-hidden="true" />
+          <span className="text-xs text-primary/50 group-hover:text-primary/70 transition-colors leading-tight text-center">
             Main
           </span>
-          <Bot size={12} className="text-indigo-500/40 group-hover:text-indigo-500/60 transition-colors" aria-hidden="true" />
+          <Bot size={12} className="text-primary/40 group-hover:text-primary/60 transition-colors" aria-hidden="true" />
         </div>
       </div>
     );
@@ -383,7 +383,7 @@ export default function WorkflowMainDrawer({
   // ============ DRAWER 模式：展开的抽屉 ============
   return (
     <div
-      className="h-full flex flex-col bg-slate-900 border-l border-indigo-500/10 shrink-0 overflow-hidden relative"
+      className="h-full flex flex-col bg-card border-l border-primary/10 shrink-0 overflow-hidden relative"
       style={{ width: `${drawerWidth}px`, minWidth: `${DRAWER_MIN_WIDTH}px`, maxWidth: `${DRAWER_MAX_WIDTH}px` }}
     >
       {/* Resize Handle */}
@@ -392,12 +392,12 @@ export default function WorkflowMainDrawer({
         role="separator"
         aria-orientation="vertical"
         aria-label="拖拽调整抽屉宽度"
-        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-500/50 transition-colors z-10 group ${
-          isResizing ? "bg-indigo-500/60" : ""
+        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors z-10 group ${
+          isResizing ? "bg-primary/60" : ""
         }`}
       >
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <GripVertical size={16} className="text-indigo-500" aria-hidden="true" />
+          <GripVertical size={16} className="text-primary" aria-hidden="true" />
         </div>
       </div>
 

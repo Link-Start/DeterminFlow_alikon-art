@@ -289,6 +289,147 @@ def test_preflight_rejects_script_identity_conflicts(tmp_path: Path) -> None:
         validate_plugin_checkout("demo-plugin", plugin)
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from demo_backend.validation import validate\n",
+        "import src.workflow.script_library\n",
+        "import importlib\nimportlib.import_module('demo_backend.validation')\n",
+        "import importlib as il\nil.import_module('demo_backend.validation')\n",
+        "from importlib import import_module as load\n"
+        "load('demo_backend.validation')\n",
+        "__import__('demo_backend.validation')\n",
+    ],
+)
+def test_preflight_rejects_script_imports_from_core_or_plugin_backend(
+    tmp_path: Path,
+    source: str,
+) -> None:
+    plugin = tmp_path / "plugin"
+    _write_manifest(
+        plugin,
+        {"script_libraries": "resources/scripts"},
+        backend="demo_backend:create_extension",
+    )
+    backend = plugin / "demo_backend"
+    backend.mkdir(parents=True)
+    (backend / "__init__.py").write_text("", encoding="utf-8")
+    script_dir = plugin / "resources/scripts/tools/validate"
+    script_dir.mkdir(parents=True)
+    (script_dir / "validate.py").write_text(source, encoding="utf-8")
+
+    with pytest.raises(
+        InvalidPluginPackageError,
+        match="Script Library 必须独立运行",
+    ):
+        validate_plugin_checkout("demo-plugin", plugin)
+
+
+def test_preflight_allows_script_local_and_third_party_imports(
+    tmp_path: Path,
+) -> None:
+    plugin = tmp_path / "plugin"
+    _write_manifest(plugin, {"script_libraries": "resources/scripts"})
+    script_dir = plugin / "resources/scripts/tools/validate"
+    script_dir.mkdir(parents=True)
+    (script_dir / "shared.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (script_dir / "helper.py").write_text("VALUE = 2\n", encoding="utf-8")
+    (script_dir / "validate.py").write_text(
+        "import json\n"
+        "import third_party_runtime\n"
+        "from helper import VALUE\n"
+        "from shared import VALUE as SHARED_VALUE\n",
+        encoding="utf-8",
+    )
+
+    manifest = validate_plugin_checkout("demo-plugin", plugin)
+
+    assert manifest.extension_id == "demo-plugin"
+
+
+def test_preflight_ignores_python_cache_directories(tmp_path: Path) -> None:
+    plugin = tmp_path / "plugin"
+    _write_manifest(plugin, {"script_libraries": "resources/scripts"})
+    script_dir = plugin / "resources/scripts/tools/validate"
+    script_dir.mkdir(parents=True)
+    (script_dir / "validate.py").write_text(
+        "def main():\n    return None\n",
+        encoding="utf-8",
+    )
+    cache_directory = script_dir.parent / "__pycache__"
+    cache_directory.mkdir()
+    (cache_directory / "cached.cpython-313.pyc").write_bytes(b"cache")
+
+    manifest = validate_plugin_checkout("demo-plugin", plugin)
+
+    assert manifest.extension_id == "demo-plugin"
+
+
+def test_preflight_rejects_group_helpers_and_sibling_script_imports(
+    tmp_path: Path,
+) -> None:
+    plugin = tmp_path / "plugin"
+    _write_manifest(plugin, {"script_libraries": "resources/scripts"})
+    group = plugin / "resources/scripts/tools"
+    first = group / "first"
+    second = group / "second"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    (first / "first.py").write_text(
+        "from second.second import main\n",
+        encoding="utf-8",
+    )
+    (second / "second.py").write_text(
+        "def main():\n    return None\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        InvalidPluginPackageError,
+        match="兄弟脚本模块",
+    ):
+        validate_plugin_checkout("demo-plugin", plugin)
+
+    (first / "first.py").write_text("def main():\n    return None\n", encoding="utf-8")
+    (group / "shared.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    with pytest.raises(
+        InvalidPluginPackageError,
+        match="helper 必须放入具体脚本目录",
+    ):
+        validate_plugin_checkout("demo-plugin", plugin)
+
+    (group / "shared.py").unlink()
+    shared_package = group / "shared"
+    shared_package.mkdir()
+    (shared_package / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    with pytest.raises(
+        InvalidPluginPackageError,
+        match="组内目录必须是带同名入口的独立脚本",
+    ):
+        validate_plugin_checkout("demo-plugin", plugin)
+
+
+def test_preflight_rejects_invalid_script_python_without_executing(
+    tmp_path: Path,
+) -> None:
+    plugin = tmp_path / "plugin"
+    _write_manifest(plugin, {"script_libraries": "resources/scripts"})
+    script_dir = plugin / "resources/scripts/tools/validate"
+    script_dir.mkdir(parents=True)
+    (script_dir / "validate.py").write_text(
+        "def broken(:\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        InvalidPluginPackageError,
+        match="Python 文件无法独立解析",
+    ):
+        validate_plugin_checkout("demo-plugin", plugin)
+
+
 @pytest.mark.parametrize("use_symlink", [False, True])
 def test_preflight_rejects_resource_path_escape_and_symlinks(
     tmp_path: Path,

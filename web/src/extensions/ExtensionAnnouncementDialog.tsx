@@ -18,13 +18,10 @@ const LEVEL_LABELS = {
 } as const;
 
 const LEVEL_CLASSES = {
-  info: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300",
-  maintenance: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
-  warning: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  info: "bg-primary/10 text-primary dark:text-primary",
+  maintenance: "bg-info/10 text-info dark:text-info",
+  warning: "bg-warning/10 text-warning dark:text-warning",
 } as const;
-
-export const EXTENSION_ANNOUNCEMENT_DIALOG_CLASS_NAME =
-  "flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-2xl sm:max-h-[42rem]";
 
 function formatPublishedAt(value: string): string {
   const date = new Date(value);
@@ -102,7 +99,7 @@ export function ExtensionAnnouncementDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className={EXTENSION_ANNOUNCEMENT_DIALOG_CLASS_NAME}
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-2xl sm:max-h-[42rem]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
           <div className="min-w-0">

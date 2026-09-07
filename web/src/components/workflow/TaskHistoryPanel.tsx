@@ -37,14 +37,14 @@ const STATUS_TABS: { status: TaskStatus; label: string }[] = [
 const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  pending: { label: "等待中", color: "text-slate-400", icon: <Clock size={14} aria-hidden="true" /> },
-  pre_running: { label: "准备中", color: "text-sky-400", icon: <Clock size={14} aria-hidden="true" /> },
-  resume_pending: { label: "恢复中", color: "text-amber-400", icon: <Loader size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> },
-  running: { label: "运行中", color: "text-blue-400", icon: <Loader size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> },
-  retry_waiting: { label: "等待重试", color: "text-amber-400", icon: <Clock size={14} aria-hidden="true" /> },
-  completed: { label: "已完成", color: "text-green-400", icon: <CheckCircle size={14} aria-hidden="true" /> },
-  failed: { label: "失败", color: "text-red-400", icon: <XCircle size={14} aria-hidden="true" /> },
-  stopped: { label: "已停止", color: "text-amber-400", icon: <Play size={14} aria-hidden="true" /> },
+  pending: { label: "等待中", color: "text-muted-foreground", icon: <Clock size={14} aria-hidden="true" /> },
+  pre_running: { label: "准备中", color: "text-info", icon: <Clock size={14} aria-hidden="true" /> },
+  resume_pending: { label: "恢复中", color: "text-warning", icon: <Loader size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> },
+  running: { label: "运行中", color: "text-info", icon: <Loader size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> },
+  retry_waiting: { label: "等待重试", color: "text-warning", icon: <Clock size={14} aria-hidden="true" /> },
+  completed: { label: "已完成", color: "text-success", icon: <CheckCircle size={14} aria-hidden="true" /> },
+  failed: { label: "失败", color: "text-destructive", icon: <XCircle size={14} aria-hidden="true" /> },
+  stopped: { label: "已停止", color: "text-warning", icon: <Play size={14} aria-hidden="true" /> },
 };
 
 interface ColumnDef {
@@ -250,23 +250,23 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
       case "name":
         return (
           <div>
-            <div className="text-sm text-slate-200 font-medium truncate max-w-[280px]">
+            <div className="text-sm text-foreground font-medium truncate max-w-[280px]">
               {t.name || "未命名任务"}
             </div>
-            <div className="text-xs text-slate-500 font-mono mt-0.5">{t.task_id}</div>
+            <div className="text-xs text-muted-foreground font-mono mt-0.5">{t.task_id}</div>
           </div>
         );
       case "workflow_name":
         return (
           <div>
-            <div className="text-sm text-slate-200 truncate max-w-[180px]">
+            <div className="text-sm text-foreground truncate max-w-[180px]">
               {t.workflow_name || "-"}
             </div>
-            <div className="text-xs text-slate-500 font-mono mt-0.5">{t.workflow_id}</div>
+            <div className="text-xs text-muted-foreground font-mono mt-0.5">{t.workflow_id}</div>
           </div>
         );
       case "workflow_id":
-        return <span className="text-xs text-slate-400 font-mono">{t.workflow_id}</span>;
+        return <span className="text-xs text-muted-foreground font-mono">{t.workflow_id}</span>;
       case "status":
         return (
           <div className={`flex items-center gap-1.5 ${cfg.color}`}>
@@ -275,11 +275,11 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
           </div>
         );
       case "started_at":
-        return <span className="text-xs text-slate-400">{formatTime(t.started_at)}</span>;
+        return <span className="text-xs text-muted-foreground">{formatTime(t.started_at)}</span>;
       case "completed_at":
-        return <span className="text-xs text-slate-400">{formatTime(t.completed_at)}</span>;
+        return <span className="text-xs text-muted-foreground">{formatTime(t.completed_at)}</span>;
       case "created_at":
-        return <span className="text-xs text-slate-400">{formatTime(t.created_at)}</span>;
+        return <span className="text-xs text-muted-foreground">{formatTime(t.created_at)}</span>;
       default:
         return null;
     }
@@ -302,8 +302,8 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
               onClick={() => handleStatusChange(tab.status)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] ${
                 statusFilter === tab.status
-                  ? "bg-indigo-500 text-white"
-                  : "bg-slate-900 text-slate-400 hover:bg-indigo-500/10 hover:text-slate-200"
+                  ? "bg-primary text-white"
+                  : "bg-card text-muted-foreground hover:bg-primary/10 hover:text-foreground"
               }`}
             >
               {tab.label}
@@ -314,24 +314,24 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
         {/* 搜索栏 */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-sm">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
               type="text"
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="搜索任务名称、ID、模板名..."
               aria-label="搜索任务"
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-900 border border-indigo-500/10 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/40 transition-colors"
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-card border border-primary/10 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/40 transition-colors"
             />
           </div>
-          <span className="text-xs text-slate-500">共 {total} 条记录</span>
+          <span className="text-xs text-muted-foreground">共 {total} 条记录</span>
         </div>
       </div>
 
       {/* 表格 */}
       <div className="px-6 pb-4">
         {loading ? (
-            <div className="flex items-center justify-center py-20 text-slate-400" role="status" aria-label="加载中">
+            <div className="flex items-center justify-center py-20 text-muted-foreground" role="status" aria-label="加载中">
             <Loader size={20} className="animate-spin motion-reduce:animate-none mr-2" aria-hidden="true" />
             加载中...
           </div>
@@ -339,18 +339,18 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
           <EmptyState hasFilter={!!statusFilter || !!search} />
         ) : (
           <>
-            <div className="rounded-xl border border-indigo-500/10 overflow-hidden">
+            <div className="rounded-xl border border-primary/10 overflow-hidden">
               <table className="w-full" role="table">
                 <thead>
-                  <tr className="bg-slate-900/50 border-b border-indigo-500/10">
+                  <tr className="bg-card/50 border-b border-primary/10">
                     {visibleMainCols.map((col) => (
                       <th
                         key={col.key}
                         scope="col"
                         onClick={() => col.sortable && handleSort(col.key)}
                         aria-sort={sortBy === col.key ? (sortOrder === "asc" ? "ascending" : "descending") : undefined}
-                        className={`px-4 py-3 text-left text-xs font-medium text-slate-400 ${
-                          col.sortable ? "cursor-pointer hover:text-slate-200 select-none" : ""
+                        className={`px-4 py-3 text-left text-xs font-medium text-muted-foreground ${
+                          col.sortable ? "cursor-pointer hover:text-foreground select-none" : ""
                         }`}
                       >
                         <div className="flex items-center gap-1">
@@ -363,10 +363,10 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
                     ))}
                     {/* 额外列 */}
                     {visibleKeys.has("node_count") && (
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-400">节点</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">节点</th>
                     )}
                     {visibleKeys.has("duration") && (
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-400">耗时</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">耗时</th>
                     )}
                     {/* 列设置按钮 */}
                     <th scope="col" className="px-2 py-3 w-8">
@@ -377,47 +377,47 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
                           aria-label="列设置"
                           aria-expanded={columnMenuOpen}
                           aria-haspopup="menu"
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-900/80 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card/80 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                           <Settings size={14} aria-hidden="true" />
                         </button>
                         {columnMenuOpen && (
                           <div
-                            className="absolute right-0 top-full mt-1 w-48 bg-slate-900 border border-indigo-500/20 rounded-xl shadow-xl z-50 py-2"
+                            className="absolute right-0 top-full mt-1 w-48 bg-card border border-primary/20 rounded-xl shadow-xl z-50 py-2"
                             role="menu"
                             aria-label="列可见性设置"
                           >
-                            <div className="px-3 py-1 text-xs text-slate-500 font-medium">
+                            <div className="px-3 py-1 text-xs text-muted-foreground font-medium">
                               显示列
                             </div>
                             {ALL_COLUMNS.filter((c) => !c.globalOnly || isGlobal).map((col) => (
                               <label
                                 key={col.key}
-                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-indigo-500/5 cursor-pointer"
+                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-primary/5 cursor-pointer"
                               >
                                 <input
                                   type="checkbox"
                                   checked={visibleKeys.has(col.key)}
                                   disabled={FIXED_COLUMNS.has(col.key)}
                                   onChange={() => toggleColumn(col.key)}
-                                  className="w-3.5 h-3.5 rounded accent-indigo-500"
+                                  className="w-3.5 h-3.5 rounded accent-primary"
                                 />
-                                <span className="text-xs text-slate-200">{col.label}</span>
+                                <span className="text-xs text-foreground">{col.label}</span>
                               </label>
                             ))}
-                            <div className="border-t border-indigo-500/10 my-1" />
+                            <div className="border-t border-primary/10 my-1" />
                             {EXTRA_COLUMNS.map((col) => (
                               <label
                                 key={col.key}
-                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-indigo-500/5 cursor-pointer"
+                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-primary/5 cursor-pointer"
                               >
                                 <input
                                   type="checkbox"
                                   checked={visibleKeys.has(col.key)}
                                   onChange={() => toggleColumn(col.key)}
-                                  className="w-3.5 h-3.5 rounded accent-indigo-500"
+                                  className="w-3.5 h-3.5 rounded accent-primary"
                                 />
-                                <span className="text-xs text-slate-200">{col.label}</span>
+                                <span className="text-xs text-foreground">{col.label}</span>
                               </label>
                             ))}
                           </div>
@@ -426,7 +426,7 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
                     </th>
                     {/* 操作列 */}
                     {onRedoTask && (
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-slate-400">操作</th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">操作</th>
                     )}
                   </tr>
                 </thead>
@@ -440,7 +440,7 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
                       role="row"
                       aria-label={`任务: ${t.name || t.task_id}`}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTaskClick(t.task_id, t.workflow_id); } }}
-                      className="border-b border-indigo-500/5 hover:bg-slate-900/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+                      className="border-b border-primary/5 hover:bg-card/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                     >
                       {visibleMainCols.map((col) => (
                         <td key={col.key} className="px-4 py-3">
@@ -449,12 +449,12 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
                       ))}
                       {visibleKeys.has("node_count") && (
                         <td className="px-4 py-3">
-                          <span className="text-xs text-slate-400">{nodeCount(t)} 节点</span>
+                          <span className="text-xs text-muted-foreground">{nodeCount(t)} 节点</span>
                         </td>
                       )}
                       {visibleKeys.has("duration") && (
                         <td className="px-4 py-3">
-                          <span className="text-xs text-slate-400">{calcDuration(t)}</span>
+                          <span className="text-xs text-muted-foreground">{calcDuration(t)}</span>
                         </td>
                       )}
                       {/* 列设置占位 */}
@@ -468,12 +468,12 @@ export default function TaskHistoryPanel({ workflowId, onTaskClick, onRedoTask, 
                               onClick={(e) => { e.stopPropagation(); onRedoTask(t.task_id, t.workflow_id); }}
                               title="使用当前任务数据（节点选择、入参）再次创建整个任务"
                               aria-label={`重做整个任务 ${t.name || t.task_id}`}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors cursor-pointer min-h-[36px]"
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary hover:text-primary text-xs font-medium transition-colors cursor-pointer min-h-[36px]"
                             >
                               <RotateCcw size={12} aria-hidden="true" />重做整个任务
                             </button>
                           ) : (
-                            <span className="text-xs text-slate-600">-</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </td>
                       )}
@@ -509,18 +509,18 @@ function Pagination({
   return (
     <div className="flex items-center justify-between mt-4">
       <div className="flex items-center gap-2">
-        <label htmlFor="task-page-size" className="text-xs text-slate-500">每页</label>
+        <label htmlFor="task-page-size" className="text-xs text-muted-foreground">每页</label>
         <select
           id="task-page-size"
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="px-2 py-1 rounded-lg bg-slate-900 border border-indigo-500/10 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/40"
+          className="px-2 py-1 rounded-lg bg-card border border-primary/10 text-xs text-foreground focus:outline-none focus:border-primary/40"
         >
           {PAGE_SIZE_OPTIONS.map((size) => (
             <option key={size} value={size}>{size}</option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">条</span>
+        <span className="text-xs text-muted-foreground">条</span>
       </div>
 
       <nav className="flex items-center gap-1" aria-label="分页导航">
@@ -529,7 +529,7 @@ function Pagination({
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
           aria-label="上一页"
-          className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-1.5 rounded-lg text-muted-foreground hover:bg-card hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -543,13 +543,13 @@ function Pagination({
               aria-current={p === page ? "page" : undefined}
               aria-label={`第 ${p} 页`}
               className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                p === page ? "bg-indigo-500 text-white" : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                p === page ? "bg-primary text-white" : "text-muted-foreground hover:bg-card hover:text-foreground"
               }`}
             >
               {p}
             </button>
           ) : (
-            <span key={i} className="px-1 text-slate-500 text-xs" aria-hidden="true">...</span>
+            <span key={i} className="px-1 text-muted-foreground text-xs" aria-hidden="true">...</span>
           )
         )}
 
@@ -558,7 +558,7 @@ function Pagination({
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
           aria-label="下一页"
-          className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-1.5 rounded-lg text-muted-foreground hover:bg-card hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>
@@ -571,7 +571,7 @@ function Pagination({
 
 function EmptyState({ hasFilter }: { hasFilter: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-slate-500" role="status" aria-label={hasFilter ? "没有匹配的任务" : "暂无任务"}>
+    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground" role="status" aria-label={hasFilter ? "没有匹配的任务" : "暂无任务"}>
       <Clock size={48} className="mb-4 opacity-50" aria-hidden="true" />
       <p className="text-lg">{hasFilter ? "没有匹配的任务记录" : "暂无任务记录"}</p>
       <p className="text-sm mt-1">

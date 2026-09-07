@@ -48,13 +48,13 @@ function SelectionRow({
         expandLabel ? "min-w-full w-max" : "w-full"
       } ${
         active
-          ? "bg-indigo-500/15 text-indigo-100"
-          : "text-slate-300 hover:bg-slate-700/70 hover:text-slate-100"
+          ? "bg-primary/15 text-primary"
+          : "text-foreground hover:bg-muted/70 hover:text-foreground"
       }`}
     >
       <span className={`min-w-0 flex-1 ${expandLabel ? "whitespace-nowrap" : "truncate"}`}>{label}</span>
-      {value ? <span className="max-w-24 truncate text-[11px] text-slate-500">{value}</span> : null}
-      {active ? <Check size={14} className="shrink-0 text-indigo-400" /> : null}
+      {value ? <span className="max-w-24 truncate text-[11px] text-muted-foreground">{value}</span> : null}
+      {active ? <Check size={14} className="shrink-0 text-primary" /> : null}
     </button>
   );
 }
@@ -168,7 +168,7 @@ export default function ModelSwitcher({
     }
 
     if (activeMenu === "model") {
-      if (!selectedProvider) return <p className="p-2.5 text-sm text-slate-500">请先选择供应商</p>;
+      if (!selectedProvider) return <p className="p-2.5 text-sm text-muted-foreground">请先选择供应商</p>;
       return selectedProvider.models.map((model) => (
         <SelectionRow
           key={model}
@@ -209,14 +209,14 @@ export default function ModelSwitcher({
     <div ref={rootRef} className="relative shrink-0">
       {open ? (
         <div className="absolute bottom-[calc(100%+0.65rem)] right-0 z-40 flex items-end gap-2">
-          <div className="w-60 overflow-hidden rounded-xl border border-slate-600/80 bg-slate-800 p-1.5 shadow-2xl shadow-slate-950/50">
+          <div className="w-60 overflow-hidden rounded-xl border border-border/80 bg-secondary p-1.5 shadow-2xl shadow-background/50">
             {!hasModels && !loading ? (
               <div className="p-2">
-                <p className="text-sm font-medium text-slate-200">尚未配置模型</p>
+                <p className="text-sm font-medium text-foreground">尚未配置模型</p>
                 <button
                   type="button"
                   onClick={onOpenSettings}
-                  className="mt-2 flex min-h-9 items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/10"
+                  className="mt-2 flex min-h-9 items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-primary hover:bg-primary/10"
                 >
                   <Settings size={14} aria-hidden="true" />
                   前往模型设置
@@ -232,29 +232,29 @@ export default function ModelSwitcher({
                   onClick={() => setActiveMenu(menu)}
                   className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm transition-colors ${
                     activeMenu === menu
-                      ? "bg-slate-700/90 text-slate-100"
-                      : "text-slate-300 hover:bg-slate-700/60"
+                      ? "bg-muted/90 text-foreground"
+                      : "text-foreground hover:bg-muted/60"
                   }`}
                 >
                   <span className="flex-1">{MENU_LABELS[menu]}</span>
-                  <span className="max-w-24 truncate text-xs text-slate-500">{menuValues[menu]}</span>
-                  <ChevronRight size={14} className="shrink-0 text-slate-500" aria-hidden="true" />
+                  <span className="max-w-24 truncate text-xs text-muted-foreground">{menuValues[menu]}</span>
+                  <ChevronRight size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
                 </button>
               ))
             )}
             {(error || updating) ? (
-              <div className="mt-1 border-t border-slate-700 px-2.5 pt-2 text-xs text-slate-400">
+              <div className="mt-1 border-t border-border px-2.5 pt-2 text-xs text-muted-foreground">
                 {updating ? "正在切换模型" : error}
               </div>
             ) : null}
           </div>
 
           {hasModels ? (
-            <div className={`max-h-64 overflow-y-auto rounded-xl border border-slate-600/80 bg-slate-800 p-1.5 shadow-2xl shadow-slate-950/50 ${
+            <div className={`max-h-64 overflow-y-auto rounded-xl border border-border/80 bg-secondary p-1.5 shadow-2xl shadow-background/50 ${
               activeMenu === "provider" ? "min-w-48 w-max max-w-72" : "w-48"
             }`}>
               {loading ? (
-                <div className="flex min-h-20 items-center justify-center gap-2 text-sm text-slate-500">
+                <div className="flex min-h-20 items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 size={15} className="animate-spin motion-reduce:animate-none" />
                   加载中
                 </div>
@@ -275,14 +275,14 @@ export default function ModelSwitcher({
         aria-expanded={open}
         aria-busy={loading || updating}
         aria-label="切换模型"
-        className="flex h-9 max-w-52 items-center gap-2 rounded-full bg-slate-700/75 px-3 text-xs text-slate-300 transition-colors hover:bg-slate-700 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-45"
+        className="flex h-9 max-w-52 items-center gap-2 rounded-full bg-muted/75 px-3 text-xs text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-45"
       >
         {updating || loading ? (
           <Loader2 size={13} className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         ) : null}
         <span className="truncate">{selectedModelName || (loading ? "加载模型" : "未配置模型")}</span>
-        {selectedModelName ? <span className="shrink-0 text-slate-500">{displayEffort}</span> : null}
-        <ChevronDown size={13} className="shrink-0 text-slate-500" aria-hidden="true" />
+        {selectedModelName ? <span className="shrink-0 text-muted-foreground">{displayEffort}</span> : null}
+        <ChevronDown size={13} className="shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
     </div>
   );

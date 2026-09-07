@@ -34,13 +34,13 @@ const ATTEMPT_STATUS_LABELS: Record<string, string> = {
 };
 
 const ATTEMPT_STATUS_CLASSES: Record<string, string> = {
-  completed: "text-emerald-400",
-  success: "text-emerald-400",
-  running: "text-sky-400",
-  retry_waiting: "text-amber-400",
-  failed: "text-red-400",
-  failure: "text-red-400",
-  skipped: "text-slate-400",
+  completed: "text-success",
+  success: "text-success",
+  running: "text-info",
+  retry_waiting: "text-warning",
+  failed: "text-destructive",
+  failure: "text-destructive",
+  skipped: "text-muted-foreground",
 };
 
 function formatAttemptTime(value?: string | null): string {
@@ -132,16 +132,16 @@ export default function NodeFailureRuntimePanel({
   };
 
   return (
-    <section className="border-b border-indigo-500/10 bg-slate-950/30" aria-label="节点失败处理与尝试历史">
+    <section className="border-b border-primary/10 bg-background/30" aria-label="节点失败处理与尝试历史">
       <div className={compact ? "px-3 py-2" : "px-3 py-2.5"}>
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0 text-xs text-slate-400">
+          <div className="flex items-center gap-2 min-w-0 text-xs text-muted-foreground">
             <span>尝试 {attemptCount}</span>
             {nodeState.automatic_retry_count != null && nodeState.automatic_retry_count > 0 && (
               <span>其中自动重试 {nodeState.automatic_retry_count}</span>
             )}
             {secondsRemaining != null && nodeState.status === "retry_waiting" && (
-              <span className="inline-flex items-center gap-1 text-amber-400">
+              <span className="inline-flex items-center gap-1 text-warning">
                 <Clock3 size={12} aria-hidden="true" />
                 {secondsRemaining > 0 ? `${formatRetryCountdown(secondsRemaining)}后重试` : "等待调度"}
               </span>
@@ -154,7 +154,7 @@ export default function NodeFailureRuntimePanel({
                 type="button"
                 onClick={() => runAction("retry")}
                 disabled={pendingAction !== null}
-                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-300 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-info/30 bg-info/10 px-3 py-1.5 text-xs font-medium text-info transition-colors hover:bg-info/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RotateCcw size={13} className={pendingAction === "retry" ? "animate-spin motion-reduce:animate-none" : ""} aria-hidden="true" />
                 {nodeState.status === "retry_waiting" ? "立即重试" : "重试本节点"}
@@ -165,7 +165,7 @@ export default function NodeFailureRuntimePanel({
                 type="button"
                 onClick={() => runAction("skip")}
                 disabled={pendingAction !== null}
-                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <SkipForward size={13} aria-hidden="true" />
                 跳过并继续
@@ -175,16 +175,16 @@ export default function NodeFailureRuntimePanel({
         </div>
 
         {actions.includes("retry") && (
-          <p className="mt-1 text-xs text-slate-500">重试使用失败时冻结的原参数和输入快照。</p>
+          <p className="mt-1 text-xs text-muted-foreground">重试使用失败时冻结的原参数和输入快照。</p>
         )}
-        {actionError && <p className="mt-2 text-xs text-red-400 break-all" role="alert">{actionError}</p>}
+        {actionError && <p className="mt-2 text-xs text-destructive break-all" role="alert">{actionError}</p>}
 
         {(attempts.length > 0 || hasSnapshot) && (
           <button
             type="button"
             onClick={() => setHistoryOpen((open) => !open)}
             aria-expanded={historyOpen}
-            className="mt-2 inline-flex min-h-[36px] items-center gap-1 text-xs text-slate-400 transition-colors hover:text-slate-200"
+            className="mt-2 inline-flex min-h-[36px] items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             {historyOpen ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
             尝试记录{attempts.length > 0 ? ` (${attempts.length})` : ""}
@@ -193,27 +193,27 @@ export default function NodeFailureRuntimePanel({
       </div>
 
       {historyOpen && (attempts.length > 0 || hasSnapshot) && (
-        <div className={`${compact ? "max-h-44" : "max-h-56"} overflow-y-auto border-t border-indigo-500/10 px-3 py-2`}>
+        <div className={`${compact ? "max-h-44" : "max-h-56"} overflow-y-auto border-t border-primary/10 px-3 py-2`}>
           {attempts.length > 0 && (
             <ol className="space-y-2" aria-label="节点尝试列表">
               {attempts.map((attempt, index) => {
                 const status = attempt.status || "unknown";
                 return (
-                  <li key={attempt.attempt_id || `${attemptNumber(attempt, index)}-${attempt.started_at || index}`} className="border-b border-slate-800 pb-2 last:border-b-0 last:pb-0">
+                  <li key={attempt.attempt_id || `${attemptNumber(attempt, index)}-${attempt.started_at || index}`} className="border-b border-border pb-2 last:border-b-0 last:pb-0">
                     <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-medium text-slate-200">
+                      <span className="font-medium text-foreground">
                         第 {attemptNumber(attempt, index)} 次 · {formatAttemptTrigger(attempt.trigger)}
                       </span>
-                      <span className={ATTEMPT_STATUS_CLASSES[status] || "text-slate-400"}>
+                      <span className={ATTEMPT_STATUS_CLASSES[status] || "text-muted-foreground"}>
                         {ATTEMPT_STATUS_LABELS[status] || status}
                       </span>
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span>{formatAttemptTime(attempt.started_at)}</span>
                       <span>耗时 {formatAttemptDuration(attempt.started_at, attempt.completed_at)}</span>
                       {attempt.session_id && <span className="font-mono">{attempt.session_id}</span>}
                     </div>
-                    {attempt.error && <p className="mt-1 text-xs text-red-400 whitespace-pre-wrap break-all">{attempt.error}</p>}
+                    {attempt.error && <p className="mt-1 text-xs text-destructive whitespace-pre-wrap break-all">{attempt.error}</p>}
                   </li>
                 );
               })}
@@ -221,9 +221,9 @@ export default function NodeFailureRuntimePanel({
           )}
 
           {hasSnapshot && (
-            <details className={attempts.length > 0 ? "mt-3 border-t border-slate-800 pt-2" : ""}>
-              <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-200">失败时输入快照</summary>
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-950 p-2 text-xs text-slate-300">
+            <details className={attempts.length > 0 ? "mt-3 border-t border-border pt-2" : ""}>
+              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">失败时输入快照</summary>
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background p-2 text-xs text-foreground">
                 {serializedSnapshot}
               </pre>
             </details>

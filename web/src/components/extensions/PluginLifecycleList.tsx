@@ -77,7 +77,7 @@ export function PluginLifecycleList({
                   <article
                     key={plugin.id}
                     className={`grid gap-4 px-5 py-4 xl:grid-cols-[minmax(15rem,1.4fr)_minmax(14rem,1.2fr)_minmax(8rem,0.65fr)_minmax(8rem,0.65fr)_auto] xl:items-center ${
-                      plugin.restart_required ? "bg-amber-500/5" : ""
+                      plugin.restart_required ? "bg-warning/5" : ""
                     }`}
                   >
                     <div className="flex min-w-0 items-start gap-3">
@@ -129,7 +129,7 @@ export function PluginLifecycleList({
                       <div className="text-right xl:text-left">
                         <p className="text-sm font-medium">{target.label}</p>
                         {target.pending ? (
-                          <p className="mt-0.5 text-xs text-amber-500">{target.description}</p>
+                          <p className="mt-0.5 text-xs text-warning">{target.description}</p>
                         ) : null}
                       </div>
                     </div>

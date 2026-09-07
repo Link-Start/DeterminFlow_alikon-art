@@ -38,22 +38,46 @@ function estimateTokens(text: string): number {
   return Math.floor(cn / 1.5) + Math.floor(other / 4) + 1;
 }
 
-const SEC_COLORS = [
-  "bg-indigo-500/[0.06] border border-indigo-500/20",
-  "bg-purple-500/[0.06] border border-purple-500/20",
-  "bg-cyan-500/[0.06] border border-cyan-500/20",
-  "bg-green-500/[0.06] border border-green-500/20",
-  "bg-amber-500/[0.06] border border-amber-500/20",
-];
+const SECTION_TONES = [
+  {
+    container: "border-node-agent/30 bg-node-agent/[0.08]",
+    marker: "bg-node-agent",
+    badge: "border-node-agent/30 bg-node-agent/10",
+  },
+  {
+    container: "border-node-tool/30 bg-node-tool/[0.08]",
+    marker: "bg-node-tool",
+    badge: "border-node-tool/30 bg-node-tool/10",
+  },
+  {
+    container: "border-node-script/30 bg-node-script/[0.08]",
+    marker: "bg-node-script",
+    badge: "border-node-script/30 bg-node-script/10",
+  },
+  {
+    container: "border-node-api/30 bg-node-api/[0.08]",
+    marker: "bg-node-api",
+    badge: "border-node-api/30 bg-node-api/10",
+  },
+  {
+    container: "border-node-approval/30 bg-node-approval/[0.08]",
+    marker: "bg-node-approval",
+    badge: "border-node-approval/30 bg-node-approval/10",
+  },
+] as const;
+
+function getSectionTone(index: number) {
+  return SECTION_TONES[index % SECTION_TONES.length];
+}
 
 // 前端预定义调色板（按 group_id 映射）
 const GROUP_BG_COLORS: Record<string, string> = {
-  memory: "bg-purple-500",
-  coding: "bg-green-500",
-  session_main: "bg-indigo-500",
-  communication: "bg-cyan-500",
-  config: "bg-amber-500",
-  skills: "bg-pink-500",
+  memory: "bg-primary",
+  coding: "bg-primary",
+  session_main: "bg-primary",
+  communication: "bg-primary",
+  config: "bg-primary",
+  skills: "bg-primary",
 };
 const DEFAULT_BG_COLOR = "bg-muted-foreground";
 
@@ -128,8 +152,8 @@ export default function PreviewPanel({
       {/* Header */}
       <div className="px-4 py-3 border-b border-border/50 flex-shrink-0">
         <div className="flex items-center gap-2 mb-1">
-          <Zap size={14} className="text-amber-500" aria-hidden="true" />
-          <h3 className="text-sm font-semibold text-slate-200">实时预览</h3>
+          <Zap size={14} className="text-primary" aria-hidden="true" />
+          <h3 className="text-sm font-semibold text-foreground">实时预览</h3>
         </div>
         {activeTab === "prompts" && (
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -160,14 +184,14 @@ export default function PreviewPanel({
               {totalTokens} / {DEFAULT_MAX_CONTEXT_TOKENS}
             </span>
           </div>
-          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-valuenow={totalTokens} aria-valuemin={0} aria-valuemax={DEFAULT_MAX_CONTEXT_TOKENS} aria-label={`Token 使用: ${totalTokens}/${DEFAULT_MAX_CONTEXT_TOKENS}`}>
+          <div className="h-1.5 bg-secondary rounded-full overflow-hidden" role="progressbar" aria-valuenow={totalTokens} aria-valuemin={0} aria-valuemax={DEFAULT_MAX_CONTEXT_TOKENS} aria-label={`Token 使用: ${totalTokens}/${DEFAULT_MAX_CONTEXT_TOKENS}`}>
             <div
               className={`h-full rounded-full transition-all duration-300 ${
                 totalTokens > DEFAULT_MAX_CONTEXT_TOKENS * 0.75
-                  ? "bg-red-500"
+                  ? "bg-destructive"
                   : totalTokens > DEFAULT_MAX_CONTEXT_TOKENS * 0.5
-                    ? "bg-amber-500"
-                    : "bg-green-500"
+                    ? "bg-warning"
+                    : "bg-success"
               }`}
               style={{ width: `${Math.min((totalTokens / DEFAULT_MAX_CONTEXT_TOKENS) * 100, 100)}%` }}
             />
@@ -176,32 +200,34 @@ export default function PreviewPanel({
       )}
 
       {/* Main Preview Content */}
-      <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0 [&>[data-radix-scroll-area-viewport]>div]:!w-full">
+      <ScrollArea className="flex-1">
         <div className="px-4 py-3">
           {/* === Prompt Preview === */}
           {activeTab === "prompts" && (
             <div className="space-y-1.5" role="list" aria-label="已启用的 prompt sections">
-              {enabledSections.map((sec, i) => {
-                const defaultColor = SEC_COLORS[i % SEC_COLORS.length];
-                const wfColor = "bg-violet-500/[0.06] border border-violet-500/20";
+              {enabledSections.map((sec, index) => {
+                const tone = getSectionTone(index);
                 return (
                   <div
                     key={sec.name}
                     role="listitem"
-                    className={`rounded-md px-3 py-2 ${sec.workflow_only ? wfColor : defaultColor}`}
+                    className={`rounded-md border px-3 py-2 ${tone.container}`}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="text-xs font-medium text-slate-400">{sec.name}</span>
+                        <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${tone.marker}`} aria-hidden="true" />
+                        <span className="text-xs font-medium text-muted-foreground">{sec.name}</span>
                         {sec.workflow_only && (
-                          <Badge variant="outline" className="text-xs border-violet-500/40 text-violet-400">
+                          <Badge variant="outline" className="text-xs border-primary/40 text-primary">
                             工作流专属
                           </Badge>
                         )}
                       </span>
-                      <Badge variant="outline" className="text-xs">{sec.token_estimate}t</Badge>
+                      <Badge variant="outline" className={`text-xs text-foreground ${tone.badge}`}>
+                        {sec.token_estimate}t
+                      </Badge>
                     </div>
-                    <pre className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap break-words font-sans" aria-label={`${sec.name} 内容预览`}>
+                    <pre className="text-xs text-foreground leading-relaxed whitespace-pre-wrap break-words font-sans" aria-label={`${sec.name} 内容预览`}>
                       <HighlightedContent
                         content={sec.content}
                         templateVariables={templateVariables}
@@ -222,19 +248,19 @@ export default function PreviewPanel({
               {selectedAgent ? (
                 <div className="space-y-4">
                   {/* Agent 基本信息卡片 */}
-                  <div className="bg-slate-800/80 border border-border/40 rounded-lg px-3 py-2.5">
+                  <div className="bg-secondary/80 border border-border/40 rounded-lg px-3 py-2.5">
                     <div className="flex items-center gap-2 mb-1">
-                      <Bot size={14} className="text-indigo-500" aria-hidden="true" />
-                      <span className="text-xs font-semibold text-slate-200">{selectedAgent.agent_type}</span>
+                      <Bot size={14} className="text-primary" aria-hidden="true" />
+                      <span className="text-xs font-semibold text-foreground">{selectedAgent.agent_type}</span>
                       <Badge variant="outline" className="text-xs ml-auto">
                         {selectedAgent.tools?.includes("*") ? "全部工具" : selectedAgent.tools ? `${selectedAgent.tools.length} 个工具` : "仅通信"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">{selectedAgent.description}</p>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-                      <span>轮次: <span className="text-slate-300">{selectedAgent.max_turns}</span></span>
-                      <span>模型: <span className="text-slate-300">{selectedAgent.model || "继承主 Agent"}</span></span>
-                      <span>Workspace: <span className="text-slate-300">
+                      <span>轮次: <span className="text-foreground">{selectedAgent.max_turns}</span></span>
+                      <span>模型: <span className="text-foreground">{selectedAgent.model || "继承主 Agent"}</span></span>
+                      <span>Workspace: <span className="text-foreground">
                         {selectedAgent.copy_main_workspace === null ? "继承全局" : selectedAgent.copy_main_workspace ? "强制复制" : "不复制"}
                       </span></span>
                     </div>
@@ -252,9 +278,9 @@ export default function PreviewPanel({
                         {agentToolList.map((t) => {
                           const groupName = groupNames[t.group_id] || t.group_id;
                           return (
-                            <div key={t.name} className="flex items-center gap-2 px-2 py-1.5 bg-slate-800/40 rounded transition-colors duration-200">
+                            <div key={t.name} className="flex items-center gap-2 px-2 py-1.5 bg-secondary/40 rounded transition-colors duration-200">
                               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${getBgColor(t.group_id)}`} aria-hidden="true" />
-                              <span className="text-xs font-mono text-cyan-500">{t.name}</span>
+                              <span className="text-xs font-mono text-info">{t.name}</span>
                               <Badge variant="outline" className="text-xs text-muted-foreground">{groupName}</Badge>
                               <span className="text-xs text-muted-foreground truncate flex-1" title={t.description}>{t.description}</span>
                             </div>
@@ -262,9 +288,9 @@ export default function PreviewPanel({
                         })}
                       </div>
                     ) : (
-                      <div className="bg-slate-800/40 rounded px-2 py-2">
+                      <div className="bg-secondary/40 rounded px-2 py-2">
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <AlertCircle size={12} className="text-amber-500" aria-hidden="true" />
+                          <AlertCircle size={12} className="text-warning" aria-hidden="true" />
                           当前工具列表为空，请在 Agent 定义中配置工具白名单
                         </p>
                         {!selectedAgent.tools && (
@@ -278,15 +304,15 @@ export default function PreviewPanel({
                   {disallowedToolList.length > 0 && (
                     <div>
                       <h4 className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1">
-                        <EyeOff size={12} className="text-red-500" aria-hidden="true" />
+                        <EyeOff size={12} className="text-destructive" aria-hidden="true" />
                         禁用工具
                         <Badge variant="outline" className="text-xs">{disallowedToolList.length}</Badge>
                       </h4>
                       <div className="space-y-1">
                         {disallowedToolList.map((t) => (
-                          <div key={t.name} className="flex items-center gap-2 px-2 py-1.5 bg-slate-800/40 rounded opacity-60">
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-red-500" aria-hidden="true" />
-                            <span className="text-xs font-mono text-red-500">{t.name}</span>
+                          <div key={t.name} className="flex items-center gap-2 px-2 py-1.5 bg-secondary/40 rounded opacity-60">
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-destructive" aria-hidden="true" />
+                            <span className="text-xs font-mono text-destructive">{t.name}</span>
                             <span className="text-xs text-muted-foreground truncate flex-1" title={t.description}>{t.description}</span>
                           </div>
                         ))}
@@ -297,17 +323,17 @@ export default function PreviewPanel({
                   {/* 可见 Skill 组 */}
                   <div>
                     <h4 className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1">
-                      <Eye size={12} className="text-cyan-500" aria-hidden="true" />
+                      <Eye size={12} className="text-info" aria-hidden="true" />
                       可见 Skill 组
                       <Badge variant="outline" className="text-xs">{visibleSkillGroups.length}</Badge>
                     </h4>
                     {visibleSkillGroups.length > 0 ? (
                       <div className="space-y-1.5">
                         {visibleSkillGroups.map((g) => (
-                          <div key={g.id} className="px-2 py-1.5 bg-cyan-500/[0.06] border border-cyan-500/20 rounded">
+                          <div key={g.id} className="px-2 py-1.5 bg-info/[0.06] border border-info/20 rounded">
                             <div className="flex items-center gap-1">
-                              <BookOpen size={12} className="text-cyan-500" aria-hidden="true" />
-                              <span className="text-xs font-medium text-slate-300">{g.name}</span>
+                              <BookOpen size={12} className="text-info" aria-hidden="true" />
+                              <span className="text-xs font-medium text-foreground">{g.name}</span>
                             </div>
                           </div>
                         ))}
@@ -320,17 +346,17 @@ export default function PreviewPanel({
                   {/* 可见 Rule 组 */}
                   <div>
                     <h4 className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1">
-                      <Eye size={12} className="text-purple-500" aria-hidden="true" />
+                      <Eye size={12} className="text-primary" aria-hidden="true" />
                       可见 Rule 组
                       <Badge variant="outline" className="text-xs">{visibleRuleGroups.length}</Badge>
                     </h4>
                     {visibleRuleGroups.length > 0 ? (
                       <div className="space-y-1.5">
                         {visibleRuleGroups.map((g) => (
-                          <div key={g.id} className="px-2 py-1.5 bg-purple-500/[0.06] border border-purple-500/20 rounded">
+                          <div key={g.id} className="px-2 py-1.5 bg-primary/[0.06] border border-primary/20 rounded">
                             <div className="flex items-center gap-1">
-                              <BookOpen size={12} className="text-purple-500" aria-hidden="true" />
-                              <span className="text-xs font-medium text-slate-300">{g.name}</span>
+                              <BookOpen size={12} className="text-primary" aria-hidden="true" />
+                              <span className="text-xs font-medium text-foreground">{g.name}</span>
                             </div>
                           </div>
                         ))}
@@ -344,7 +370,7 @@ export default function PreviewPanel({
                   {selectedAgent.system_prompt_template && (
                     <div>
                       <h4 className="text-xs text-muted-foreground mb-1 font-medium">Prompt 模板:</h4>
-                      <pre className="text-xs text-slate-300 bg-slate-800/40 rounded px-2 py-1.5 whitespace-pre-wrap">
+                      <pre className="text-xs text-foreground bg-secondary/40 rounded px-2 py-1.5 whitespace-pre-wrap">
                         {selectedAgent.system_prompt_template}
                       </pre>
                     </div>
@@ -367,8 +393,8 @@ export default function PreviewPanel({
                 {Object.entries(toolStats).map(([gid, count]) => {
                   const groupName = groupNames[gid] || gid;
                   return (
-                    <div key={gid} className="bg-slate-800/80 border border-border/40 rounded-lg px-3 py-2 text-center">
-                      <p className="text-lg font-bold text-cyan-500 tabular-nums">{count}</p>
+                    <div key={gid} className="bg-secondary/80 border border-border/40 rounded-lg px-3 py-2 text-center">
+                      <p className="text-lg font-bold text-info tabular-nums">{count}</p>
                       <p className="text-xs text-muted-foreground">{groupName}</p>
                     </div>
                   );
@@ -380,7 +406,7 @@ export default function PreviewPanel({
                   {tools.map((t) => (
                     <div key={t.name} className="flex items-center gap-2 text-xs min-w-0">
                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${getBgColor(t.group_id)}`} aria-hidden="true" />
-                      <span className="font-mono text-slate-300 truncate flex-shrink-0 max-w-[40%]">{t.name}</span>
+                      <span className="font-mono text-foreground truncate flex-shrink-0 max-w-[40%]">{t.name}</span>
                       <span className="text-muted-foreground truncate min-w-0 flex-1" title={t.description}>{t.description}</span>
                     </div>
                   ))}
@@ -470,9 +496,9 @@ function HighlightedContent({
         }
         const { key, type } = part;
         const colors = {
-          builtin: "bg-green-500/15 text-green-500 border border-green-500/30",
-          custom: "bg-amber-500/15 text-amber-500 border border-amber-500/30",
-          unknown: "bg-red-500/10 text-red-500 border border-red-500/20",
+          builtin: "bg-success/15 text-success border border-success/30",
+          custom: "bg-warning/15 text-warning border border-warning/30",
+          unknown: "bg-destructive/10 text-destructive border border-destructive/20",
         };
 
         let label: string;

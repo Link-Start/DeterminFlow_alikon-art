@@ -10,13 +10,14 @@ import type { FailedTurnState } from "../features/conversation/conversationTypes
 // ============ Status icon mapping (lucide, not emoji) ============
 
 const STATUS_ICON_MAP: Record<string, React.ReactNode> = {
-  running: <span className="w-2 h-2 rounded-full bg-green-400" />,
-  streaming: <span className="w-2 h-2 rounded-full bg-cyan-400" />,
-  completed: <span className="w-2 h-2 rounded-full bg-blue-400" />,
-  error: <span className="w-2 h-2 rounded-full bg-red-400" />,
-  waiting: <span className="w-2 h-2 rounded-full bg-amber-400" />,
-  idle: <span className="w-2 h-2 rounded-full bg-slate-400" />,
+  running: <span className="w-2 h-2 rounded-full bg-success" />,
+  streaming: <span className="w-2 h-2 rounded-full bg-info" />,
+  completed: <span className="w-2 h-2 rounded-full bg-info" />,
+  error: <span className="w-2 h-2 rounded-full bg-destructive" />,
+  waiting: <span className="w-2 h-2 rounded-full bg-warning" />,
+  idle: <span className="w-2 h-2 rounded-full bg-muted-foreground" />,
 };
+
 interface SessionDetailPanelProps {
   session: SessionDetail;
   messages?: Message[];
@@ -59,9 +60,9 @@ export default function SessionDetailPanel({
       <section aria-label="会话消息记录" className="flex-1 min-h-0 flex flex-col md:border-r border-b md:border-b-0 border-border min-w-0">
         <div className="px-4 py-2 border-b border-border flex items-center gap-2">
           <span className={cfg.color} aria-hidden="true">
-            {STATUS_ICON_MAP[status] || <span className="w-2 h-2 rounded-full bg-slate-400" />}
+            {STATUS_ICON_MAP[status] || <span className="w-2 h-2 rounded-full bg-muted-foreground" />}
           </span>
-          <span className="text-sm font-mono font-bold text-cyan-400">{session.session_id}</span>
+          <span className="text-sm font-mono font-bold text-info">{session.session_id}</span>
           <Badge variant="outline" className={`text-xs ${cfg.color}`} aria-label={`状态: ${status}`}>
             {status}
           </Badge>
@@ -94,7 +95,7 @@ export default function SessionDetailPanel({
           <div className="px-4 py-3">
             {reasoningChain.length > 0 ? (
               <div className="relative pl-6" role="list" aria-label="推理步骤列表">
-                <div className="absolute left-2.5 top-0 bottom-0 w-px bg-slate-700" aria-hidden="true" />
+                <div className="absolute left-2.5 top-0 bottom-0 w-px bg-muted" aria-hidden="true" />
                 {reasoningChain.map((step, i) => (
                   <ReasoningStep key={i} step={step} />
                 ))}
@@ -192,23 +193,23 @@ function ReasoningStep({ step }: { step: ReasoningStepData }) {
   const [expanded, setExpanded] = useState(false);
 
   const typeConfig = {
-    llm: { color: "border-indigo-400", textColor: "text-indigo-400", dotColor: "bg-indigo-400", label: "LLM", icon: <Bot size={12} /> },
-    tool_call: { color: "border-amber-400", textColor: "text-amber-400", dotColor: "bg-amber-400", label: "Tool Call", icon: <Wrench size={12} /> },
-    tool_result: { color: "border-green-400", textColor: "text-green-400", dotColor: "bg-green-400", label: "Result", icon: <MessageSquare size={12} /> },
+    llm: { color: "border-primary", textColor: "text-primary", dotColor: "bg-primary", label: "LLM", icon: <Bot size={12} /> },
+    tool_call: { color: "border-warning", textColor: "text-warning", dotColor: "bg-warning", label: "Tool Call", icon: <Wrench size={12} /> },
+    tool_result: { color: "border-success", textColor: "text-success", dotColor: "bg-success", label: "Result", icon: <MessageSquare size={12} /> },
   };
 
   const cfg = typeConfig[step.type];
 
   return (
     <div className="relative pb-3" role="listitem">
-      <div className={`absolute -left-3.5 w-3 h-3 rounded-full bg-slate-900 border-2 ${cfg.color}`} aria-hidden="true" />
+      <div className={`absolute -left-3.5 w-3 h-3 rounded-full bg-card border-2 ${cfg.color}`} aria-hidden="true" />
 
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         aria-label={`${cfg.label}: ${step.content}`}
-        className="ml-4 w-[calc(100%-1rem)] text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 rounded min-h-[44px] py-1"
+        className="ml-4 w-[calc(100%-1rem)] text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded min-h-[44px] py-1"
       >
         <div className="flex items-center gap-1.5">
           <span className={`inline-block w-2 h-2 rounded-full ${cfg.dotColor}`} aria-hidden="true" />
@@ -220,16 +221,16 @@ function ReasoningStep({ step }: { step: ReasoningStepData }) {
       </button>
 
       {expanded && (
-        <div className="ml-4 mt-1 bg-slate-900/60 rounded p-2 text-xs text-slate-400">
+        <div className="ml-4 mt-1 bg-card/60 rounded p-2 text-xs text-muted-foreground">
           {step.toolArgs && (
             <div role="region" aria-label="工具调用参数">
-              <div className="text-amber-400 mb-0.5">参数:</div>
+              <div className="text-warning mb-0.5">参数:</div>
               <pre className="overflow-x-auto" aria-label={`${step.toolName || "工具"} 的调用参数`}>{prettyJson(safeJsonParse(step.toolArgs))}</pre>
             </div>
           )}
           {step.toolResult && (
             <div className="mt-1" role="region" aria-label="工具调用结果">
-              <div className="text-green-400 mb-0.5">结果:</div>
+              <div className="text-success mb-0.5">结果:</div>
               <pre className="overflow-x-auto max-h-24 overflow-y-auto" aria-label={`${step.toolName || "工具"} 的返回结果`}>{step.toolResult.slice(0, 300)}</pre>
             </div>
           )}

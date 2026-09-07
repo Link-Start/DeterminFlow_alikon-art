@@ -78,11 +78,11 @@ function CompressionField({
   return (
     <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start sm:gap-4">
       <div className="flex min-w-0 flex-col gap-1 pt-1 sm:w-48 sm:flex-none">
-        <Label htmlFor={id} className="cursor-pointer text-sm font-medium text-slate-300">
+        <Label htmlFor={id} className="cursor-pointer text-sm font-medium text-foreground">
           {label}
         </Label>
         {description ? (
-          <p className="text-xs leading-5 text-slate-500">{description}</p>
+          <p className="text-xs leading-5 text-muted-foreground">{description}</p>
         ) : null}
       </div>
       <div className="min-w-0 flex-1 sm:max-w-md">{children}</div>
@@ -104,11 +104,11 @@ function CompressionGroup({
   return (
     <section aria-labelledby={id} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <h4 id={id} className="text-sm font-semibold text-slate-200">
+        <h4 id={id} className="text-sm font-semibold text-foreground">
           {title}
         </h4>
         {description ? (
-          <p className="text-xs text-slate-500">{description}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
         ) : null}
       </div>
       <div className="flex flex-col gap-4">{children}</div>
@@ -282,8 +282,8 @@ function CompressionConfigEditor() {
   return (
     <div aria-label="压缩配置编辑器" className="flex flex-col gap-5">
       {error && (
-        <div className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4" role="alert" aria-live="polite">
-          <AlertTriangle size={16} className="shrink-0 text-red-500" aria-hidden="true" />
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4" role="alert" aria-live="polite">
+          <AlertTriangle size={16} className="shrink-0 text-destructive" aria-hidden="true" />
           <span className="flex-1 text-sm">{error}</span>
           <Button
             variant="outline"
@@ -352,7 +352,7 @@ function CompressionConfigEditor() {
               step={5}
               aria-label="压缩触发阈值"
             />
-            <div className="flex justify-between text-xs text-slate-500">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>50%</span>
               <span>95%</span>
             </div>
@@ -404,7 +404,7 @@ function CompressionConfigEditor() {
               step={5}
               aria-label="工具结果 Token 占比阈值"
             />
-            <div className="flex justify-between text-xs text-slate-500">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>10%</span>
               <span>80%</span>
             </div>
@@ -530,10 +530,10 @@ function CompressionConfigEditor() {
             role="dialog"
             aria-modal="true"
             aria-label="确认重置配置"
-            className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
+            className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
           >
             <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle size={20} className="text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
+              <AlertTriangle size={20} className="text-warning shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <h2 className="text-lg font-semibold">确认重置配置</h2>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -580,19 +580,19 @@ export default function CompressionConfigSection() {
   };
 
   return (
-    <section aria-label="压缩配置" className="overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800/80 transition-colors duration-300 hover:border-slate-600/50">
+    <section aria-label="压缩配置" className="overflow-hidden rounded-xl border border-border/50 bg-secondary/80 transition-colors duration-300 hover:border-border/50">
       <button
         type="button"
         onClick={toggleExpanded}
         aria-expanded={expanded}
         aria-controls="compression-config-content"
-        className="flex w-full cursor-pointer items-center justify-between px-5 py-4 transition-colors duration-200 hover:bg-white/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+        className="flex w-full cursor-pointer items-center justify-between px-5 py-4 transition-colors duration-200 hover:bg-white/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       >
         <div className="flex items-center gap-3">
-          <Sliders size={18} className="text-orange-400" aria-hidden="true" />
-          <h3 className="text-base font-semibold text-slate-100">压缩配置</h3>
+          <Sliders size={18} className="text-warning" aria-hidden="true" />
+          <h3 className="text-base font-semibold text-foreground">压缩配置</h3>
         </div>
-        {expanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+        {expanded ? <ChevronUp size={18} className="text-muted-foreground" /> : <ChevronDown size={18} className="text-muted-foreground" />}
       </button>
       {hasOpened && (
         <div id="compression-config-content" hidden={!expanded} className="px-5 pb-5">

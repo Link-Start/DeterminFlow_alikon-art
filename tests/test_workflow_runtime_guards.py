@@ -57,7 +57,7 @@ class _MutableModelManager:
         return {
             "provider_id": provider_id,
             "base_url": f"https://{self.provider_revision}.example.test",
-            "api_key": "private-test-value",  # pragma: allowlist secret
+            "api_key": "private-test-value",
             "models": ["candidate-model"],
             "provider_type": "openai",
         }

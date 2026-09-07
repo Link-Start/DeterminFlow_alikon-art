@@ -1,9 +1,9 @@
 """LLM 配置工厂 - 根据 Provider Adapter 创建对应的聊天模型客户端。"""
 import asyncio
 import logging
+import re
 from typing import Any, Literal
 
-from anthropic import BadRequestError as AnthropicBadRequestError
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage
@@ -11,13 +11,35 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables.config import ensure_config, merge_configs
 from langchain_openai import ChatOpenAI
 from langchain_openai.chat_models import base as openai_base
-from openai import BadRequestError as OpenAIBadRequestError
 
 import os
 import warnings
 
+from src.core.provider_errors import (
+    classify_provider_error_code,
+    is_permanent_provider_error,
+)
+
 logger = logging.getLogger(__name__)
-PROVIDER_BAD_REQUEST_ERRORS = (OpenAIBadRequestError, AnthropicBadRequestError)
+REQUEST_FINGERPRINT_HEADER = "X-DeterminFlow-Request-Fingerprint"
+_REQUEST_FINGERPRINT_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _apply_request_fingerprint_headers(
+    kwargs: dict[str, Any],
+    request_fingerprint: str | None,
+) -> None:
+    """Attach the opaque Workflow retry-routing header when a digest is present."""
+    fingerprint = str(request_fingerprint or "").strip()
+    if not fingerprint:
+        return
+    if _REQUEST_FINGERPRINT_RE.fullmatch(fingerprint) is None:
+        raise ValueError(
+            "request_fingerprint must be a 64-character SHA-256 hex digest"
+        )
+    headers = dict(kwargs.get("default_headers") or {})
+    headers[REQUEST_FINGERPRINT_HEADER] = fingerprint
+    kwargs["default_headers"] = headers
 
 
 class ModelCredentialNotConfiguredError(ValueError):
@@ -235,8 +257,9 @@ def _wrap_llm_with_retry(llm: BaseChatModel, retry_config: dict) -> BaseChatMode
     """
     为 ChatOpenAI 实例的 ainvoke 和 astream 方法注入自动重试机制。
 
-    当 LLM 调用失败（服务端错误、限流、网络不可达等），自动按配置的重试次数
-    和间隔时间重试，最后一次失败则抛出原始异常。
+    当 LLM 调用失败（限流、5xx、网络不可达等瞬时错误），自动按配置的重试次数
+    和间隔时间重试；额度、鉴权、权限和非法请求属于永久性错误，立即抛出。
+    一旦已经向调用方输出部分流，不再原地重试。最后一次失败抛出原始异常。
 
     Args:
         llm: ChatOpenAI 实例
@@ -287,15 +310,59 @@ def _wrap_llm_with_retry(llm: BaseChatModel, retry_config: dict) -> BaseChatMode
     def _mark_failed_provider_usage(error, *, partial_stream_emitted):
         # Failed provider calls frequently have no final usage payload. Keep
         # this explicit on the propagated error in addition to the audit log.
+        provider_error_code = classify_provider_error_code(error)
         for attribute, value in (
             ("llm_partial_stream_emitted", partial_stream_emitted),
             ("llm_provider_usage_status", "unavailable_on_failed_attempt"),
             ("llm_retry_suppressed", partial_stream_emitted),
+            ("provider_error_code", provider_error_code),
         ):
+            if value is None and attribute == "provider_error_code":
+                continue
             try:
                 setattr(error, attribute, value)
             except (AttributeError, TypeError):
                 pass
+
+    def _should_retry_provider_error(
+        error,
+        *,
+        kind: str,
+        attempt: int,
+        partial_stream_emitted: bool,
+        extra: str = "",
+    ) -> bool:
+        if partial_stream_emitted:
+            logger.error(
+                f"LLM {kind} 在输出开始后中断；拒绝原地重试以避免拼接重复响应 "
+                f"(retry_suppressed=partial_stream, "
+                f"provider_usage_status=unavailable_on_failed_attempt"
+                f"{extra}, error={type(error).__name__})"
+            )
+            return False
+        provider_error_code = classify_provider_error_code(error)
+        if is_permanent_provider_error(error):
+            logger.error(
+                f"LLM {kind} 永久性供应商错误，不重试 "
+                f"(provider_error_code={provider_error_code}, "
+                f"error={type(error).__name__})"
+            )
+            return False
+        if attempt < max_retries:
+            delay = delays[attempt]
+            logger.warning(
+                f"LLM {kind} 失败，将重试 "
+                f"(attempt {attempt + 1}/{max_retries}, "
+                f"delay={delay}s, error={type(error).__name__})"
+                "; provider_usage_status=unavailable_on_failed_attempt"
+            )
+            return True
+        logger.error(
+            f"LLM {kind} 失败，已耗尽所有重试 "
+            f"(max_retries={max_retries}, error={type(error).__name__})"
+            "; provider_usage_status=unavailable_on_failed_attempt"
+        )
+        return False
 
     async def ainvoke_with_retry(input, *args, **kwargs):
         last_error = None
@@ -312,17 +379,6 @@ def _wrap_llm_with_retry(llm: BaseChatModel, retry_config: dict) -> BaseChatMode
                     *tracked_args,
                     **tracked_kwargs,
                 )
-            except PROVIDER_BAD_REQUEST_ERRORS as error:
-                # 400 错误是永久性错误（输入格式非法），重试无意义，直接抛出
-                _mark_failed_provider_usage(
-                    error,
-                    partial_stream_emitted=tracker.chunk_count > 0,
-                )
-                logger.error(
-                    "LLM ainvoke BadRequestError (400)，不重试 "
-                    "(provider_usage_status=unavailable_on_failed_attempt)"
-                )
-                raise
             except Exception as e:
                 last_error = e
                 partial_stream_emitted = tracker.chunk_count > 0
@@ -330,33 +386,16 @@ def _wrap_llm_with_retry(llm: BaseChatModel, retry_config: dict) -> BaseChatMode
                     e,
                     partial_stream_emitted=partial_stream_emitted,
                 )
-                if partial_stream_emitted:
-                    logger.error(
-                        "LLM ainvoke 在 streaming callback 输出开始后中断；"
-                        "拒绝原地重试以避免拼接重复响应 "
-                        "(retry_suppressed=partial_stream, "
-                        "provider_usage_status=unavailable_on_failed_attempt, "
-                        f"chunks={tracker.chunk_count}, "
-                        f"error={type(e).__name__}: {e!s})"
-                    )
+                if not _should_retry_provider_error(
+                    e,
+                    kind="ainvoke",
+                    attempt=attempt,
+                    partial_stream_emitted=partial_stream_emitted,
+                    extra=f", chunks={tracker.chunk_count}",
+                ):
                     raise
-                if attempt < max_retries:
-                    delay = delays[attempt]
-                    logger.warning(
-                        f"LLM ainvoke 失败，将重试 "
-                        f"(attempt {attempt + 1}/{max_retries}, "
-                        f"delay={delay}s, error={type(e).__name__}: {e!s})"
-                        "; provider_usage_status=unavailable_on_failed_attempt"
-                    )
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error(
-                        f"LLM ainvoke 失败，已耗尽所有重试 "
-                        f"(max_retries={max_retries}, "
-                        f"error={type(last_error).__name__}: {last_error!s})"
-                        "; provider_usage_status=unavailable_on_failed_attempt"
-                    )
-                    raise
+                await asyncio.sleep(delays[attempt])
+        raise last_error
 
     object.__setattr__(llm, 'ainvoke', ainvoke_with_retry)
 
@@ -372,37 +411,25 @@ def _wrap_llm_with_retry(llm: BaseChatModel, retry_config: dict) -> BaseChatMode
                     yielded_chunk = True
                     yield chunk
                 return  # 流正常完成
-            except PROVIDER_BAD_REQUEST_ERRORS:
-                # 400 错误是永久性错误（输入格式非法），重试无意义，直接抛出
-                logger.error(f"LLM astream BadRequestError (400)，不重试")
-                raise
             except Exception as e:
                 last_error = e
+                _mark_failed_provider_usage(
+                    e,
+                    partial_stream_emitted=yielded_chunk,
+                )
                 # Once a chunk reached the consumer, restarting this request
                 # would append a second response to the first partial one.
                 # Let the enclosing Workflow attempt restart from a clean
                 # output boundary instead.
-                if yielded_chunk:
-                    logger.error(
-                        "LLM astream 在输出开始后中断；拒绝原地重试以避免拼接重复响应 "
-                        f"(error={type(e).__name__}: {e!s})"
-                    )
+                if not _should_retry_provider_error(
+                    e,
+                    kind="astream",
+                    attempt=attempt,
+                    partial_stream_emitted=yielded_chunk,
+                ):
                     raise
-                if attempt < max_retries:
-                    delay = delays[attempt]
-                    logger.warning(
-                        f"LLM astream 失败，将重试 "
-                        f"(attempt {attempt + 1}/{max_retries}, "
-                        f"delay={delay}s, error={type(e).__name__}: {e!s})"
-                    )
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error(
-                        f"LLM astream 失败，已耗尽所有重试 "
-                        f"(max_retries={max_retries}, "
-                        f"error={type(last_error).__name__}: {last_error!s})"
-                    )
-                    raise
+                await asyncio.sleep(delays[attempt])
+        raise last_error
 
     object.__setattr__(llm, 'astream', astream_with_retry)
 
@@ -460,6 +487,7 @@ def create_llm(
     streaming: bool = True,
     model_params: dict | None = None,
     provider_retries_enabled: bool = True,
+    request_fingerprint: str | None = None,
     **kwargs,
 ) -> BaseChatModel:
     """
@@ -472,6 +500,8 @@ def create_llm(
         model_params: 模型参数字典，包含 thinking_enabled / reasoning_effort / temperature / top_p
                      未设置时从 models_config.json 的 default_params 继承
         provider_retries_enabled: 是否启用 SDK 与 Core Provider 传输重试；探针等一次性调用应关闭
+        request_fingerprint: Workflow 节点 LLM 子会话的不透明 SHA-256 路由身份；
+            未提供时不发送 X-DeterminFlow-Request-Fingerprint
         **kwargs: 传递给 Provider 客户端的额外参数
 
     Returns:
@@ -507,6 +537,7 @@ def create_llm(
         model_params,
         kwargs,
     )
+    _apply_request_fingerprint_headers(kwargs, request_fingerprint)
 
     logger.info(
         f"使用 ModelManager 配置: provider={provider_id}, model={model_name}, "

@@ -39,12 +39,12 @@ const CONFIG_GROUPS: ConfigGroupDef[] = [
 
 // 静态颜色映射，避免动态类名导致 Tailwind 无法检测
 const CONFIG_COLOR_MAP: Record<string, string> = {
-  "cyan": "text-cyan-400",
-  "green": "text-green-400",
-  "rose": "text-rose-400",
-  "amber": "text-amber-400",
-  "purple": "text-purple-400",
-  "indigo": "text-indigo-400",
+  "cyan": "text-info",
+  "green": "text-success",
+  "rose": "text-destructive",
+  "amber": "text-warning",
+  "purple": "text-primary",
+  "indigo": "text-primary",
 };
 
 function ConfigInput({
@@ -61,8 +61,8 @@ function ConfigInput({
   if (item.readonly) {
     return (
       <div className="flex items-center gap-2">
-        <Lock size={14} className="text-slate-500" />
-        <span className="text-slate-400 text-sm font-mono">{String(value)}</span>
+        <Lock size={14} className="text-muted-foreground" />
+        <span className="text-muted-foreground text-sm font-mono">{String(value)}</span>
       </div>
     );
   }
@@ -70,23 +70,24 @@ function ConfigInput({
   if (item.type === "boolean") {
     return (
       <button
+        id={inputId}
         type="button"
         role="switch"
         aria-checked={!!value}
         aria-label={item.label}
         onClick={() => onChange(!value)}
         className={`relative w-12 h-6 rounded-full transition-all duration-300 cursor-pointer ${
-          value ? "bg-green-500/30 border-green-500/50" : "bg-slate-800 border-slate-600"
-        } border hover:border-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50`}
+          value ? "bg-success/30 border-success/50" : "bg-secondary border-border"
+        } border hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
       >
         <span
           className={`absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 ${
             value
-              ? "left-6 bg-green-500"
-              : "left-0.5 bg-slate-500"
+              ? "left-6 bg-success"
+              : "left-0.5 bg-muted-foreground"
           }`}
         />
-        {edited && <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+        {edited && <span className="absolute -top-1 -right-1 w-2 h-2 bg-warning rounded-full" />}
       </button>
     );
   }
@@ -98,16 +99,16 @@ function ConfigInput({
           id={inputId}
           value={String(value)}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-600 rounded-lg pl-3 pr-8 py-2 text-sm text-slate-200 min-h-[44px]
-            focus:border-indigo-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30
+          className="w-full bg-secondary border border-border rounded-lg pl-3 pr-8 py-2 text-sm text-foreground min-h-[44px]
+            focus:border-primary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30
             appearance-none cursor-pointer transition-all duration-200"
         >
           {item.options.map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
-        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" aria-hidden="true" />
-        {edited && <span className="absolute top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden="true" />
+        {edited && <span className="absolute top-1 -right-1 w-2 h-2 bg-warning rounded-full" />}
       </div>
     );
   }
@@ -125,9 +126,9 @@ function ConfigInput({
             step={item.step}
             value={Number(value)}
             onChange={(e) => onChange(Number(e.target.value))}
-            className="flex-1 h-1.5 bg-slate-700 rounded-full appearance-none cursor-pointer
+            className="flex-1 h-1.5 bg-muted rounded-full appearance-none cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
-              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500
+              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary
               [&::-webkit-slider-thumb]:cursor-pointer"
           />
         )}
@@ -140,12 +141,12 @@ function ConfigInput({
             step={item.step || 1}
             value={Number(value)}
             onChange={(e) => onChange(Number(e.target.value))}
-            className="w-24 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 min-h-[44px]
-              focus:border-indigo-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30
+            className="w-24 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground min-h-[44px]
+              focus:border-primary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30
               text-center font-mono transition-all duration-200
               [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
-          {edited && <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+          {edited && <span className="absolute -top-1 -right-1 w-2 h-2 bg-warning rounded-full" />}
         </div>
       </div>
     );
@@ -159,8 +160,8 @@ function ConfigInput({
         id={inputId}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
-        className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 min-h-[44px]
-          focus:border-indigo-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30
+        className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground min-h-[44px]
+          focus:border-primary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30
           font-mono transition-all duration-200"
       />
       {item.sensitive && (
@@ -168,12 +169,12 @@ function ConfigInput({
           type="button"
           onClick={() => setShowSecret(!showSecret)}
           aria-label={showSecret ? "隐藏密钥" : "显示密钥"}
-          className="text-slate-400 hover:text-slate-200 transition-colors duration-200 p-1 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="text-muted-foreground hover:text-foreground transition-colors duration-200 p-1 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       )}
-      {edited && <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+      {edited && <span className="absolute -top-1 -right-1 w-2 h-2 bg-warning rounded-full" />}
     </div>
   );
 }
@@ -193,32 +194,32 @@ function ConfigGroup({
   const sectionId = `config-group-${group.key}`;
 
   return (
-    <section aria-label={group.label} className="bg-slate-800/80 rounded-xl border border-slate-700/50 overflow-hidden transition-all duration-300 hover:border-slate-600/50">
+    <section aria-label={group.label} className="bg-secondary/80 rounded-xl border border-border/50 overflow-hidden transition-all duration-300 hover:border-border/50">
       <button
         type="button"
         aria-expanded={!collapsed}
         aria-controls={sectionId}
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-white/[0.02] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+        className="w-full flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-white/[0.02] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       >
         <div className="flex items-center gap-3">
-          <div className={CONFIG_COLOR_MAP[group.color] || "text-slate-400"}>{group.icon}</div>
-          <h3 className="text-base font-semibold text-slate-100">{group.label}</h3>
+          <div className={CONFIG_COLOR_MAP[group.color] || "text-muted-foreground"}>{group.icon}</div>
+          <h3 className="text-base font-semibold text-foreground">{group.label}</h3>
           {editedCount > 0 && (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/30">
+            <span className="px-2 py-0.5 text-xs rounded-full bg-warning/20 text-warning border border-warning/30">
               {editedCount} 项已修改
             </span>
           )}
         </div>
-        {collapsed ? <ChevronDown size={18} className="text-slate-400" /> : <ChevronUp size={18} className="text-slate-400" />}
+        {collapsed ? <ChevronDown size={18} className="text-muted-foreground" /> : <ChevronUp size={18} className="text-muted-foreground" />}
       </button>
       {!collapsed && (
         <div id={sectionId} className="px-5 pb-5 space-y-4">
           {items.map((item) => (
             <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
               <div className="flex-shrink-0 sm:w-48">
-                <label htmlFor={`config-${item.key}`} className="text-sm text-slate-300 font-medium cursor-pointer">{item.label}</label>
-                <p className="text-xs text-slate-500 mt-0.5 font-mono">{item.key}</p>
+                <label htmlFor={`config-${item.key}`} className="text-sm text-foreground font-medium cursor-pointer">{item.label}</label>
+                <p className="text-xs text-muted-foreground mt-0.5 font-mono">{item.key}</p>
               </div>
               <div className="flex-1 sm:max-w-md">
                 <ConfigInput
@@ -300,7 +301,7 @@ export default function SettingsPage() {
   if (loading || providersLoading) {
     return (
       <div className="h-full flex items-center justify-center" role="status">
-        <div className="flex items-center gap-3 text-slate-400">
+        <div className="flex items-center gap-3 text-muted-foreground">
           <RefreshCw size={20} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
           <span className="sr-only">加载配置中...</span>
           <span aria-hidden="true">加载配置中...</span>
@@ -310,15 +311,15 @@ export default function SettingsPage() {
   }
 
   return (
-    <div role="main" aria-label="系统配置页面" className="h-[calc(100dvh-3.5rem)] overflow-y-auto">
+    <div role="main" aria-label="系统配置页面" className="min-w-0">
       <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
         {/* 操作栏 */}
         <nav aria-label="配置操作" className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Settings size={22} className="text-indigo-400" />
+            <Settings size={22} className="text-primary" />
             <div>
-              <h2 className="text-xl font-bold text-slate-100">系统配置</h2>
-              <p className="text-xs text-slate-500 mt-0.5">{meta.length} 个配置项</p>
+              <h2 className="text-xl font-bold text-foreground">系统配置</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{meta.length} 个配置项</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -327,8 +328,8 @@ export default function SettingsPage() {
                 type="button"
                 onClick={resetChanges}
                 aria-label="撤销所有修改"
-                className="px-4 py-2 text-sm rounded-lg border border-slate-600 text-slate-300
-                  hover:bg-slate-700 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                className="px-4 py-2 text-sm rounded-lg border border-border text-foreground
+                  hover:bg-muted transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               >
                 撤销修改
               </button>
@@ -337,8 +338,8 @@ export default function SettingsPage() {
               type="button"
               onClick={loadConfig}
               aria-label="重新加载配置"
-              className="p-2 rounded-lg border border-slate-600 text-slate-400
-                hover:bg-slate-700 hover:text-slate-200 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+              className="p-2 rounded-lg border border-border text-muted-foreground
+                hover:bg-muted hover:text-foreground transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               title="重新加载"
             >
               <RefreshCw size={16} />
@@ -350,8 +351,8 @@ export default function SettingsPage() {
               aria-label={saving ? "保存中" : "保存配置"}
               className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
                 hasChanges && !saving
-                  ? "bg-indigo-600 text-white hover:bg-indigo-500"
-                  : "bg-slate-700 text-slate-500 cursor-not-allowed"
+                  ? "bg-primary text-white hover:bg-primary"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
               }`}
             >
               {saving ? (
@@ -364,16 +365,16 @@ export default function SettingsPage() {
           </div>
         </nav>
 
-        <section aria-labelledby="appearance-heading" className="overflow-hidden rounded-xl bg-slate-800/80 border border-slate-700/50">
+        <section aria-labelledby="appearance-heading" className="overflow-hidden rounded-xl bg-secondary/80 border border-border/50">
           <div className="flex items-center gap-3 px-5 py-4">
-            <div className="text-indigo-400">
+            <div className="text-primary">
               {theme === "dark" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
             </div>
-            <h3 id="appearance-heading" className="text-base font-semibold text-slate-100">外观</h3>
+            <h3 id="appearance-heading" className="text-base font-semibold text-foreground">外观</h3>
           </div>
-          <div className="flex items-center justify-between border-t border-slate-700/50 px-5 py-4">
+          <div className="flex items-center justify-between border-t border-border/50 px-5 py-4">
             <div>
-              <div className="text-sm font-medium text-slate-200">界面主题</div>
+              <div className="text-sm font-medium text-foreground">界面主题</div>
               <div className="mt-0.5 text-xs text-muted-foreground">{theme === "dark" ? "深色" : "浅色"}</div>
             </div>
             <Switch
@@ -387,19 +388,19 @@ export default function SettingsPage() {
         <DesktopUpdatePanel />
 
         {/* 模型供应商配置 */}
-        <section aria-label="模型配置" className="bg-slate-800/80 rounded-xl border border-slate-700/50 overflow-hidden">
+        <section aria-label="模型配置" className="bg-secondary/80 rounded-xl border border-border/50 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="text-purple-400"><Cpu size={18} /></div>
-              <h3 className="text-base font-semibold text-slate-100">模型配置</h3>
-              <span className="text-xs text-slate-500">{Object.keys(providers).length} 个供应商</span>
+              <div className="text-primary"><Cpu size={18} /></div>
+              <h3 className="text-base font-semibold text-foreground">模型配置</h3>
+              <span className="text-xs text-muted-foreground">{Object.keys(providers).length} 个供应商</span>
             </div>
             <button
               type="button"
               onClick={() => setAddDialogOpen(true)}
               aria-label="添加新的模型供应商"
-              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-slate-600 text-slate-300
-                hover:bg-slate-700 transition-all cursor-pointer min-h-[44px]"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-border text-foreground
+                hover:bg-muted transition-all cursor-pointer min-h-[44px]"
             >
               <Plus size={14} />
               添加供应商
@@ -431,20 +432,20 @@ export default function SettingsPage() {
               />
             ))}
             {providersError && (
-              <div role="alert" className="flex items-center justify-between p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                <span className="text-sm text-red-400">{providersError}</span>
+              <div role="alert" className="flex items-center justify-between p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                <span className="text-sm text-destructive">{providersError}</span>
                 <button
                   type="button"
                   onClick={loadProviders}
                   aria-label="重试加载模型供应商"
-                  className="px-3 py-1.5 text-xs rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer min-h-[44px]"
+                  className="px-3 py-1.5 text-xs rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors cursor-pointer min-h-[44px]"
                 >
                   重试
                 </button>
               </div>
             )}
             {!providersError && Object.keys(providers).length === 0 && (
-              <div role="status" className="text-center py-8 text-slate-500">
+              <div role="status" className="text-center py-8 text-muted-foreground">
                 暂无模型供应商配置，点击上方按钮添加
               </div>
             )}
@@ -477,23 +478,23 @@ export default function SettingsPage() {
                 aria-modal="true"
                 aria-label="确认删除供应商"
                 aria-describedby="delete-provider-desc"
-                className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-sm mx-4 space-y-4"
+                className="bg-card border border-border rounded-xl p-6 w-full max-w-sm mx-4 space-y-4"
               >
                 <p id="delete-provider-desc" className="sr-only">此操作将永久删除供应商配置且不可撤销</p>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-red-500/10">
-                    <Trash2 size={18} className="text-red-400" aria-hidden="true" />
+                  <div className="p-2 rounded-lg bg-destructive/10">
+                    <Trash2 size={18} className="text-destructive" aria-hidden="true" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-100">删除供应商</h3>
+                  <h3 className="text-lg font-semibold text-foreground">删除供应商</h3>
                 </div>
-                <p className="text-sm text-slate-400">
-                  确定删除供应商 <span className="font-mono text-slate-200">{deleteProviderId}</span> 吗？此操作不可撤销。
+                <p className="text-sm text-muted-foreground">
+                  确定删除供应商 <span className="font-mono text-foreground">{deleteProviderId}</span> 吗？此操作不可撤销。
                 </p>
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setDeleteDialogOpen(false)}
-                    className="px-4 py-2 text-sm rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                    className="px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-secondary transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     取消
                   </button>
@@ -512,7 +513,7 @@ export default function SettingsPage() {
                         setDeleteProviderId(null);
                       }
                     }}
-                    className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                    className="px-4 py-2 text-sm rounded-lg bg-destructive text-white hover:bg-destructive transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50"
                   >
                     删除
                   </button>

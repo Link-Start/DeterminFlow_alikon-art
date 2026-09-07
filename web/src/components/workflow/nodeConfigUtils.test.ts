@@ -23,7 +23,6 @@ test("script node editor round-trips structured argv without shell splitting", (
     useScriptArgv: true,
     timeout: "600",
     enableRejectUpstream: true,
-    maxRejectCount: "4",
   });
 
   assert.deepEqual(result.script_argv, original.script_argv);
@@ -47,7 +46,6 @@ test("legacy script args remain compatible and malformed argv is ignored", () =>
     useScriptArgv: false,
     timeout: "300",
     enableRejectUpstream: false,
-    maxRejectCount: "3",
   });
 
   assert.equal(result.script_args, "--verbose --env dev");

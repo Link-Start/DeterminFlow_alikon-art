@@ -44,16 +44,12 @@ interface NodeConfigAgentFieldsProps {
   setOutputFilePath: (value: string) => void;
   requireNonEmptyOutput: boolean;
   setRequireNonEmptyOutput: (value: boolean) => void;
-  retryEmptyOutputInSession: boolean;
-  setRetryEmptyOutputInSession: (value: boolean) => void;
   jsonOutputField: string;
   setJsonOutputField: (value: string) => void;
   jsonOutputFieldMinChars: string;
   setJsonOutputFieldMinChars: (value: string) => void;
   enableRejectUpstream: boolean;
   setEnableRejectUpstream: (value: boolean) => void;
-  maxRejectCount: string;
-  setMaxRejectCount: (value: string) => void;
   isReadOnly: boolean;
   readOnlyInput: string;
   baseInputClass: string;
@@ -100,16 +96,12 @@ export default function NodeConfigAgentFields({
   setOutputFilePath,
   requireNonEmptyOutput,
   setRequireNonEmptyOutput,
-  retryEmptyOutputInSession,
-  setRetryEmptyOutputInSession,
   jsonOutputField,
   setJsonOutputField,
   jsonOutputFieldMinChars,
   setJsonOutputFieldMinChars,
   enableRejectUpstream,
   setEnableRejectUpstream,
-  maxRejectCount,
-  setMaxRejectCount,
   isReadOnly,
   readOnlyInput,
   baseInputClass,
@@ -124,7 +116,7 @@ export default function NodeConfigAgentFields({
   return (
     <>
       <div>
-        <label htmlFor="agent-type-select" className="block text-xs font-medium text-slate-400 mb-1.5">
+        <label htmlFor="agent-type-select" className="block text-xs font-medium text-muted-foreground mb-1.5">
           Agent 类型
         </label>
         <div className="relative">
@@ -144,7 +136,7 @@ export default function NodeConfigAgentFields({
               onChange={(event) => setAgentType(event.target.value)}
               disabled={isReadOnly}
               aria-label="选择 Agent 类型"
-              className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none pr-9 ${
+              className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none pr-9 ${
                 isReadOnly ? "pointer-events-none opacity-60" : ""
               }`}
             >
@@ -170,10 +162,10 @@ export default function NodeConfigAgentFields({
       </div>
 
       {templateVariables.length > 0 && (
-        <div className="space-y-3 pt-3 border-t border-indigo-500/10">
-          <label className="block text-xs font-medium text-slate-400 mb-1.5">
+        <div className="space-y-3 pt-3 border-t border-primary/10">
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
             自定义变量块
-            <span className="text-slate-500"> (该 Agent 模板声明的可填充变量)</span>
+            <span className="text-muted-foreground"> (该 Agent 模板声明的可填充变量)</span>
           </label>
           {templateVariables.map((templateVariable) => {
             let templateValues: Record<string, string> = {};
@@ -193,14 +185,14 @@ export default function NodeConfigAgentFields({
             return (
               <div key={templateVariable.key}>
                 <div className="flex items-center gap-2 mb-1">
-                  <code className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-xs font-mono">
+                  <code className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs font-mono">
                     {`{{${templateVariable.key}}}`}
                   </code>
-                  <span className="text-xs text-slate-400">{templateVariable.name}</span>
-                  {templateVariable.required && <span className="text-xs text-red-400">必填</span>}
+                  <span className="text-xs text-muted-foreground">{templateVariable.name}</span>
+                  {templateVariable.required && <span className="text-xs text-destructive">必填</span>}
                 </div>
                 {templateVariable.description && (
-                  <p className="text-xs text-slate-500 mb-1.5">{templateVariable.description}</p>
+                  <p className="text-xs text-muted-foreground mb-1.5">{templateVariable.description}</p>
                 )}
                 <VarTextarea
                   value={currentValue}
@@ -227,9 +219,9 @@ export default function NodeConfigAgentFields({
       )}
 
       <div>
-        <label className="block text-xs font-medium text-slate-400 mb-1.5">
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">
           System Prompt 补充
-          <span className="text-slate-500"> (可选)</span>
+          <span className="text-muted-foreground"> (可选)</span>
         </label>
         <div className="relative">
           {varBindings.system_prompt_template ? (
@@ -262,8 +254,8 @@ export default function NodeConfigAgentFields({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-400 mb-1.5">
-          任务消息 {!isReadOnly && <span className="text-red-400">*</span>}
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+          任务消息 {!isReadOnly && <span className="text-destructive">*</span>}
         </label>
         <div className="relative">
           {varBindings.first_message ? (
@@ -295,50 +287,26 @@ export default function NodeConfigAgentFields({
         </div>
       </div>
 
-      <div className="space-y-3 pt-3 border-t border-indigo-500/10">
-        <p className="text-xs font-medium text-slate-400">LLM 输出校验</p>
+      <div className="space-y-3 pt-3 border-t border-primary/10">
+        <p className="text-xs font-medium text-muted-foreground">LLM 输出校验</p>
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
             checked={requireNonEmptyOutput}
             onChange={(event) => {
               setRequireNonEmptyOutput(event.target.checked);
-              if (!event.target.checked) {
-                setRetryEmptyOutputInSession(false);
-              }
               onMarkUnsaved();
             }}
             disabled={isReadOnly}
-            className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+            className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
           />
           <div>
-            <span className="text-sm text-slate-100">要求最后输出非空</span>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+            <span className="text-sm text-foreground">要求最后输出非空</span>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               最后一条 LLM 输出为空时节点失败，由节点自动重试策略处理。
             </p>
           </div>
         </label>
-
-        {requireNonEmptyOutput && (
-          <label className="ml-7 flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={retryEmptyOutputInSession}
-              onChange={(event) => {
-                setRetryEmptyOutputInSession(event.target.checked);
-                onMarkUnsaved();
-              }}
-              disabled={isReadOnly}
-              className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
-            />
-            <div>
-              <span className="text-sm text-slate-100">空输出时在原会话追问一次</span>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                追问时禁用工具；仍无正文才交给节点自动重试。
-              </p>
-            </div>
-          </label>
-        )}
 
         <label className="flex items-start gap-3 cursor-pointer">
           <input
@@ -355,11 +323,11 @@ export default function NodeConfigAgentFields({
               onMarkUnsaved();
             }}
             disabled={isReadOnly}
-            className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+            className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
           />
           <div>
-            <span className="text-sm text-slate-100">要求 JSON 字段达到最小字数</span>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+            <span className="text-sm text-foreground">要求 JSON 字段达到最小字数</span>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               指定字段必须是字符串，去除首尾空白后的字数必须严格大于阈值。
             </p>
           </div>
@@ -368,7 +336,7 @@ export default function NodeConfigAgentFields({
         {jsonOutputField && (
           <div className="ml-7 grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="json-output-field" className="block text-xs font-medium text-slate-400 mb-1">
+              <label htmlFor="json-output-field" className="block text-xs font-medium text-muted-foreground mb-1">
                 JSON 字段路径
               </label>
               <input
@@ -385,7 +353,7 @@ export default function NodeConfigAgentFields({
               />
             </div>
             <div>
-              <label htmlFor="json-output-min-chars" className="block text-xs font-medium text-slate-400 mb-1">
+              <label htmlFor="json-output-min-chars" className="block text-xs font-medium text-muted-foreground mb-1">
                 必须大于
               </label>
               <input
@@ -406,11 +374,11 @@ export default function NodeConfigAgentFields({
         )}
       </div>
 
-      <div className="space-y-3 pt-3 border-t border-indigo-500/10">
+      <div className="space-y-3 pt-3 border-t border-primary/10">
         <div>
-          <label htmlFor="model-override-select" className="block text-xs font-medium text-slate-400 mb-1.5">
+          <label htmlFor="model-override-select" className="block text-xs font-medium text-muted-foreground mb-1.5">
             模型覆盖
-            <span className="text-slate-500"> (可选，覆盖 Agent 类型的默认模型)</span>
+            <span className="text-muted-foreground"> (可选，覆盖 Agent 类型的默认模型)</span>
           </label>
           <div className="relative">
             {varBindings.model_override ? (
@@ -429,7 +397,7 @@ export default function NodeConfigAgentFields({
                 onChange={(event) => setModelOverride(event.target.value)}
                 disabled={isReadOnly}
                 aria-label="选择覆盖模型"
-                className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none pr-9 ${
+                className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none pr-9 ${
                   isReadOnly ? "pointer-events-none opacity-60" : ""
                 }`}
               >
@@ -458,11 +426,11 @@ export default function NodeConfigAgentFields({
               onMarkUnsaved();
             }}
             disabled={isReadOnly}
-            className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+            className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
           />
           <div>
-            <span className="text-sm text-slate-100">自动流转</span>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+            <span className="text-sm text-foreground">自动流转</span>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               开启后 Agent 输出完成即视为成功，无需调用 complete_node_task 工具。
               LLM 仍可显式调用工具标记失败。
             </p>
@@ -479,11 +447,11 @@ export default function NodeConfigAgentFields({
                 onMarkUnsaved();
               }}
               disabled={isReadOnly}
-              className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+              className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
             />
             <div>
-              <span className="text-sm text-slate-100">注入 complete_node_task 工具</span>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+              <span className="text-sm text-foreground">注入 complete_node_task 工具</span>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                 关闭后 Agent 无法显式调用完成/失败工具。
               </p>
             </div>
@@ -504,11 +472,11 @@ export default function NodeConfigAgentFields({
               onMarkUnsaved();
             }}
             disabled={isReadOnly}
-            className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+            className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
           />
           <div>
-            <span className="text-sm text-slate-100">最后输出加载为变量</span>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+            <span className="text-sm text-foreground">最后输出加载为变量</span>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               开启后，Agent 最后一轮回复文本将写入指定变量，供后续节点通过
               {"{{变量名}}"} 引用。
             </p>
@@ -517,7 +485,7 @@ export default function NodeConfigAgentFields({
 
         {outputVariable && (
           <div className="ml-7">
-            <label htmlFor="output-variable-name" className="block text-xs font-medium text-slate-400 mb-1">
+            <label htmlFor="output-variable-name" className="block text-xs font-medium text-muted-foreground mb-1">
               变量名
             </label>
             <input
@@ -530,7 +498,7 @@ export default function NodeConfigAgentFields({
               }}
               disabled={isReadOnly}
               aria-label="输出变量名"
-              className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors ${
+              className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors ${
                 isReadOnly ? "pointer-events-none opacity-60" : ""
               }`}
               placeholder="agent_nodeid_output"
@@ -539,7 +507,7 @@ export default function NodeConfigAgentFields({
         )}
       </div>
 
-      <div className="space-y-3 pt-3 border-t border-indigo-500/10">
+      <div className="space-y-3 pt-3 border-t border-primary/10">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
@@ -549,11 +517,11 @@ export default function NodeConfigAgentFields({
               onMarkUnsaved();
             }}
             disabled={isReadOnly}
-            className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+            className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
           />
           <div>
-            <span className="text-sm text-slate-100">保存最后输出到文件</span>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+            <span className="text-sm text-foreground">保存最后输出到文件</span>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               开启后，Agent 最后一轮回复文本将保存到指定文件。
               支持绝对路径，或以 workspace 为基准的相对路径。
             </p>
@@ -562,7 +530,7 @@ export default function NodeConfigAgentFields({
 
         {saveOutputToFile && (
           <div className="ml-7">
-            <label htmlFor="output-file-path" className="block text-xs font-medium text-slate-400 mb-1">
+            <label htmlFor="output-file-path" className="block text-xs font-medium text-muted-foreground mb-1">
               文件路径
             </label>
             <VarInput
@@ -577,14 +545,14 @@ export default function NodeConfigAgentFields({
               inputClass={baseInputClass}
               variables={variables}
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               支持 {"{{key}}"} 占位符引用工作流变量。绝对路径直接使用，相对路径以 workspace 为基准。
             </p>
           </div>
         )}
       </div>
 
-      <div className="space-y-3 pt-3 border-t border-indigo-500/10">
+      <div className="space-y-3 pt-3 border-t border-primary/10">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
@@ -594,42 +562,16 @@ export default function NodeConfigAgentFields({
               onMarkUnsaved();
             }}
             disabled={isReadOnly}
-            className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+            className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
           />
           <div>
-            <span className="text-sm text-slate-100">注入 reject_upstream 工具</span>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-              开启后 Agent 可以拒绝上游节点的产出，触发工作流回滚重试。
+            <span className="text-sm text-foreground">注入 reject_upstream 工具</span>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              开启后 Agent 可以拒绝上游节点的产出；上游当前 attempt 将失败，
+              再由其节点失败策略决定重试、跳过或终止。
             </p>
           </div>
         </label>
-
-        {enableRejectUpstream && (
-          <div className="ml-7">
-            <label htmlFor="max-reject-count" className="block text-xs font-medium text-slate-400 mb-1">
-              最大拒绝次数
-            </label>
-            <input
-              type="number"
-              id="max-reject-count"
-              min="1"
-              max="100"
-              value={maxRejectCount}
-              onChange={(event) => {
-                setMaxRejectCount(event.target.value);
-                onMarkUnsaved();
-              }}
-              disabled={isReadOnly}
-              className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors ${
-                isReadOnly ? "pointer-events-none opacity-60" : ""
-              }`}
-              placeholder="3"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              允许上游节点被拒绝的最大次数，超过后将无法继续拒绝。
-            </p>
-          </div>
-        )}
       </div>
     </>
   );

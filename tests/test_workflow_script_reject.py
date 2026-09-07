@@ -4,7 +4,7 @@ import asyncio
 from copy import deepcopy
 import json
 import os
-import subprocess
+import shlex
 import sys
 from types import SimpleNamespace
 
@@ -20,6 +20,7 @@ from src.workflow.definition import (
     WorkflowTask,
 )
 from src.workflow.engine import WorkflowEngine
+from src.workflow.execution_flow import _retract_rejected_node_outputs
 from src.workflow.failure_policy import activate_scheduled_retry
 from src.workflow.nodes.base import NodeContext
 from src.workflow.nodes.script import (
@@ -27,8 +28,37 @@ from src.workflow.nodes.script import (
     _parse_reject_upstream,
     _terminate_process_tree,
 )
-from src.workflow.executor_process import process_is_alive
 from src.workflow.token_usage import aggregate_token_usage
+
+
+def test_retract_rejected_agent_outputs_restores_inputs_and_removes_file(
+    tmp_path,
+):
+    artifact = tmp_path / "rejected.json"
+    artifact.write_text('{"body":"rejected"}', encoding="utf-8")
+    state = NodeExecutionState(
+        node_id="agent_l1",
+        input_snapshot={"draft": "original"},
+        outputs={
+            "draft": "rejected",
+            "generated_only": "rejected value",
+            "_output_file": str(artifact),
+        },
+    )
+    parameter_values = {
+        "draft": "rejected",
+        "generated_only": "rejected value",
+        "_output_file": str(artifact),
+        "unrelated": "keep",
+    }
+
+    _retract_rejected_node_outputs(parameter_values, state, tmp_path)
+
+    assert parameter_values == {
+        "draft": "original",
+        "unrelated": "keep",
+    }
+    assert not artifact.exists()
 
 
 def test_parse_reject_upstream_with_target():
@@ -39,24 +69,15 @@ def test_parse_reject_upstream_with_target():
     assert parsed == ("字段缺失", "agent_l1")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix process-group assertion")
 def test_script_process_tree_is_terminated_on_task_cancel(tmp_path):
     async def scenario():
         child_pid_file = tmp_path / "child.pid"
-        code = (
-            "import subprocess, sys, time\n"
-            "from pathlib import Path\n"
-            "child = subprocess.Popen([sys.executable, '-c', "
-            "'import time; time.sleep(60)'])\n"
-            f"Path({str(child_pid_file)!r}).write_text(str(child.pid), encoding='utf-8')\n"
-            "child.wait()\n"
-        )
-        process_options = (
-            {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
-            if sys.platform == "win32"
-            else {"start_new_session": True}
-        )
         process = await asyncio.create_subprocess_exec(
-            sys.executable, "-c", code, **process_options,
+            "bash",
+            "-c",
+            f"sleep 60 & echo $! > {shlex.quote(str(child_pid_file))}; wait",
+            start_new_session=True,
         )
         for _ in range(100):
             if child_pid_file.exists():
@@ -67,16 +88,13 @@ def test_script_process_tree_is_terminated_on_task_cancel(tmp_path):
         await _terminate_process_tree(process, grace_seconds=0.1)
 
         assert process.returncode is not None
-        for _ in range(100):
-            if not process_is_alive(child_pid):
-                break
-            await asyncio.sleep(0.05)
-        else:
-            pytest.fail("Script descendant survived cancellation")
+        with pytest.raises(ProcessLookupError):
+            os.kill(child_pid, 0)
 
     asyncio.run(scenario())
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix process-tree assertion")
 def test_executor_script_tree_is_terminated_without_killing_executor_group(
     tmp_path, monkeypatch,
 ):
@@ -84,21 +102,10 @@ def test_executor_script_tree_is_terminated_without_killing_executor_group(
 
     async def scenario():
         child_pid_file = tmp_path / "executor-child.pid"
-        code = (
-            "import subprocess, sys\n"
-            "from pathlib import Path\n"
-            "child = subprocess.Popen([sys.executable, '-c', "
-            "'import time; time.sleep(60)'])\n"
-            f"Path({str(child_pid_file)!r}).write_text(str(child.pid), encoding='utf-8')\n"
-            "child.wait()\n"
-        )
-        process_options = (
-            {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
-            if sys.platform == "win32"
-            else {}
-        )
         process = await asyncio.create_subprocess_exec(
-            sys.executable, "-c", code, **process_options,
+            "bash",
+            "-c",
+            f"sleep 60 & echo $! > {shlex.quote(str(child_pid_file))}; wait",
         )
         for _ in range(100):
             if child_pid_file.exists():
@@ -109,12 +116,8 @@ def test_executor_script_tree_is_terminated_without_killing_executor_group(
         await _terminate_process_tree(process, grace_seconds=0.1)
 
         assert process.returncode is not None
-        for _ in range(100):
-            if not process_is_alive(child_pid):
-                break
-            await asyncio.sleep(0.05)
-        else:
-            pytest.fail("Executor Script descendant survived cancellation")
+        with pytest.raises(ProcessLookupError):
+            os.kill(child_pid, 0)
 
     asyncio.run(scenario())
 
@@ -342,35 +345,47 @@ class _RetrySessionManager:
         self.task_descriptions.append(task_description)
         attempt = len(self.task_descriptions)
         session_id = f"session-{attempt}"
-        output = "invalid" if attempt == 1 else "valid"
-        token_usage = {
-            "test-model": {
-                "prompt_tokens": attempt * 10,
-                "completion_tokens": attempt * 5,
-                "total_tokens": attempt * 15,
-                "call_count": 1,
-            }
-        }
-        token_usage_calls = [{
-            "call_id": f"{session_id}:1",
-            "timestamp": "2026-07-18T04:00:00+00:00",
-            "provider": "test",
-            "model": "model",
-            "model_id": "test-model",
-            "prompt_tokens": attempt * 10,
-            "completion_tokens": attempt * 5,
-            "total_tokens": attempt * 15,
-            "cached_tokens": 0,
-            "reasoning_tokens": 0,
-            "call_count": 1,
-            "call_index": 1,
-            "session_id": session_id,
-        }]
-        self.sessions[session_id] = SimpleNamespace(
-            record=[{"type": "assistant", "content": output}],
-            get_cumulative_token_usage=lambda usage=token_usage: usage,
-            get_token_usage_calls=lambda calls=token_usage_calls: calls,
-        )
+        manager = self
+
+        class Session:
+            def __init__(self):
+                self.record = [{
+                    "type": "assistant",
+                    "content": "invalid" if attempt == 1 else "valid",
+                }]
+                self.calls = 1
+
+            async def send_message(self, *_args, **_kwargs):
+                raise AssertionError("输出校验失败不得在原 Session 追加模型调用")
+
+            def get_cumulative_token_usage(self):
+                return {
+                    "test-model": {
+                        "prompt_tokens": self.calls * 10,
+                        "completion_tokens": self.calls * 5,
+                        "total_tokens": self.calls * 15,
+                        "call_count": self.calls,
+                    }
+                }
+
+            def get_token_usage_calls(self):
+                return [{
+                    "call_id": f"{session_id}:{index}",
+                    "timestamp": "2026-07-18T04:00:00+00:00",
+                    "provider": "test",
+                    "model": "model",
+                    "model_id": "test-model",
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                    "cached_tokens": 0,
+                    "reasoning_tokens": 0,
+                    "call_count": 1,
+                    "call_index": index,
+                    "session_id": session_id,
+                } for index in range(1, self.calls + 1)]
+
+        self.sessions[session_id] = Session()
 
         loop = asyncio.get_running_loop()
         on_node_complete = kwargs["on_node_complete"]
@@ -402,6 +417,7 @@ class _DoubleRejectEngine(WorkflowEngine):
     ):
         if node_def.id == "agent_l1":
             self.agent_attempts += 1
+            node_state.attempt_count += 1
             node_state.status = "success"
             node_state.session_id = f"session-{self.agent_attempts}"
             return node_state
@@ -423,12 +439,121 @@ class _DoubleRejectEngine(WorkflowEngine):
         return node_state
 
 
+class _NonAgentRejectEngine(WorkflowEngine):
+    def __init__(self):
+        super().__init__(SimpleNamespace(sessions={}))
+        self.upstream_calls = 0
+        self.validator_attempts = 0
+
+    async def _save_task_state(self, _workflow_id, _task):
+        return None
+
+    def _push_wf_task_update(self, _workflow_id, _task):
+        return None
+
+    async def _execute_node(
+        self, _definition, node_def, node_state, _shared_ws, **kwargs,
+    ):
+        if node_def.id == "prepare":
+            self.upstream_calls += 1
+            node_state.attempt_count += 1
+            node_state.status = "completed"
+            return node_state
+
+        self.validator_attempts += 1
+        if self.validator_attempts == 1:
+            kwargs["on_reject_upstream"](
+                "validator-session", "需要重新准备", "prepare",
+            )
+            node_state.status = "failed"
+        else:
+            node_state.status = "completed"
+        return node_state
+
+
+class _AlwaysRejectEngine(_DoubleRejectEngine):
+    async def _execute_node(
+        self, definition, node_def, node_state, shared_ws, **kwargs,
+    ):
+        if node_def.id == "agent_l1":
+            return await super()._execute_node(
+                definition, node_def, node_state, shared_ws, **kwargs,
+            )
+        self.validator_attempts += 1
+        node_state.attempt_count += 1
+        self.reject_results.append(kwargs["on_reject_upstream"](
+            "validator-session",
+            "[schema_invalid] 输出持续不合规",
+            "agent_l1",
+        ))
+        node_state.status = "failed"
+        node_state.error = "validator requested retry"
+        return node_state
+
+
+def test_reject_upstream_uses_failure_policy_for_non_agent_upstream() -> None:
+    definition = WorkflowDef(
+        workflow_id="wf-non-agent-reject",
+        nodes=[
+            WorkflowNode(
+                id="prepare",
+                node_type="script",
+                auto_retry_count=1,
+            ),
+            WorkflowNode(id="validate", node_type="script"),
+        ],
+        edges=[WorkflowEdge(source="prepare", target="validate")],
+    )
+    definition._rebuild_caches()
+    task = WorkflowTask(workflow_id=definition.workflow_id, status="running")
+    engine = _NonAgentRejectEngine()
+
+    first_result = asyncio.run(engine._execute_node_sequence(
+        definition=definition,
+        task=task,
+        node_ids=["prepare", "validate"],
+        disabled_ids=set(),
+        shared_ws=None,
+        parent_id="workflow-main",
+        on_node_started=lambda _state: None,
+        needs_approval=False,
+        run_record=WorkflowRunRecord(workflow_id=definition.workflow_id),
+    ))
+
+    assert first_result == "retry_waiting"
+    waiting = task.node_states["prepare"]
+    assert waiting.status == "retry_waiting"
+    assert waiting.automatic_retry_count == 1
+    task.node_states["prepare"] = activate_scheduled_retry(waiting)
+
+    result = asyncio.run(engine._execute_node_sequence(
+        definition=definition,
+        task=task,
+        node_ids=["prepare", "validate"],
+        disabled_ids=set(),
+        shared_ws=None,
+        parent_id="workflow-main",
+        on_node_started=lambda _state: None,
+        needs_approval=False,
+        run_record=WorkflowRunRecord(workflow_id=definition.workflow_id),
+    ))
+
+    assert result == "completed"
+    assert engine.upstream_calls == 2
+    assert task.node_states["prepare"].attempt_count == 2
+    assert task.node_states["prepare"].next_attempt_trigger == "auto_retry"
+
+
 def test_one_downstream_execution_accepts_only_first_reject_upstream():
     workflow_id = "wf-reject-once"
     definition = WorkflowDef(
         workflow_id=workflow_id,
         nodes=[
-            WorkflowNode(id="agent_l1", node_type="agent"),
+            WorkflowNode(
+                id="agent_l1",
+                node_type="agent",
+                auto_retry_count=1,
+            ),
             WorkflowNode(
                 id="script_validate",
                 node_type="script",
@@ -440,6 +565,35 @@ def test_one_downstream_execution_accepts_only_first_reject_upstream():
     definition._rebuild_caches()
     task = WorkflowTask(workflow_id=workflow_id, status="running")
     engine = _DoubleRejectEngine()
+
+    first_result = asyncio.run(engine._execute_node_sequence(
+        definition=definition,
+        task=task,
+        node_ids=["agent_l1", "script_validate"],
+        disabled_ids=set(),
+        shared_ws=None,
+        parent_id="workflow-main",
+        on_node_started=lambda _state: None,
+        needs_approval=False,
+        run_record=WorkflowRunRecord(workflow_id=workflow_id),
+    ))
+
+    assert first_result == "retry_waiting"
+    assert engine.reject_results[0]["success"] is True
+    assert engine.reject_results[1] == {
+        "success": False,
+        "conflict": True,
+        "error_code": "reject_upstream_conflict",
+        "message": (
+            "reject_upstream conflict: 当前下游节点的本次执行"
+            "已接受对上游节点 agent_l1 的打回请求"
+        ),
+    }
+    waiting = task.node_states["agent_l1"]
+    assert waiting.status == "retry_waiting"
+    assert waiting.attempt_count == 1
+    assert task.node_states["script_validate"].status == "pending"
+    task.node_states["agent_l1"] = activate_scheduled_retry(waiting)
 
     result = asyncio.run(engine._execute_node_sequence(
         definition=definition,
@@ -454,16 +608,6 @@ def test_one_downstream_execution_accepts_only_first_reject_upstream():
     ))
 
     assert result == "completed"
-    assert engine.reject_results[0]["success"] is True
-    assert engine.reject_results[1] == {
-        "success": False,
-        "conflict": True,
-        "error_code": "reject_upstream_conflict",
-        "message": (
-            "reject_upstream conflict: 当前下游节点的本次执行"
-            "已接受对上游节点 agent_l1 的打回请求"
-        ),
-    }
     upstream_state = task.node_states["agent_l1"]
     assert engine.agent_attempts == 2
     assert upstream_state.status == "success"
@@ -481,6 +625,70 @@ def test_one_downstream_execution_accepts_only_first_reject_upstream():
     )
 
 
+def test_repeated_validation_failures_consume_only_node_retry_budget():
+    workflow_id = "wf-reject-node-budget"
+    definition = WorkflowDef(
+        workflow_id=workflow_id,
+        nodes=[
+            WorkflowNode(
+                id="agent_l1",
+                node_type="agent",
+                auto_retry_count=1,
+            ),
+            WorkflowNode(id="script_validate", node_type="script"),
+        ],
+        edges=[WorkflowEdge(source="agent_l1", target="script_validate")],
+    )
+    definition._rebuild_caches()
+    task = WorkflowTask(workflow_id=workflow_id, status="running")
+    engine = _AlwaysRejectEngine()
+
+    first_result = asyncio.run(engine._execute_node_sequence(
+        definition=definition,
+        task=task,
+        node_ids=["agent_l1", "script_validate"],
+        disabled_ids=set(),
+        shared_ws=None,
+        parent_id="workflow-main",
+        on_node_started=lambda _state: None,
+        needs_approval=False,
+        run_record=WorkflowRunRecord(workflow_id=workflow_id),
+    ))
+
+    assert first_result == "retry_waiting"
+    task.node_states["agent_l1"] = activate_scheduled_retry(
+        task.node_states["agent_l1"]
+    )
+    second_result = asyncio.run(engine._execute_node_sequence(
+        definition=definition,
+        task=task,
+        node_ids=["agent_l1", "script_validate"],
+        disabled_ids=set(),
+        shared_ws=None,
+        parent_id="workflow-main",
+        on_node_started=lambda _state: None,
+        needs_approval=False,
+        run_record=WorkflowRunRecord(workflow_id=workflow_id),
+    ))
+
+    failed = task.node_states["agent_l1"]
+    assert second_result == "failed"
+    assert failed.status == "failed"
+    assert failed.attempt_count == 2
+    assert failed.automatic_retry_count == 1
+    assert failed.reject_upstream_count == 2
+    assert [item["status"] for item in failed.attempt_history] == [
+        "failed",
+        "failed",
+    ]
+    validator = task.node_states["script_validate"]
+    assert validator.status == "pending"
+    assert [item["status"] for item in validator.attempt_history] == [
+        "completed",
+        "completed",
+    ]
+
+
 class _RejectThenTransientFailureEngine(WorkflowEngine):
     def __init__(self):
         super().__init__(SimpleNamespace(sessions={}))
@@ -488,6 +696,7 @@ class _RejectThenTransientFailureEngine(WorkflowEngine):
         self.validator_attempts = 0
         self.after_attempts = 0
         self.agent_messages: list[str] = []
+        self.agent_sessions: list[str] = []
 
     async def _save_task_state(self, _workflow_id, _task):
         return None
@@ -498,26 +707,23 @@ class _RejectThenTransientFailureEngine(WorkflowEngine):
     async def _execute_node(
         self, _definition, node_def, node_state, _shared_ws, **kwargs,
     ):
-        node_state.attempt_count += 1
         if node_def.id == "agent_l1":
+            node_state.attempt_count += 1
             self.agent_attempts += 1
             self.agent_messages.append(node_def.first_message)
             if self.agent_attempts == 1:
                 node_state.input_snapshot = {"frozen": "original"}
-            node_state.attempt_history.append(
-                {
-                    "attempt_number": node_state.attempt_count,
-                    "status": (
-                        "failed" if self.agent_attempts == 2 else "completed"
-                    ),
-                }
-            )
-            if self.agent_attempts == 2:
-                node_state.status = "failed"
-                node_state.error = "provider 502"
+                node_state.session_id = "session-initial"
             else:
-                node_state.status = "completed"
-                node_state.error = ""
+                node_state.session_id = f"session-retry-{self.agent_attempts - 1}"
+            self.agent_sessions.append(node_state.session_id)
+            attempt_record = {
+                "attempt_number": node_state.attempt_count,
+                "status": "completed",
+            }
+            node_state.attempt_history.append(attempt_record)
+            node_state.status = "completed"
+            node_state.error = ""
             return node_state
 
         if node_def.id == "after":
@@ -559,8 +765,8 @@ class _RejectRetryCheckpointCrashEngine(_RejectThenTransientFailureEngine):
         if node_def.id == "agent_l1" and self.agent_attempts == 1:
             self.agent_attempts += 1
             node_state.attempt_count += 1
+            node_state.session_id = "session-retry-crash"
             node_state.status = "running"
-            node_state.session_id = "retry-session-started"
             await kwargs["on_node_checkpoint"](node_state)
             raise _SimulatedProcessCrash()
         return await super()._execute_node(
@@ -581,6 +787,7 @@ def test_rejected_upstream_retry_checkpoints_before_process_crash():
                 id="agent_l1",
                 node_type="agent",
                 first_message="生成 L1 结果",
+                auto_retry_count=1,
             ),
             WorkflowNode(
                 id="script_validate",
@@ -593,6 +800,24 @@ def test_rejected_upstream_retry_checkpoints_before_process_crash():
     definition._rebuild_caches()
     task = WorkflowTask(workflow_id=workflow_id, status="running")
     engine = _RejectRetryCheckpointCrashEngine()
+
+    first_result = asyncio.run(
+        engine._execute_node_sequence(
+            definition=definition,
+            task=task,
+            node_ids=["agent_l1", "script_validate"],
+            disabled_ids=set(),
+            shared_ws=None,
+            parent_id="workflow-main",
+            on_node_started=lambda _state: None,
+            needs_approval=False,
+            run_record=WorkflowRunRecord(workflow_id=workflow_id),
+        )
+    )
+    assert first_result == "retry_waiting"
+    task.node_states["agent_l1"] = activate_scheduled_retry(
+        task.node_states["agent_l1"]
+    )
 
     with pytest.raises(_SimulatedProcessCrash):
         asyncio.run(
@@ -614,11 +839,11 @@ def test_rejected_upstream_retry_checkpoints_before_process_crash():
         for states in reversed(engine.saved_states)
         if states.get("agent_l1", {}).status == "running"
     )
-    assert persisted_retry.session_id == "retry-session-started"
+    assert persisted_retry.session_id == "session-retry-crash"
     assert persisted_retry.attempt_count == 2
 
 
-def test_rejected_upstream_provider_failure_enters_normal_retry_engine():
+def test_rejected_upstream_enters_normal_retry_engine():
     workflow_id = "wf-reject-provider-retry"
     agent = WorkflowNode(
         id="agent_l1",
@@ -659,11 +884,11 @@ def test_rejected_upstream_provider_failure_enters_normal_retry_engine():
     waiting = task.node_states["agent_l1"]
     assert waiting.status == "retry_waiting"
     assert waiting.automatic_retry_count == 1
-    assert waiting.attempt_count == 2
-    assert len(waiting.attempt_history) == 2
+    assert waiting.attempt_count == 1
+    assert len(waiting.attempt_history) == 1
     assert waiting.input_snapshot == {"frozen": "original"}
     assert task.node_states["script_validate"].status == "pending"
-    assert "下游校验反馈" in engine.agent_messages[1]
+    assert engine.agent_sessions == ["session-initial"]
     assert waiting.rejection_history[-1]["resolution"] == "retrying"
 
     task.node_states["agent_l1"] = activate_scheduled_retry(waiting)
@@ -683,9 +908,10 @@ def test_rejected_upstream_provider_failure_enters_normal_retry_engine():
 
     assert resumed_result == "completed"
     completed = task.node_states["agent_l1"]
-    assert completed.attempt_count == 3
-    assert len(completed.attempt_history) == 3
-    assert "下游校验反馈" in engine.agent_messages[2]
+    assert completed.attempt_count == 2
+    assert len(completed.attempt_history) == 2
+    assert "下游校验反馈" in engine.agent_messages[1]
+    assert engine.agent_sessions == ["session-initial", "session-retry-1"]
     assert completed.rejection_history[-1]["resolution"] == "passed"
 
 
@@ -741,7 +967,11 @@ def test_three_loop_items_keep_unique_rejection_ids_and_complete_audit():
     definition = WorkflowDef(
         workflow_id=workflow_id,
         nodes=[
-            WorkflowNode(id="agent_l1", node_type="agent"),
+            WorkflowNode(
+                id="agent_l1",
+                node_type="agent",
+                auto_retry_count=1,
+            ),
             WorkflowNode(
                 id="script_validate",
                 node_type="script",
@@ -765,6 +995,9 @@ def test_three_loop_items_keep_unique_rejection_ids_and_complete_audit():
                     state.status = "pending"
                     state.session_id = ""
                     state.error = ""
+                    state.automatic_retry_count = 0
+                    state.next_retry_at = None
+                    state.next_attempt_trigger = "initial"
                     engine._reset_rejection_state_for_iteration(state)
             result = await engine._execute_node_sequence(
                 definition=definition,
@@ -777,7 +1010,22 @@ def test_three_loop_items_keep_unique_rejection_ids_and_complete_audit():
                 needs_approval=False,
                 run_record=WorkflowRunRecord(workflow_id=workflow_id),
             )
-            assert result == "completed"
+            assert result == "retry_waiting"
+            task.node_states["agent_l1"] = activate_scheduled_retry(
+                task.node_states["agent_l1"]
+            )
+            resumed_result = await engine._execute_node_sequence(
+                definition=definition,
+                task=task,
+                node_ids=["agent_l1", "script_validate"],
+                disabled_ids=set(),
+                shared_ws=None,
+                parent_id="workflow-main",
+                on_node_started=lambda _state: None,
+                needs_approval=False,
+                run_record=WorkflowRunRecord(workflow_id=workflow_id),
+            )
+            assert resumed_result == "completed"
 
     asyncio.run(run_three_items())
 
@@ -799,8 +1047,8 @@ def test_three_loop_items_keep_unique_rejection_ids_and_complete_audit():
     ]
 
 
-def test_reject_upstream_retries_agent_with_fresh_session(tmp_path, monkeypatch):
-    workflow_id = "wf-reject-fresh-session"
+def test_reject_upstream_retries_agent_in_new_session(tmp_path, monkeypatch):
+    workflow_id = "wf-reject-original-session"
     workflows_dir = tmp_path / "workflows"
     script_dir = workflows_dir / workflow_id / "script"
     script_dir.mkdir(parents=True)
@@ -824,6 +1072,8 @@ def test_reject_upstream_retries_agent_with_fresh_session(tmp_path, monkeypatch)
         output_variable="l1_output",
         save_output_to_file=True,
         output_file_path="l1.txt",
+        auto_retry_count=1,
+        auto_retry_interval_seconds=0,
     )
     validator_node = WorkflowNode(
         id="script_validate",
@@ -862,6 +1112,30 @@ def test_reject_upstream_retries_agent_with_fresh_session(tmp_path, monkeypatch)
     session_manager = _RetrySessionManager()
     engine = WorkflowEngine(session_manager)
 
+    first_result = asyncio.run(engine._execute_node_sequence(
+        definition=definition,
+        task=task,
+        node_ids=["agent_l1", "script_validate"],
+        disabled_ids=set(),
+        shared_ws=workspace,
+        parent_id="workflow-main",
+        on_node_started=lambda _state: None,
+        needs_approval=False,
+        run_record=WorkflowRunRecord(workflow_id=workflow_id),
+    ))
+
+    assert first_result == "retry_waiting"
+    first_attempt = task.node_states["agent_l1"]
+    assert first_attempt.status == "retry_waiting"
+    assert first_attempt.attempt_count == 1
+    assert first_attempt.attempt_history[-1]["status"] == "failed"
+    assert task.node_states["script_validate"].status == "pending"
+    assert task.node_states["script_validate"].attempt_history[-1][
+        "status"
+    ] == "completed"
+    assert not (workspace / "l1.txt").exists()
+
+    task.node_states["agent_l1"] = activate_scheduled_retry(first_attempt)
     result = asyncio.run(engine._execute_node_sequence(
         definition=definition,
         task=task,
@@ -877,15 +1151,20 @@ def test_reject_upstream_retries_agent_with_fresh_session(tmp_path, monkeypatch)
     assert result == "completed"
     assert list(session_manager.sessions) == ["session-1", "session-2"]
     assert "下游校验反馈" not in session_manager.task_descriptions[0]
+    assert "下游校验反馈" in session_manager.task_descriptions[1]
     assert "输出必须为 valid" in session_manager.task_descriptions[1]
+    assert len(session_manager.task_descriptions) == 2
     assert task.node_states["agent_l1"].session_id == "session-2"
+    assert task.node_states["agent_l1"].attempt_count == 2
+    assert task.node_states["agent_l1"].automatic_retry_count == 1
+    assert task.node_states["agent_l1"].output_repair_count == 0
     assert task.node_states["agent_l1"].reject_upstream_count == 1
     assert task.node_states["agent_l1"].outputs["l1_output"] == "valid"
     assert task.node_states["agent_l1"].token_usage == {
         "test-model": {
-            "prompt_tokens": 30,
-            "completion_tokens": 15,
-            "total_tokens": 45,
+            "prompt_tokens": 20,
+            "completion_tokens": 10,
+            "total_tokens": 30,
             "call_count": 2,
         }
     }
@@ -903,7 +1182,7 @@ def test_reject_upstream_retries_agent_with_fresh_session(tmp_path, monkeypatch)
             "validator_node_id": "script_validate",
             "target_node_id": "agent_l1",
             "retry_index": 1,
-            "max_retries": 2,
+            "max_retries": 1,
             "error_codes": ["unclassified"],
             "reason": "输出必须为 valid",
             "resolution": "passed",
@@ -915,4 +1194,8 @@ def test_reject_upstream_retries_agent_with_fresh_session(tmp_path, monkeypatch)
         }
     ]
     assert task.node_states["script_validate"].status == "completed"
+    assert [
+        item["status"]
+        for item in task.node_states["script_validate"].attempt_history
+    ] == ["completed", "completed"]
     assert (workspace / "l1.txt").read_text(encoding="utf-8") == "valid"

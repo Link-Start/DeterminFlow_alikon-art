@@ -207,19 +207,19 @@ export default function RoundtablePage() {
     : null;
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] flex">
+    <div className="flex h-full min-h-0 min-w-0 overflow-hidden">
       {/* ========== 左侧主区域 ========== */}
       <div className="flex-1 flex flex-col min-w-0" role="main" aria-label="圆桌会议主区域">
         {/* 顶部状态栏 */}
         {activeSession && (
-          <div className="px-6 py-3 border-b border-slate-700/50 bg-slate-800/80 flex items-center gap-4" role="banner" aria-label="会议状态栏">
-            <Users size={18} className="text-cyan-500" aria-hidden="true" />
-            <span className="text-sm font-medium text-slate-200 truncate flex-1">
+          <div className="px-6 py-3 border-b border-border/50 bg-secondary/80 flex items-center gap-4" role="banner" aria-label="会议状态栏">
+            <Users size={18} className="text-info" aria-hidden="true" />
+            <span className="text-sm font-medium text-foreground truncate flex-1">
               {activeSession.topic}
             </span>
             <StrategyBadge strategy={strategy} />
             <SessionStatusBadge status={activeSession.status} />
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-muted-foreground">
               轮次 {currentRound}/{activeSession.max_rounds}
             </span>
           </div>
@@ -227,16 +227,16 @@ export default function RoundtablePage() {
 
         {/* Moderator 决策横幅 */}
         {moderatorDecision && isDiscussing && (
-          <div className="px-6 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-3" role="status" aria-live="polite" aria-label="主持人决策">
-            <Brain size={16} className="text-amber-400" aria-hidden="true" />
-            <span className="text-xs text-amber-300">
+          <div className="px-6 py-2 bg-warning/10 border-b border-warning/20 flex items-center gap-3" role="status" aria-live="polite" aria-label="主持人决策">
+            <Brain size={16} className="text-warning" aria-hidden="true" />
+            <span className="text-xs text-warning">
               {moderatorDecision.action === "select_speaker" && `主持人选择了下一位发言者`}
               {moderatorDecision.action === "new_round" && "主持人决定开始新一轮讨论"}
               {moderatorDecision.action === "summarize" && "主持人正在生成阶段摘要..."}
               {moderatorDecision.action === "conclude" && "主持人决定结束讨论"}
             </span>
             {moderatorDecision.reason && (
-              <span className="text-xs text-amber-400/60 truncate flex-1">
+              <span className="text-xs text-warning/60 truncate flex-1">
                 ({moderatorDecision.reason})
               </span>
             )}
@@ -245,13 +245,13 @@ export default function RoundtablePage() {
 
         {/* 思考中状态 */}
         {thinkingSeatId && isDiscussing && (
-          <div className="px-6 py-2 bg-amber-500/5 border-b border-amber-500/10 flex items-center gap-3" role="status" aria-live="polite" aria-label={`${thinkingSeatName} 正在思考决策`}>
+          <div className="px-6 py-2 bg-warning/5 border-b border-warning/10 flex items-center gap-3" role="status" aria-live="polite" aria-label={`${thinkingSeatName} 正在思考决策`}>
             <div className="flex items-center gap-1.5" aria-hidden="true">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse motion-reduce:animate-none" />
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse motion-reduce:animate-none" style={{ animationDelay: "0.3s" }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse motion-reduce:animate-none" style={{ animationDelay: "0.6s" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse motion-reduce:animate-none" />
+              <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse motion-reduce:animate-none" style={{ animationDelay: "0.3s" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse motion-reduce:animate-none" style={{ animationDelay: "0.6s" }} />
             </div>
-            <span className="text-xs text-amber-300">
+            <span className="text-xs text-warning">
               {thinkingSeatName} 正在思考决策...
             </span>
           </div>
@@ -260,20 +260,20 @@ export default function RoundtablePage() {
         {/* 讨论区 */}
         <ScrollArea className="flex-1 px-6 py-4">
           {detailLoading && !activeSession && !showCreate && (
-            <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-slate-500" role="status" aria-live="polite">
-              <Loader2 size={24} className="animate-spin text-indigo-400 motion-reduce:animate-none" aria-hidden="true" />
+            <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-muted-foreground" role="status" aria-live="polite">
+              <Loader2 size={24} className="animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
               <p className="text-sm">正在加载圆桌详情</p>
             </div>
           )}
 
           {detailError && !activeSession && !showCreate && (
             <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-center" role="alert">
-              <AlertTriangle size={24} className="text-red-400" aria-hidden="true" />
-              <p className="text-sm text-red-300">{detailError}</p>
+              <AlertTriangle size={24} className="text-destructive" aria-hidden="true" />
+              <p className="text-sm text-destructive">{detailError}</p>
               <button
                 type="button"
                 onClick={retryDetail}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 text-sm text-red-300 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 text-sm text-destructive transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50"
               >
                 <RefreshCw size={14} aria-hidden="true" />
                 重试
@@ -321,19 +321,19 @@ export default function RoundtablePage() {
           {activeSession && (
             <div>
               {detailLoading && (
-                <div className="mb-4 flex items-center gap-2 rounded-lg border border-indigo-500/15 bg-indigo-500/5 px-3 py-2 text-xs text-indigo-300" role="status" aria-live="polite">
+                <div className="mb-4 flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-primary" role="status" aria-live="polite">
                   <Loader2 size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
                   正在同步最新圆桌记录
                 </div>
               )}
               {detailError && (
-                <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-300" role="alert">
+                <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive" role="alert">
                   <AlertTriangle size={14} aria-hidden="true" />
                   <span className="flex-1">{detailError}</span>
                   <button
                     type="button"
                     onClick={retryDetail}
-                    className="inline-flex min-h-8 items-center gap-1 rounded px-2 transition-colors hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                    className="inline-flex min-h-8 items-center gap-1 rounded px-2 transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50"
                   >
                     <RefreshCw size={12} aria-hidden="true" />
                     重试
@@ -341,13 +341,13 @@ export default function RoundtablePage() {
                 </div>
               )}
               {!connected && (
-                <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-300" role="status" aria-live="polite">
+                <div className="mb-4 flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/5 px-3 py-2 text-xs text-warning" role="status" aria-live="polite">
                   <AlertTriangle size={14} aria-hidden="true" />
                   实时连接已断开，正在重连并恢复最新记录
                 </div>
               )}
               {transcript.length === 0 && !isDiscussing && activeSession.status === "waiting" && (
-                <div className="text-center text-slate-500 py-16" role="status">
+                <div className="text-center text-muted-foreground py-16" role="status">
                   <Users size={48} className="mx-auto mb-4 opacity-30" aria-hidden="true" />
                   <p>会议已创建，点击"开始讨论"启动圆桌会议</p>
                 </div>
@@ -367,29 +367,29 @@ export default function RoundtablePage() {
                 <div className="mb-4" role="log" aria-live="polite" aria-label={`${streamingSeat.speakerName} 正在发言`}>
                   {isStreamingNewRound() && transcript.length > 0 && (
                     <div className="flex items-center gap-3 my-4" aria-hidden="true">
-                      <div className="flex-1 h-px bg-slate-600" />
-                      <span className="text-xs text-slate-500 font-medium px-2">
+                      <div className="flex-1 h-px bg-muted-foreground" />
+                      <span className="text-xs text-muted-foreground font-medium px-2">
                         第 {streamingSeat.round} 轮
                       </span>
-                      <div className="flex-1 h-px bg-slate-600" />
+                      <div className="flex-1 h-px bg-muted-foreground" />
                     </div>
                   )}
-                  <div className={`bg-slate-800/80 border border-slate-700 rounded-lg p-4 ${getSeatColor(seatIndexMap[streamingSeat.seatId] ?? 0).bg} ${getSeatColor(seatIndexMap[streamingSeat.seatId] ?? 0).border}`} role="article" aria-label={`${streamingSeat.speakerName} 第${streamingSeat.round}轮发言`}>
+                  <div className={`bg-secondary/80 border border-border rounded-lg p-4 ${getSeatColor(seatIndexMap[streamingSeat.seatId] ?? 0).bg} ${getSeatColor(seatIndexMap[streamingSeat.seatId] ?? 0).border}`} role="article" aria-label={`${streamingSeat.speakerName} 第${streamingSeat.round}轮发言`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`w-2 h-2 rounded-full ${getSeatColor(seatIndexMap[streamingSeat.seatId] ?? 0).dot}`} aria-hidden="true" />
                       <span className={`text-sm font-semibold ${getSeatColor(seatIndexMap[streamingSeat.seatId] ?? 0).text}`}>
                         {streamingSeat.speakerName}
                       </span>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-muted-foreground">
                         R{streamingSeat.round}
                       </span>
                       <span className="sr-only">发言中</span>
                     </div>
-                    <div className="prose prose-invert prose-sm max-w-none text-slate-300">
+                    <div className="prose prose-invert prose-sm max-w-none text-foreground">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {streamingSeat.content}
                       </ReactMarkdown>
-                      <span className="inline-block w-2 h-4 bg-purple-500 animate-pulse motion-reduce:animate-none ml-1" />
+                      <span className="inline-block w-2 h-4 bg-primary animate-pulse motion-reduce:animate-none ml-1" />
                     </div>
                   </div>
                 </div>
@@ -402,10 +402,10 @@ export default function RoundtablePage() {
 
         {/* 底部控制栏 */}
         {activeSession && (
-          <div className="border-t border-slate-700/50 bg-slate-800/80">
+          <div className="border-t border-border/50 bg-secondary/80">
             {/* Phase 3: 讨论中 - 插话输入框 */}
             {(isDiscussing || isPaused) && (
-              <div className="px-6 py-2 flex items-center gap-2 border-b border-slate-700/30">
+              <div className="px-6 py-2 flex items-center gap-2 border-b border-border/30">
                 <label htmlFor="inject-input" className="sr-only">插话输入</label>
                 <input
                   id="inject-input"
@@ -421,14 +421,14 @@ export default function RoundtablePage() {
                   }}
                   placeholder="插话... (输入 @角色名 可点名发言)"
                   aria-label="插话输入，输入 @角色名 可点名发言"
-                  className="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 min-h-[44px] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px] disabled:cursor-not-allowed disabled:opacity-60"
                 />
                   <button
                     type="button"
                     onClick={() => void submitIntervention()}
                     disabled={!injectContent.trim() || interventionPending}
                     aria-label="发送插话"
-                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500 hover:bg-indigo-500/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-indigo-500/30 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {interventionPending ? (
                       <Loader2 size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -447,7 +447,7 @@ export default function RoundtablePage() {
                   onClick={() => handleStart(activeSession.session_id)}
                   disabled={actionPending}
                   aria-label="开始讨论"
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-emerald-500/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success/20 text-success hover:bg-success/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-success/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {pendingAction === "start" ? (
                     <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -460,15 +460,15 @@ export default function RoundtablePage() {
 
               {isDiscussing && (
                 <>
-                  <div className="flex items-center gap-2 text-sm text-emerald-500" role="status" aria-label="讨论进行中">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+                  <div className="flex items-center gap-2 text-sm text-success" role="status" aria-label="讨论进行中">
+                    <span className="w-2 h-2 rounded-full bg-success animate-pulse motion-reduce:animate-none" aria-hidden="true" />
                     讨论进行中
                   </div>
                   <button
                     type="button"
                     onClick={() => handlePause(activeSession.session_id)}
                     disabled={actionPending}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-amber-500/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/20 text-warning hover:bg-warning/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-warning/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="暂停讨论"
                   >
                     {pendingAction === "pause" ? (
@@ -483,7 +483,7 @@ export default function RoundtablePage() {
 
               {isPaused && (
                 <>
-                  <div className="flex items-center gap-2 text-sm text-amber-400" role="status" aria-label="讨论已暂停">
+                  <div className="flex items-center gap-2 text-sm text-warning" role="status" aria-label="讨论已暂停">
                     <Pause size={14} aria-hidden="true" />
                     已暂停
                   </div>
@@ -491,7 +491,7 @@ export default function RoundtablePage() {
                     type="button"
                     onClick={() => handleResume(activeSession.session_id)}
                     disabled={actionPending}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-emerald-500/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-success/20 text-success hover:bg-success/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-success/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="恢复讨论"
                   >
                     {pendingAction === "resume" ? (
@@ -512,7 +512,7 @@ export default function RoundtablePage() {
                       type="button"
                       onClick={() => setShowAddSeat(true)}
                       disabled={actionPending}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-700/50 text-slate-400 hover:text-slate-200 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-indigo-500/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="添加席位"
                     >
                       <UserPlus size={14} aria-hidden="true" />
@@ -528,7 +528,7 @@ export default function RoundtablePage() {
                         disabled={pendingAction === "addSeat"}
                         placeholder="角色名"
                         aria-label="新席位角色名"
-                        className="w-20 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+                        className="w-20 px-2 py-1 rounded bg-secondary border border-border text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
                       />
                       <label htmlFor="new-seat-prompt" className="sr-only">角色 Prompt</label>
                       <input
@@ -539,7 +539,7 @@ export default function RoundtablePage() {
                         disabled={pendingAction === "addSeat"}
                         placeholder="角色 Prompt"
                         aria-label="新席位系统提示词"
-                        className="w-32 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+                        className="w-32 px-2 py-1 rounded bg-secondary border border-border text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
                       />
                       <button
                         type="button"
@@ -558,7 +558,7 @@ export default function RoundtablePage() {
                         }}
                         disabled={!newSeatName.trim() || actionPending}
                         aria-label="确认添加席位"
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded bg-success/20 text-success hover:bg-success/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-success/30 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {pendingAction === "addSeat" ? (
                           <Loader2 size={12} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -571,7 +571,7 @@ export default function RoundtablePage() {
                         onClick={() => { setShowAddSeat(false); setNewSeatName(""); setNewSeatPrompt(""); }}
                         disabled={actionPending}
                         aria-label="取消添加席位"
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-slate-500 hover:text-slate-300 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-indigo-500/30 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <X size={12} aria-hidden="true" />
                       </button>
@@ -584,7 +584,7 @@ export default function RoundtablePage() {
                     onClick={() => handleStop(activeSession.session_id)}
                     disabled={actionPending}
                     aria-label="终止讨论"
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-red-500/30 ml-auto cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-destructive/30 ml-auto cursor-pointer min-h-[44px] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {pendingAction === "stop" ? (
                       <Loader2 size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -598,7 +598,7 @@ export default function RoundtablePage() {
 
               {activeSession.status === "ended" && (
                 <>
-                  <span className="text-sm text-slate-400" role="status">会议已结束</span>
+                  <span className="text-sm text-muted-foreground" role="status">会议已结束</span>
 
                   <button
                     type="button"
@@ -608,7 +608,7 @@ export default function RoundtablePage() {
                       refreshList();
                     }}
                     aria-label="新建圆桌会议"
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500/20 text-indigo-500 hover:bg-indigo-500/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-indigo-500/30 ml-auto cursor-pointer min-h-[44px]"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary/30 ml-auto cursor-pointer min-h-[44px]"
                   >
                     <Plus size={16} aria-hidden="true" />
                     新建圆桌
@@ -621,9 +621,9 @@ export default function RoundtablePage() {
       </div>
 
       {/* ========== 右侧面板 ========== */}
-      <div className="w-72 border-l border-slate-700/50 bg-slate-800/80 flex flex-col" role="complementary" aria-label="席位信息面板">
-        <div className="px-4 py-3 border-b border-slate-700/50">
-          <h3 className="text-sm font-semibold text-slate-300">席位状态</h3>
+      <div className="w-72 border-l border-border/50 bg-secondary/80 flex flex-col" role="complementary" aria-label="席位信息面板">
+        <div className="px-4 py-3 border-b border-border/50">
+          <h3 className="text-sm font-semibold text-foreground">席位状态</h3>
         </div>
         <ScrollArea className="flex-1 px-4 py-3">
           {seats.length > 0 ? (
@@ -649,14 +649,14 @@ export default function RoundtablePage() {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-500 text-center py-8">
+            <p className="text-xs text-muted-foreground text-center py-8">
               暂无席位信息
             </p>
           )}
 
           {/* 会议信息摘要 */}
           {activeSession && (
-            <div className="mt-6 pt-4 border-t border-slate-700/50 space-y-2">
+            <div className="mt-6 pt-4 border-t border-border/50 space-y-2">
               <InfoRow label="会话 ID" value={activeSession.session_id} />
               <InfoRow label="状态" value={activeSession.status} />
               <InfoRow label="策略" value={strategy === "moderator_decides" ? "智能主持" : "轮询"} />
@@ -668,16 +668,16 @@ export default function RoundtablePage() {
 
           {/* Phase 2: 阶段摘要 */}
           {roundSummaries.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-700/50">
+            <div className="mt-4 pt-4 border-t border-border/50">
               <div className="flex items-center gap-2 mb-2">
-                <FileText size={14} className="text-amber-400" aria-hidden="true" />
-                <h4 className="text-xs font-semibold text-amber-400">阶段摘要</h4>
+                <FileText size={14} className="text-warning" aria-hidden="true" />
+                <h4 className="text-xs font-semibold text-warning">阶段摘要</h4>
               </div>
               <div className="space-y-2">
                 {roundSummaries.map((s, i) => (
-                  <div key={i} className="text-xs text-slate-400 bg-slate-700/50 rounded p-2">
-                    <span className="text-amber-400 font-medium">R{s.round}</span>
-                    <span className="text-slate-500 ml-1">({s.source})</span>
+                  <div key={i} className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                    <span className="text-warning font-medium">R{s.round}</span>
+                    <span className="text-muted-foreground ml-1">({s.source})</span>
                     <p className="mt-1 line-clamp-3">{s.content}</p>
                   </div>
                 ))}
@@ -687,62 +687,62 @@ export default function RoundtablePage() {
 
           {/* Phase 2: 会议结论 */}
           {conclusion && (
-            <div className="mt-4 pt-4 border-t border-slate-700/50">
+            <div className="mt-4 pt-4 border-t border-border/50">
               <div className="flex items-center gap-2 mb-2">
-                <CircleCheck size={14} className="text-emerald-500" aria-hidden="true" />
-                <h4 className="text-xs font-semibold text-emerald-500">会议结论</h4>
+                <CircleCheck size={14} className="text-success" aria-hidden="true" />
+                <h4 className="text-xs font-semibold text-success">会议结论</h4>
               </div>
-              <div className="text-xs text-slate-300 bg-emerald-500/5 border border-emerald-500/20 rounded p-2">
+              <div className="text-xs text-foreground bg-success/5 border border-success/20 rounded p-2">
                 <p className="line-clamp-6">{conclusion.content}</p>
-                <span className="text-slate-500 text-xs mt-1 block">({conclusion.source})</span>
+                <span className="text-muted-foreground text-xs mt-1 block">({conclusion.source})</span>
               </div>
             </div>
           )}
 
           {/* Phase 3: 结构化结论详情 */}
           {structuredConclusion && (
-            <div className="mt-4 pt-4 border-t border-slate-700/50 space-y-3">
-              <h4 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <BarChart3 size={14} className="text-slate-400" aria-hidden="true" />
+            <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+              <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <BarChart3 size={14} className="text-muted-foreground" aria-hidden="true" />
                 结构化结论
               </h4>
               {structuredConclusion.consensus?.length > 0 && (
                 <div>
-                  <span className="text-xs text-emerald-500 font-semibold block mb-1 flex items-center gap-1">
+                  <span className="text-xs text-success font-semibold block mb-1 flex items-center gap-1">
                     <CircleCheck size={12} aria-hidden="true" /> 共识
                   </span>
                   {structuredConclusion.consensus.map((c, i) => (
-                    <p key={i} className="text-xs text-slate-400 pl-2 bg-emerald-500/5 rounded mb-1 py-0.5">{c}</p>
+                    <p key={i} className="text-xs text-muted-foreground pl-2 bg-success/5 rounded mb-1 py-0.5">{c}</p>
                   ))}
                 </div>
               )}
               {structuredConclusion.disagreements?.length > 0 && (
                 <div>
-                  <span className="text-xs text-amber-400 font-semibold block mb-1 flex items-center gap-1">
+                  <span className="text-xs text-warning font-semibold block mb-1 flex items-center gap-1">
                     <AlertTriangle size={12} aria-hidden="true" /> 分歧
                   </span>
                   {structuredConclusion.disagreements.map((d, i) => (
-                    <p key={i} className="text-xs text-slate-400 pl-2 bg-amber-400/5 rounded mb-1 py-0.5">{d}</p>
+                    <p key={i} className="text-xs text-muted-foreground pl-2 bg-warning/5 rounded mb-1 py-0.5">{d}</p>
                   ))}
                 </div>
               )}
               {structuredConclusion.pending_verification?.length > 0 && (
                 <div>
-                  <span className="text-xs text-cyan-500 font-semibold block mb-1 flex items-center gap-1">
+                  <span className="text-xs text-info font-semibold block mb-1 flex items-center gap-1">
                     <Search size={12} aria-hidden="true" /> 待验证
                   </span>
                   {structuredConclusion.pending_verification.map((v, i) => (
-                    <p key={i} className="text-xs text-slate-400 pl-2 bg-cyan-500/5 rounded mb-1 py-0.5">{v}</p>
+                    <p key={i} className="text-xs text-muted-foreground pl-2 bg-info/5 rounded mb-1 py-0.5">{v}</p>
                   ))}
                 </div>
               )}
               {structuredConclusion.action_items?.length > 0 && (
                 <div>
-                  <span className="text-xs text-purple-500 font-semibold block mb-1 flex items-center gap-1">
+                  <span className="text-xs text-primary font-semibold block mb-1 flex items-center gap-1">
                     <Rocket size={12} aria-hidden="true" /> 行动项
                   </span>
                   {structuredConclusion.action_items.map((a, i) => (
-                    <p key={i} className="text-xs text-slate-400 pl-2 bg-purple-500/5 rounded mb-1 py-0.5">{a}</p>
+                    <p key={i} className="text-xs text-muted-foreground pl-2 bg-primary/5 rounded mb-1 py-0.5">{a}</p>
                   ))}
                 </div>
               )}
@@ -806,15 +806,15 @@ function CreateForm({
   return (
     <section className="max-w-2xl mx-auto py-4" role="dialog" aria-modal="false" aria-label="创建圆桌会议">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-slate-200">创建圆桌会议</h2>
-        <button type="button" onClick={onCancel} className="text-slate-500 hover:text-slate-300 cursor-pointer" aria-label="关闭创建表单">
+        <h2 className="text-lg font-semibold text-foreground">创建圆桌会议</h2>
+        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground cursor-pointer" aria-label="关闭创建表单">
           <X size={20} aria-hidden="true" />
         </button>
       </div>
 
       {/* 快速模板 */}
       <fieldset className="mb-6">
-        <legend className="text-xs text-slate-400 mb-2">快速模板</legend>
+        <legend className="text-xs text-muted-foreground mb-2">快速模板</legend>
         <div className="flex gap-2 flex-wrap">
           {ROUNDTABLE_TEMPLATES.map((tpl) => (
             <button
@@ -822,9 +822,9 @@ function CreateForm({
               key={tpl.name}
               onClick={() => applyTemplate(tpl)}
               aria-label={`应用 ${tpl.name} 模板`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 border border-slate-700 text-xs text-slate-300 hover:border-indigo-500/50 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-indigo-500 focus-visible:outline-offset-2"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border text-xs text-foreground hover:border-primary/50 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
             >
-              {tpl.strategy === "moderator_decides" ? <Brain size={12} className="text-amber-400" aria-hidden="true" /> : <Zap size={12} className="text-cyan-500" aria-hidden="true" />}
+              {tpl.strategy === "moderator_decides" ? <Brain size={12} className="text-warning" aria-hidden="true" /> : <Zap size={12} className="text-info" aria-hidden="true" />}
               {tpl.name}
             </button>
           ))}
@@ -833,7 +833,7 @@ function CreateForm({
 
       {/* 主题 */}
       <div className="mb-4">
-        <label htmlFor="rt-topic" className="text-xs text-slate-400 mb-1.5 block">讨论主题 *</label>
+        <label htmlFor="rt-topic" className="text-xs text-muted-foreground mb-1.5 block">讨论主题 *</label>
         <input
           id="rt-topic"
           type="text"
@@ -841,27 +841,27 @@ function CreateForm({
           onChange={(e) => setTopic(e.target.value)}
           placeholder="例如：如何优化系统架构"
           aria-required="true"
-          className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+          className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
         />
       </div>
 
       {/* 调度策略 + 轮次 */}
       <div className="mb-6 flex gap-4">
         <div className="flex-1">
-          <span className="text-xs text-slate-400 mb-1.5 block" id="strategy-label">调度策略</span>
+          <span className="text-xs text-muted-foreground mb-1.5 block" id="strategy-label">调度策略</span>
           <div className="flex gap-2" role="radiogroup" aria-labelledby="strategy-label">
             <button
               type="button"
               onClick={() => setSelectedStrategy("round_robin")}
               role="radio"
               aria-checked={selectedStrategy === "round_robin"}
-              className={`flex-1 px-3 py-2 rounded-lg text-xs border transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 min-h-[44px] ${
+              className={`flex-1 px-3 py-2 rounded-lg text-xs border transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 min-h-[44px] ${
                 selectedStrategy === "round_robin"
-                  ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-500"
-                  : "border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600"
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-border bg-secondary text-muted-foreground hover:border-border"
               }`}
             >
-              <Zap size={12} className="inline mr-1 text-cyan-500" aria-hidden="true" />
+              <Zap size={12} className="inline mr-1 text-info" aria-hidden="true" />
               固定轮询
             </button>
             <button
@@ -869,24 +869,24 @@ function CreateForm({
               onClick={() => setSelectedStrategy("moderator_decides")}
               role="radio"
               aria-checked={selectedStrategy === "moderator_decides"}
-              className={`flex-1 px-3 py-2 rounded-lg text-xs border transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500/30 min-h-[44px] ${
+              className={`flex-1 px-3 py-2 rounded-lg text-xs border transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-warning/30 min-h-[44px] ${
                 selectedStrategy === "moderator_decides"
-                  ? "border-amber-400/50 bg-amber-400/10 text-amber-400"
-                  : "border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600"
+                  ? "border-warning/50 bg-warning/10 text-warning"
+                  : "border-border bg-secondary text-muted-foreground hover:border-border"
               }`}
             >
-              <Brain size={12} className="inline mr-1 text-amber-400" aria-hidden="true" />
+              <Brain size={12} className="inline mr-1 text-warning" aria-hidden="true" />
               智能主持
             </button>
           </div>
           {selectedStrategy === "moderator_decides" && (
-            <p className="text-xs text-amber-400/60 mt-1">
+            <p className="text-xs text-warning/60 mt-1">
               Moderator 将由 AI 动态决定发言顺序和讨论终止
             </p>
           )}
         </div>
         <div>
-          <label htmlFor="rt-max-rounds" className="text-xs text-slate-400 mb-1.5 block">讨论轮次</label>
+          <label htmlFor="rt-max-rounds" className="text-xs text-muted-foreground mb-1.5 block">讨论轮次</label>
           <input
             id="rt-max-rounds"
             type="number"
@@ -894,29 +894,29 @@ function CreateForm({
             onChange={(e) => setMaxRounds(Math.max(1, Math.min(20, Number(e.target.value))))}
             min={1}
             max={20}
-            className="w-20 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+            className="w-20 px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
           />
         </div>
       </div>
 
       {/* 上下文压缩配置 */}
       <fieldset className="mb-6">
-        <legend className="text-xs text-slate-400 mb-2">上下文压缩</legend>
-        <label className="flex items-center gap-2 text-xs text-slate-400 mb-2 cursor-pointer min-h-[44px]">
+        <legend className="text-xs text-muted-foreground mb-2">上下文压缩</legend>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2 cursor-pointer min-h-[44px]">
           <input
             type="checkbox"
             role="switch"
             aria-checked={compressorEnabled}
             checked={compressorEnabled}
             onChange={(e) => setCompressorEnabled(e.target.checked)}
-            className="w-4 h-4 rounded accent-indigo-500 cursor-pointer"
+            className="w-4 h-4 rounded accent-primary cursor-pointer"
           />
           启用上下文压缩（长讨论推荐）
         </label>
         {compressorEnabled && (
           <div className="flex gap-4 mt-2 pl-5">
             <div>
-              <label htmlFor="rt-compressor-window" className="text-xs text-slate-500 block mb-1">窗口大小</label>
+              <label htmlFor="rt-compressor-window" className="text-xs text-muted-foreground block mb-1">窗口大小</label>
               <input
                 id="rt-compressor-window"
                 type="number"
@@ -924,11 +924,11 @@ function CreateForm({
                 onChange={(e) => setCompressorWindow(Math.max(5, Math.min(100, Number(e.target.value))))}
                 min={5}
                 max={100}
-                className="w-16 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs text-slate-400 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+                className="w-16 px-2 py-1 rounded bg-secondary border border-border text-xs text-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
               />
             </div>
             <div>
-              <label htmlFor="rt-compressor-interval" className="text-xs text-slate-500 block mb-1">摘要间隔轮次</label>
+              <label htmlFor="rt-compressor-interval" className="text-xs text-muted-foreground block mb-1">摘要间隔轮次</label>
               <input
                 id="rt-compressor-interval"
                 type="number"
@@ -936,7 +936,7 @@ function CreateForm({
                 onChange={(e) => setCompressorInterval(Math.max(0, Math.min(10, Number(e.target.value))))}
                 min={0}
                 max={10}
-                className="w-16 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs text-slate-400 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+                className="w-16 px-2 py-1 rounded bg-secondary border border-border text-xs text-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
               />
             </div>
           </div>
@@ -945,13 +945,13 @@ function CreateForm({
 
       {/* 席位列表 */}
       <fieldset className="mb-6">
-        <legend className="text-xs text-slate-400 mb-3">席位配置（{seatForms.length}/6）</legend>
+        <legend className="text-xs text-muted-foreground mb-3">席位配置（{seatForms.length}/6）</legend>
         <div className="flex items-center justify-end mb-3">
           {seatForms.length < 6 && (
             <button
               type="button"
               onClick={addSeat}
-              className="text-xs text-cyan-500 hover:text-cyan-500/80 flex items-center gap-1 cursor-pointer focus-visible:ring-2 focus-visible:ring-cyan-500/30 min-h-[44px]"
+              className="text-xs text-info hover:text-info/80 flex items-center gap-1 cursor-pointer focus-visible:ring-2 focus-visible:ring-info/30 min-h-[44px]"
               aria-label="添加新席位"
             >
               <Plus size={12} aria-hidden="true" /> 添加席位
@@ -960,7 +960,7 @@ function CreateForm({
         </div>
         <div className="space-y-3">
           {seatForms.map((seat, i) => (
-            <div key={i} className="bg-slate-800/80 border border-slate-700 rounded-lg p-3 space-y-2" role="group" aria-label={`席位 ${i + 1}: ${seat.role_name || "未命名"}`}>
+            <div key={i} className="bg-secondary/80 border border-border rounded-lg p-3 space-y-2" role="group" aria-label={`席位 ${i + 1}: ${seat.role_name || "未命名"}`}>
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${getSeatColor(i).dot}`} aria-hidden="true" />
                 <label htmlFor={`seat-name-${i}`} className="sr-only">角色名称 {i + 1}</label>
@@ -971,16 +971,16 @@ function CreateForm({
                   onChange={(e) => updateSeat(i, "role_name", e.target.value)}
                   placeholder={`角色名称 ${i + 1}`}
                   aria-required="true"
-                  className="flex-1 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+                  className="flex-1 px-2 py-1 rounded bg-secondary border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
                 />
-                <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer min-h-[44px]">
+                <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer min-h-[44px]">
                   <input
                     type="checkbox"
                     role="switch"
                     aria-checked={seat.is_moderator}
                     checked={seat.is_moderator}
                     onChange={(e) => updateSeat(i, "is_moderator", e.target.checked)}
-                    className="w-4 h-4 rounded accent-indigo-500 cursor-pointer"
+                    className="w-4 h-4 rounded accent-primary cursor-pointer"
                   />
                   主持
                 </label>
@@ -993,7 +993,7 @@ function CreateForm({
                   step={0.1}
                   min={0}
                   max={2}
-                  className="w-16 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs text-slate-400 focus:outline-none focus:border-indigo-500/50 min-h-[44px]"
+                  className="w-16 px-2 py-1 rounded bg-secondary border border-border text-xs text-muted-foreground focus:outline-none focus:border-primary/50 min-h-[44px]"
                   title="Temperature"
                 />
                 {seatForms.length > 2 && (
@@ -1001,7 +1001,7 @@ function CreateForm({
                     type="button"
                     onClick={() => removeSeat(i)}
                     aria-label={`删除席位: ${seat.role_name || `角色 ${i + 1}`}`}
-                    className="text-slate-600 hover:text-red-400 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="text-muted-foreground hover:text-destructive cursor-pointer focus-visible:ring-2 focus-visible:ring-destructive/30 min-h-[44px] min-w-[44px] flex items-center justify-center"
                   >
                     <X size={14} aria-hidden="true" />
                   </button>
@@ -1014,7 +1014,7 @@ function CreateForm({
                 onChange={(e) => updateSeat(i, "system_prompt", e.target.value)}
                 placeholder="角色的 System Prompt（留空将自动生成）"
                 rows={2}
-                className="w-full px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 resize-none min-h-[44px]"
+                className="w-full px-2 py-1 rounded bg-secondary border border-border text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary/50 resize-none min-h-[44px]"
               />
             </div>
           ))}
@@ -1028,7 +1028,7 @@ function CreateForm({
           onClick={onSubmit}
           disabled={creating || !topic.trim() || seatForms.some((s) => !s.role_name.trim())}
           aria-label={creating ? "正在创建圆桌会议" : "创建圆桌会议"}
-          className="flex-1 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[44px]"
+          className="flex-1 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[44px]"
         >
           {creating ? "创建中..." : "创建圆桌会议"}
         </button>
@@ -1036,7 +1036,7 @@ function CreateForm({
           type="button"
           onClick={onCancel}
           aria-label="取消创建"
-          className="px-6 py-2.5 rounded-lg bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer min-h-[44px] focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+          className="px-6 py-2.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary/30"
         >
           取消
         </button>

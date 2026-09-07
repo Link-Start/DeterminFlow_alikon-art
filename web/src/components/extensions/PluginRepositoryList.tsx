@@ -87,6 +87,9 @@ export function PluginRepositoryList({
                             : <ShieldAlert aria-hidden="true" />}
                           {source.builtin ? "内置官方" : "第三方"}
                         </Badge>
+                        {source.registry ? (
+                          <Badge variant="outline">签名加速 · {source.registry.endpoints.length}</Badge>
+                        ) : null}
                       </div>
                       <p className="mt-1 truncate font-mono text-xs text-muted-foreground" title={source.url}>
                         {source.url}
@@ -102,7 +105,7 @@ export function PluginRepositoryList({
                       <Badge variant="secondary">已同步</Badge>
                     )}
                     <p className={`mt-1 line-clamp-1 text-xs ${source.error ? "text-destructive" : "text-muted-foreground"}`} title={source.error || source.resolved_commit}>
-                      {source.error || `commit ${shortCommit(source.resolved_commit)}`}
+                      {source.error || `${source.transport === "registry" ? "签名加速" : "Git"} · commit ${shortCommit(source.resolved_commit)}`}
                     </p>
                   </div>
 

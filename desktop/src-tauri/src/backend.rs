@@ -12,9 +12,14 @@ use tauri::{AppHandle, Manager};
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
+#[cfg(target_os = "macos")]
+use std::os::unix::process::CommandExt;
+
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+#[cfg(target_os = "macos")]
+const PROCESS_GROUP_STOP_TIMEOUT: Duration = Duration::from_secs(3);
 
 pub struct BackendState {
     child: Mutex<Option<Child>>,
@@ -75,8 +80,56 @@ fn terminate_child(child: &mut Child) {
             .stderr(Stdio::null())
             .status();
     }
-    let _ = child.kill();
+    #[cfg(target_os = "macos")]
+    terminate_macos_process_group(child);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn terminate_macos_process_group(child: &mut Child) {
+    let Ok(process_group) = i32::try_from(child.id()) else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return;
+    };
+
+    send_macos_process_group_signal(process_group, libc::SIGTERM);
+    let deadline = Instant::now() + PROCESS_GROUP_STOP_TIMEOUT;
+    while macos_process_group_is_alive(process_group) && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(50));
+    }
+    if macos_process_group_is_alive(process_group) {
+        send_macos_process_group_signal(process_group, libc::SIGKILL);
+    }
     let _ = child.wait();
+}
+
+#[cfg(target_os = "macos")]
+fn send_macos_process_group_signal(process_group: i32, signal: i32) {
+    // The backend is launched as its own process-group leader. A negative PID
+    // targets every process in that group, including Workflow executors.
+    unsafe {
+        libc::kill(-process_group, signal);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_process_group_is_alive(process_group: i32) -> bool {
+    let result = unsafe { libc::kill(-process_group, 0) };
+    result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+}
+
+#[cfg(all(test, target_os = "macos"))]
+fn pid_is_alive(pid: u32) -> bool {
+    let Ok(pid) = i32::try_from(pid) else {
+        return false;
+    };
+    let result = unsafe { libc::kill(pid, 0) };
+    result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
 }
 
 pub fn launch(app: &AppHandle) -> Result<LaunchedBackend, String> {
@@ -123,6 +176,9 @@ pub fn launch(app: &AppHandle) -> Result<LaunchedBackend, String> {
 
     #[cfg(target_os = "windows")]
     command.creation_flags(CREATE_NO_WINDOW);
+
+    #[cfg(target_os = "macos")]
+    command.process_group(0);
 
     let child = command
         .spawn()
@@ -237,13 +293,40 @@ mod tests {
         }
 
         #[cfg(not(target_os = "windows"))]
-        Command::new("sh")
-            .args(["-c", "sleep 30"])
+        {
+            let mut command = Command::new("sh");
+            command
+                .args(["-c", "sleep 30"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            #[cfg(target_os = "macos")]
+            command.process_group(0);
+            command.spawn().expect("test child should start")
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn spawn_process_group_with_child() -> (Child, u32) {
+        use std::io::{BufRead, BufReader};
+        let mut command = Command::new("sh");
+        command
+            .args(["-c", "sleep 30 & echo $!; wait"])
+            .process_group(0)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("test child should start")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        let mut child = command.spawn().expect("process group should start");
+        let stdout = child.stdout.take().expect("child stdout should be piped");
+        let mut line = String::new();
+        BufReader::new(stdout)
+            .read_line(&mut line)
+            .expect("grandchild pid should be reported");
+        let grandchild = line
+            .trim()
+            .parse::<u32>()
+            .expect("grandchild pid should be numeric");
+        (child, grandchild)
     }
 
     #[test]
@@ -282,5 +365,32 @@ mod tests {
             .expect_err("second backend should be rejected");
         assert!(error.contains("已经启动"));
         assert!(state.stop());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn stops_macos_backend_process_group_including_children() {
+        let state = BackendState::new();
+        let (child, grandchild) = spawn_process_group_with_child();
+        let backend_pid = child.id();
+        assert!(pid_is_alive(grandchild), "grandchild should start");
+        state
+            .track(child)
+            .expect("backend process group should be tracked");
+
+        assert!(state.stop());
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while pid_is_alive(grandchild) && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(25));
+        }
+        assert!(
+            !pid_is_alive(backend_pid),
+            "backend process group leader should exit"
+        );
+        assert!(
+            !pid_is_alive(grandchild),
+            "backend process group child should exit"
+        );
+        assert!(!state.stop());
     }
 }

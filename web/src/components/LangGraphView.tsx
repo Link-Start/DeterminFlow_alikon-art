@@ -9,6 +9,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { GraphStructure } from "../types";
+import { BRAND_COLORS } from "../lib/brand-colors";
 
 interface LangGraphViewProps {
   graph: GraphStructure;
@@ -19,12 +20,12 @@ interface LangGraphViewProps {
 function LLMNode({ data }: NodeProps) {
   return (
     <div
-      className="px-4 py-2 rounded-lg bg-indigo-500/15 border-2 border-indigo-500/50 min-w-[100px] min-h-[44px] text-center flex flex-col justify-center"
+      className="px-4 py-2 rounded-lg bg-node-agent/15 border-2 border-node-agent/50 min-w-[100px] min-h-[44px] text-center flex flex-col justify-center"
       role="article"
       aria-label={`LLM 节点: ${data.label}${data.description ? `, ${data.description}` : ""}`}
     >
       <Handle type="target" position={Position.Top} className="opacity-0" />
-      <div className="text-xs font-bold text-indigo-400">{data.label}</div>
+      <div className="text-xs font-bold text-node-agent">{data.label}</div>
       <div className="text-xs text-muted-foreground mt-0.5">{data.description}</div>
       <Handle type="source" position={Position.Bottom} className="opacity-0" />
     </div>
@@ -34,12 +35,12 @@ function LLMNode({ data }: NodeProps) {
 function ToolNodeComponent({ data }: NodeProps) {
   return (
     <div
-      className="px-4 py-2 rounded-lg bg-amber-500/15 border-2 border-amber-500/50 min-w-[100px] min-h-[44px] text-center flex flex-col justify-center"
+      className="px-4 py-2 rounded-lg bg-node-tool/15 border-2 border-node-tool/50 min-w-[100px] min-h-[44px] text-center flex flex-col justify-center"
       role="article"
       aria-label={`工具节点: ${data.label}${data.description ? `, ${data.description}` : ""}`}
     >
       <Handle type="target" position={Position.Top} className="opacity-0" />
-      <div className="text-xs font-bold text-amber-400">{data.label}</div>
+      <div className="text-xs font-bold text-node-tool">{data.label}</div>
       <div className="text-xs text-muted-foreground mt-0.5">{data.description}</div>
       <Handle type="source" position={Position.Right} className="opacity-0" />
     </div>
@@ -49,12 +50,12 @@ function ToolNodeComponent({ data }: NodeProps) {
 function CheckNode({ data }: NodeProps) {
   return (
     <div
-      className="px-4 py-2 rounded-lg bg-cyan-500/15 border-2 border-cyan-500/50 min-w-[100px] min-h-[44px] text-center flex flex-col justify-center"
+      className="px-4 py-2 rounded-lg bg-node-api/15 border-2 border-node-api/50 min-w-[100px] min-h-[44px] text-center flex flex-col justify-center"
       role="article"
       aria-label={`检查节点: ${data.label}${data.description ? `, ${data.description}` : ""}`}
     >
       <Handle type="target" position={Position.Top} className="opacity-0" />
-      <div className="text-xs font-bold text-cyan-400">{data.label}</div>
+      <div className="text-xs font-bold text-node-api">{data.label}</div>
       <div className="text-xs text-muted-foreground mt-0.5">{data.description}</div>
       <Handle type="source" position={Position.Bottom} className="opacity-0" />
     </div>
@@ -64,7 +65,7 @@ function CheckNode({ data }: NodeProps) {
 function StartEndNode({ data }: NodeProps) {
   return (
     <div
-      className="px-3 py-1.5 rounded-full bg-slate-700 border border-muted-foreground/30 text-center min-h-[44px] flex items-center justify-center"
+      className="px-3 py-1.5 rounded-full bg-muted border border-muted-foreground/30 text-center min-h-[44px] flex items-center justify-center"
       role="article"
       aria-label={`${data.label} 节点`}
     >
@@ -149,12 +150,12 @@ function buildFlowElements(graph: GraphStructure) {
       type: "smoothstep",
       animated: edge.conditional,
       style: {
-        stroke: edge.conditional ? "rgb(245 158 11)" : "rgb(99 102 241)", // amber-500 : indigo-500
+        stroke: edge.conditional ? BRAND_COLORS.warning : BRAND_COLORS.primary,
         strokeWidth: 1.5,
       },
       className: edge.conditional ? "motion-reduce:!transition-none motion-reduce:!animate-none" : undefined,
-      labelStyle: { fontSize: 11, fill: "rgb(148 163 184)" }, // slate-400
-      labelBgStyle: { fill: "rgb(15 23 42)", fillOpacity: 0.92 },
+      labelStyle: { fontSize: 11, fill: BRAND_COLORS.muted },
+      labelBgStyle: { fill: BRAND_COLORS.background, fillOpacity: 0.92 },
       labelBgPadding: [6, 4],
       labelBgBorderRadius: 4,
     });
@@ -184,10 +185,10 @@ export default function LangGraphView({ graph }: LangGraphViewProps) {
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.25 }}
-        className="bg-slate-900"
+        className="bg-card"
         nodesDraggable={false}
       >
-        <Background color="rgb(51 65 85)" gap={20} />
+        <Background color={BRAND_COLORS.borderStrong} gap={20} />
       </ReactFlow>
     </div>
   );

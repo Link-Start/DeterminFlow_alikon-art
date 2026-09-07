@@ -83,6 +83,7 @@ def _copy_state(
         "iteration_history": deepcopy(state.iteration_history),
         "child_states": deepcopy(state.child_states),
         "attempt_history": deepcopy(state.attempt_history),
+        "output_repair_history": deepcopy(state.output_repair_history),
         "input_snapshot": deepcopy(state.input_snapshot),
     }
     copied_fields.update(changes)
@@ -131,6 +132,7 @@ def begin_node_attempt(
         stderr="",
         is_skipped=False,
         attempt_count=state.attempt_count + 1,
+        output_repair_count=0,
         next_retry_at=None,
         input_snapshot=deepcopy(frozen_input),
         upstream_summary_snapshot=frozen_upstream,
@@ -150,6 +152,7 @@ def record_attempt(
         "trigger": state.next_attempt_trigger,
         "status": normalized,
         "automatic_retry_count": state.automatic_retry_count,
+        "output_repair_count": state.output_repair_count,
         "session_id": state.session_id,
         "started_at": state.started_at,
         "completed_at": completed_at or state.completed_at,

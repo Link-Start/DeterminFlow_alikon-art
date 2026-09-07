@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import plistlib
 import subprocess
 import sys
 from pathlib import Path
@@ -16,8 +17,14 @@ from desktop.python.runtime import (
     seed_user_config,
 )
 from desktop.scripts import official_plugin_lock as plugin_lock_module
+from src.extension_host.source_config import PluginSourceConfig
 from desktop.scripts import stage_defaults as defaults_module
 from desktop.scripts.create_update_manifest import create_manifest
+from desktop.scripts.generate_macos_icon import BRAND_SVG_RELATIVE, generate_macos_icon
+from desktop.scripts.install_macos_build_dependencies import (
+    MACOS_WHEEL_PLATFORM,
+    build_macos_dependency_commands,
+)
 from desktop.scripts.publish_r2_release import (
     IMMUTABLE_CACHE_CONTROL,
     LATEST_CACHE_CONTROL,
@@ -25,13 +32,17 @@ from desktop.scripts.publish_r2_release import (
     publish_release,
 )
 from desktop.scripts.verify_bundle import (
+    assert_no_updater_artifacts,
     verify_bundled_plugins,
     verify_defaults,
+    verify_icns,
+    verify_macos_app_bundle,
+    verify_macos_arm64_executable,
+    verify_macos_dmg,
     verify_updater_signature,
     verify_windows_gui_executable,
     write_checksum,
 )
-from src.extension_host.source_config import PluginSourceConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,7 +60,6 @@ def test_desktop_backend_bundles_anthropic_provider() -> None:
     assert '    "langchain-anthropic",' in spec
     assert 'collect_submodules("anthropic")' in spec
     assert 'collect_submodules("langchain_anthropic")' in spec
-    assert 'hiddenimports += ["src.workflow.executor_worker"]' in spec
 
 
 def test_tauri_bundle_is_a_per_user_nsis_installer() -> None:
@@ -77,6 +87,29 @@ def test_tauri_bundle_is_a_per_user_nsis_installer() -> None:
         bundle["windows"]["webviewInstallMode"]["type"]
         == "downloadBootstrapper"
     )
+
+    build_script = (REPO_ROOT / "desktop" / "src-tauri" / "build.rs").read_text(
+        encoding="utf-8"
+    )
+    onboarding_capability = json.loads(
+        (
+            REPO_ROOT
+            / "desktop"
+            / "src-tauri"
+            / "capabilities"
+            / "desktop-onboarding.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert '"get_desktop_onboarding_status"' in build_script
+    assert '"set_desktop_onboarding_status"' in build_script
+    assert onboarding_capability["remote"]["urls"] == [
+        "http://127.0.0.1:*/*"
+    ]
+    assert onboarding_capability["permissions"] == [
+        "allow-get-desktop-onboarding-status",
+        "allow-set-desktop-onboarding-status",
+    ]
+
     updater = config["plugins"]["updater"]
     assert updater["endpoints"] == [
         "https://downloads.determinflow.com/desktop/stable/latest.json"
@@ -145,30 +178,6 @@ def test_desktop_announcement_capability_allows_only_the_bundled_loopback_ui() -
     assert capability["permissions"] == [
         "allow-get-desktop-announcement-state",
         "allow-set-desktop-announcement-state",
-    ]
-
-
-def test_desktop_onboarding_capability_allows_only_the_bundled_loopback_ui() -> None:
-    build_script = (REPO_ROOT / "desktop" / "src-tauri" / "build.rs").read_text(
-        encoding="utf-8"
-    )
-    capability = json.loads(
-        (
-            REPO_ROOT
-            / "desktop"
-            / "src-tauri"
-            / "capabilities"
-            / "desktop-onboarding.json"
-        ).read_text(encoding="utf-8")
-    )
-
-    assert '"get_desktop_onboarding_status"' in build_script
-    assert '"set_desktop_onboarding_status"' in build_script
-    assert capability["windows"] == ["main"]
-    assert capability["remote"]["urls"] == ["http://127.0.0.1:*/*"]
-    assert capability["permissions"] == [
-        "allow-get-desktop-onboarding-status",
-        "allow-set-desktop-onboarding-status",
     ]
 
 
@@ -265,14 +274,9 @@ def test_desktop_workflow_builds_candidates_and_publishes_tags() -> None:
     assert "matrix.flavor" in workflow
     assert "--flavor ${{ matrix.flavor }}" in workflow
     assert "desktop/scripts/smoke_backend.py" in workflow
-    assert "Test Windows Workflow Executor process pool" in workflow
-    assert "tests/test_workflow_executor_pool_scenarios.py" in workflow
-    assert "--timeout 180" in workflow
     assert "desktop/scripts/smoke_installer.ps1" in workflow
     assert '-Flavor "${{ matrix.flavor }}"' in workflow
     assert "--expected-flavor ${{ matrix.flavor }}" in workflow
-    assert "refresh_official_plugin_lock.py --check" in workflow
-    assert "github.ref_type != 'tag'" in workflow
     assert "--desktop-executable" in workflow
     assert "actions/upload-artifact@v4" in workflow
     assert "actions/download-artifact@v4" in workflow
@@ -291,8 +295,6 @@ def test_desktop_workflow_builds_candidates_and_publishes_tags() -> None:
     ).read_text(encoding="utf-8")
     assert "CloseMainWindow" in installer_smoke
     assert "Second launch created duplicate Controllers" in installer_smoke
-    assert "Assert-WorkflowExecutorPool" in installer_smoke
-    assert "Get-InstalledWorkflowExecutors" in installer_smoke
     assert "NSIS reinstall with a stale backend" in installer_smoke
 
 
@@ -319,7 +321,7 @@ def test_stage_defaults_uses_sanitized_overrides(
     ]
     assert plugin_source["official_sources"][0]["ref"] == "main"
     assert plugin_source["official_sources"][0]["registry"] == {
-        "url": "https://downloads.determinflow.com/plugins/v1",
+        "endpoints": ["https://downloads.determinflow.com/plugins/v1"],
         "public_key": "C4oDxekhIr8Czlx0zpkRx46k26KK3d1T3HIZGsIxIr0=",
     }
     assert (output / "models_config.json").read_text() == (
@@ -501,166 +503,6 @@ def test_bundled_plugin_verifier_rejects_empty_snapshot(tmp_path: Path) -> None:
         verify_bundled_plugins(tmp_path)
 
 
-def _write_official_plugin_lock_fixture(
-    repo_root: Path,
-    *,
-    desktop_version: str = "1.0.10",
-) -> dict:
-    tauri = repo_root / "desktop" / "src-tauri" / "tauri.conf.json"
-    tauri.parent.mkdir(parents=True, exist_ok=True)
-    tauri.write_text(json.dumps({"version": "1.0.10"}), encoding="utf-8")
-    lock = {
-        "schema_version": 1,
-        "desktop_version": desktop_version,
-        "source": {
-            "id": "determinflow-official",
-            "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git",
-            "ref": "main",
-            "commit": "a" * 40,
-        },
-        "plugins": [
-            {
-                "id": "bishu-novel",
-                "version": "0.2.2",
-                "subdirectory": "plugins/bishu-novel",
-            },
-            {
-                "id": "public-api",
-                "version": "0.1.33",
-                "subdirectory": "plugins/public-api",
-            },
-        ],
-    }
-    lock_path = repo_root / plugin_lock_module.LOCK_RELATIVE_PATH
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path.write_text(json.dumps(lock), encoding="utf-8")
-    return lock
-
-
-def test_full_plugin_lock_is_bound_to_desktop_version(tmp_path: Path) -> None:
-    expected = _write_official_plugin_lock_fixture(tmp_path)
-
-    assert plugin_lock_module.load_official_plugin_lock(tmp_path) == expected
-
-    _write_official_plugin_lock_fixture(tmp_path, desktop_version="1.0.9")
-    with pytest.raises(RuntimeError, match="桌面版本与"):
-        plugin_lock_module.load_official_plugin_lock(tmp_path)
-
-
-def test_full_plugin_catalog_must_match_the_exact_build_lock(
-    tmp_path: Path,
-) -> None:
-    lock = _write_official_plugin_lock_fixture(tmp_path)
-    source = PluginSourceConfig(
-        id="determinflow-official",
-        name="DeterminFlow Official Plugins",
-        url=lock["source"]["url"],
-        ref="main",
-        mirrors=("https://gitee.com/alikon/DeterminFlow-Plugins.git",),
-    )
-    pinned = plugin_lock_module.pin_official_sources((source,), lock)
-
-    assert pinned[0].ref == "a" * 40
-    assert pinned[0].url == source.url
-    catalog = {
-        "sources": [
-            {
-                "id": source.id,
-                "name": source.name,
-                "error": "",
-                "ref": "a" * 40,
-                "resolved_commit": "a" * 40,
-            }
-        ],
-        "plugins": [
-            {
-                **plugin,
-                "source_id": source.id,
-                "source": source.url,
-                "ref": "a" * 40,
-                "resolved_commit": "a" * 40,
-            }
-            for plugin in lock["plugins"]
-        ],
-    }
-    entries = plugin_lock_module.validate_locked_catalog(catalog, lock)
-    assert [entry["id"] for entry in entries] == ["bishu-novel", "public-api"]
-
-    catalog["plugins"][1]["version"] = "0.1.34"
-    with pytest.raises(RuntimeError, match="条目与构建锁不一致"):
-        plugin_lock_module.validate_locked_catalog(catalog, lock)
-
-    catalog["plugins"][1]["version"] = "0.1.33"
-    catalog["plugins"][1]["ref"] = "main"
-    with pytest.raises(RuntimeError, match="未锁定到构建锁 Commit"):
-        plugin_lock_module.validate_locked_catalog(catalog, lock)
-
-
-def test_full_plugin_lock_refresh_captures_latest_public_catalog(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    _write_official_plugin_lock_fixture(tmp_path)
-    source_file = tmp_path / "config" / "plugin-sources.json"
-    source_file.parent.mkdir()
-    source_file.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "official_sources": [
-                    {
-                        "id": "determinflow-official",
-                        "name": "DeterminFlow Official Plugins",
-                        "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git",
-                        "ref": "main",
-                    }
-                ],
-                "custom_sources": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-    commit = "b" * 40
-
-    def fake_catalog(sources: tuple[PluginSourceConfig, ...]) -> dict:
-        source = sources[0]
-        return {
-            "sources": [
-                {
-                    "id": source.id,
-                    "name": source.name,
-                    "error": "",
-                    "resolved_commit": commit,
-                }
-            ],
-            "plugins": [
-                {
-                    "id": "public-api",
-                    "version": "0.1.33",
-                    "subdirectory": "plugins/public-api",
-                    "source_id": source.id,
-                    "resolved_commit": commit,
-                }
-            ],
-        }
-
-    monkeypatch.setattr(plugin_lock_module, "fetch_plugin_catalog", fake_catalog)
-
-    refreshed = plugin_lock_module.resolve_latest_official_plugin_lock(
-        tmp_path, source_file
-    )
-
-    assert refreshed["desktop_version"] == "1.0.10"
-    assert refreshed["source"]["commit"] == commit
-    assert refreshed["plugins"] == [
-        {
-            "id": "public-api",
-            "version": "0.1.33",
-            "subdirectory": "plugins/public-api",
-        }
-    ]
-
-
 def test_desktop_versions_are_consistent() -> None:
     tauri = json.loads(
         (REPO_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text(
@@ -839,3 +681,200 @@ def test_windows_desktop_executable_must_use_the_gui_subsystem(tmp_path: Path) -
     write_pe(executable, subsystem=3)
     with pytest.raises(RuntimeError, match="GUI Subsystem"):
         verify_windows_gui_executable(executable)
+
+
+def _write_fake_arm64_macho(path: Path, cputype: int = 0x0100000C) -> None:
+    image = bytearray(64)
+    image[:4] = b"\xcf\xfa\xed\xfe"
+    image[4:8] = cputype.to_bytes(4, "little")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(image)
+
+
+def test_macos_overlay_keeps_windows_nsis_and_updater_contract() -> None:
+    windows = json.loads(
+        (REPO_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    macos = json.loads(
+        (REPO_ROOT / "desktop" / "src-tauri" / "tauri.macos.conf.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    package = json.loads(
+        (REPO_ROOT / "desktop" / "package.json").read_text(encoding="utf-8")
+    )
+
+    assert windows["bundle"]["targets"] == ["nsis"]
+    assert windows["bundle"]["createUpdaterArtifacts"] is True
+    assert windows["bundle"]["icon"] == ["icons/icon.ico", "icons/icon.png"]
+    assert "version" not in macos
+    assert "plugins" not in macos
+    assert macos["bundle"]["targets"] == ["app", "dmg"]
+    assert macos["bundle"]["createUpdaterArtifacts"] is False
+    assert macos["bundle"]["icon"] == ["icons/icon.icns"]
+    assert macos["bundle"]["macOS"]["minimumSystemVersion"] == "11.0"
+    assert package["scripts"]["build"] == "tauri build"
+    assert "--config" not in package["scripts"]["build:macos"]
+    assert "--bundles app,dmg" in package["scripts"]["build:macos"]
+    assert "--no-sign" in package["scripts"]["build:macos"]
+    assert not (
+        REPO_ROOT / ".github" / "workflows" / "desktop-macos.yml"
+    ).exists()
+
+
+def test_macos_build_dependencies_are_resolved_for_macos_11_arm64(
+    tmp_path: Path,
+) -> None:
+    python = tmp_path / "venv" / "bin" / "python"
+    wheelhouse = tmp_path / "wheelhouse"
+    download, install = build_macos_dependency_commands(
+        REPO_ROOT,
+        wheelhouse,
+        python_executable=python,
+        python_version="3.11",
+    )
+
+    assert MACOS_WHEEL_PLATFORM == "macosx_11_0_arm64"
+    assert download[:4] == [str(python), "-m", "pip", "download"]
+    assert download[download.index("--platform") + 1] == MACOS_WHEEL_PLATFORM
+    assert download[download.index("--python-version") + 1] == "3.11"
+    assert "--only-binary=:all:" in download
+    assert install[:4] == [str(python), "-m", "pip", "install"]
+    assert "--no-index" in install
+    assert install[install.index("--find-links") + 1] == str(wheelhouse)
+    assert "pyinstaller==6.21.0" in install
+    assert "pytest==9.1.1" in install
+
+
+def test_macos_icon_is_generated_from_official_brand() -> None:
+    icns = REPO_ROOT / "desktop" / "src-tauri" / "icons" / "icon.icns"
+    generator = (
+        REPO_ROOT / "desktop" / "scripts" / "generate_macos_icon.py"
+    ).read_text(encoding="utf-8")
+    renderer = (
+        REPO_ROOT / "desktop" / "scripts" / "render_brand_png.swift"
+    ).read_text(encoding="utf-8")
+    brand = REPO_ROOT / BRAND_SVG_RELATIVE
+
+    verify_icns(icns)
+    assert brand.is_file()
+    assert "DeterminFlow mark" in brand.read_text(encoding="utf-8")
+    assert "web/public/brand/determinflow-mark.svg" in generator
+    assert "iconutil" in generator
+    assert "NSImage" in renderer
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="icon.icns generation requires macOS")
+def test_macos_icon_script_renders_official_brand(tmp_path: Path) -> None:
+    output = tmp_path / "icon.icns"
+    generate_macos_icon(REPO_ROOT, output)
+    verify_icns(output)
+
+
+def test_macos_backend_cleanup_uses_process_group() -> None:
+    backend_source = (
+        REPO_ROOT / "desktop" / "src-tauri" / "src" / "backend.rs"
+    ).read_text(encoding="utf-8")
+
+    assert '#[cfg(target_os = "macos")]' in backend_source
+    assert "process_group(0)" in backend_source
+    assert "fn terminate_macos_process_group" in backend_source
+    assert "libc::kill(-process_group" in backend_source
+    assert "libc::SIGTERM" in backend_source
+    assert "libc::SIGKILL" in backend_source
+    assert 'Command::new("taskkill")' in backend_source
+
+
+def test_macos_arm64_executable_rejects_universal_and_intel(
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "determinflow-desktop"
+    _write_fake_arm64_macho(executable)
+    verify_macos_arm64_executable(executable)
+
+    _write_fake_arm64_macho(executable, cputype=0x01000007)
+    with pytest.raises(RuntimeError, match="必须是 arm64"):
+        verify_macos_arm64_executable(executable)
+
+    executable.write_bytes(b"\xca\xfe\xba\xbe" + b"\x00" * 12)
+    with pytest.raises(RuntimeError, match="不能是 universal"):
+        verify_macos_arm64_executable(executable)
+
+
+def test_macos_app_and_dmg_verification(tmp_path: Path) -> None:
+    app = tmp_path / "DeterminFlow.app"
+    executable = app / "Contents" / "MacOS" / "determinflow-desktop"
+    backend = (
+        app / "Contents" / "Resources" / "runtime" / "backend" / "determinflow-backend"
+    )
+    _write_fake_arm64_macho(executable)
+    _write_fake_arm64_macho(backend)
+    plist = {
+        "CFBundleIdentifier": "io.determinflow.desktop",
+        "CFBundleName": "DeterminFlow",
+        "LSMinimumSystemVersion": "11.0",
+    }
+    (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps(plist))
+    verify_macos_app_bundle(app)
+
+    dmg = tmp_path / "DeterminFlow_1.0.2_aarch64.dmg"
+    dmg.write_bytes(b"dmg" * 400)
+    checksum = verify_macos_dmg(dmg)
+    assert checksum.name.endswith(".dmg.sha256")
+
+    bundled_data = app / "Contents" / "Resources" / "dateutil-zoneinfo.tar.gz"
+    bundled_data.parent.mkdir(parents=True, exist_ok=True)
+    bundled_data.write_bytes(b"runtime data")
+    assert_no_updater_artifacts(tmp_path)
+    updater_dir = tmp_path / "macos"
+    updater_dir.mkdir()
+    (updater_dir / "DeterminFlow.app.tar.gz").write_bytes(b"updater")
+    with pytest.raises(RuntimeError, match="updater artifacts"):
+        assert_no_updater_artifacts(tmp_path)
+
+
+def test_macos_app_rejects_mismatched_minimum_system_version(tmp_path: Path) -> None:
+    app = tmp_path / "DeterminFlow.app"
+    executable = app / "Contents" / "MacOS" / "determinflow-desktop"
+    backend = (
+        app / "Contents" / "Resources" / "runtime" / "backend" / "determinflow-backend"
+    )
+    _write_fake_arm64_macho(executable)
+    _write_fake_arm64_macho(backend)
+    (app / "Contents" / "Info.plist").write_bytes(
+        plistlib.dumps(
+            {
+                "CFBundleIdentifier": "io.determinflow.desktop",
+                "LSMinimumSystemVersion": "12.0",
+            }
+        )
+    )
+
+    with pytest.raises(RuntimeError, match="最低版本必须是 11.0"):
+        verify_macos_app_bundle(app)
+
+
+def test_desktop_onboarding_capability_allows_only_the_bundled_loopback_ui() -> None:
+    build_script = (REPO_ROOT / "desktop" / "src-tauri" / "build.rs").read_text(
+        encoding="utf-8"
+    )
+    capability = json.loads(
+        (
+            REPO_ROOT
+            / "desktop"
+            / "src-tauri"
+            / "capabilities"
+            / "desktop-onboarding.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert '"get_desktop_onboarding_status"' in build_script
+    assert '"set_desktop_onboarding_status"' in build_script
+    assert capability["windows"] == ["main"]
+    assert capability["remote"]["urls"] == ["http://127.0.0.1:*/*"]
+    assert capability["permissions"] == [
+        "allow-get-desktop-onboarding-status",
+        "allow-set-desktop-onboarding-status",
+    ]

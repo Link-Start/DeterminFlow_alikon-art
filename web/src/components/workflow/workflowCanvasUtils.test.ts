@@ -90,13 +90,14 @@ test("workflow save keeps generic node failure policy and model override", () =>
   assert.equal(saved.fail_auto_skip, true);
 });
 
-test("workflow save preserves Agent output validation gates", () => {
+test("workflow save preserves active gates and drops legacy repair budgets", () => {
   const definition = createDefinition({
     node_type: "agent",
     require_non_empty_output: true,
     retry_empty_output_in_session: true,
     json_output_field: "result.body",
     json_output_field_min_chars: 1000,
+    output_repair_max_count: 3,
   });
   const nodes = [{
     id: "node-1",
@@ -111,9 +112,10 @@ test("workflow save preserves Agent output validation gates", () => {
 
   const saved = buildWorkflowSavePayload(definition, nodes, [], []).nodes[0];
   assert.equal(saved.require_non_empty_output, true);
-  assert.equal(saved.retry_empty_output_in_session, true);
+  assert.equal(saved.retry_empty_output_in_session, undefined);
   assert.equal(saved.json_output_field, "result.body");
   assert.equal(saved.json_output_field_min_chars, 1000);
+  assert.equal(saved.output_repair_max_count, undefined);
 });
 
 test("task graph keeps skipped nodes and original edges visible", () => {

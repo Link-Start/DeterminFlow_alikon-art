@@ -33,18 +33,29 @@ def test_workflow_node_failure_policy_defaults_and_round_trip() -> None:
     assert legacy.auto_retry_count == 0
     assert legacy.auto_retry_interval_seconds == 0
     assert legacy.fail_auto_skip is False
+    assert legacy.output_repair_max_count == 1
+    assert WorkflowNode.from_dict({
+        "id": "blank-repair-budget",
+        "output_repair_max_count": "   ",
+    }).output_repair_max_count == 1
 
     configured = WorkflowNode.from_dict({
         "id": "writer",
         "auto_retry_count": "3",
         "auto_retry_interval_seconds": "15",
         "fail_auto_skip": True,
+        "output_repair_max_count": "3",
+        "retry_empty_output_in_session": True,
+        "max_reject_count": 7,
     })
     serialized = configured.to_dict()
 
     assert serialized["auto_retry_count"] == 3
     assert serialized["auto_retry_interval_seconds"] == 15
     assert serialized["fail_auto_skip"] is True
+    assert "output_repair_max_count" not in serialized
+    assert "retry_empty_output_in_session" not in serialized
+    assert "max_reject_count" not in serialized
 
 
 @pytest.mark.parametrize(
@@ -106,6 +117,8 @@ def test_legacy_node_execution_state_loads_retry_defaults() -> None:
     assert state.input_snapshot == {}
     assert state.upstream_summary_snapshot == ""
     assert state.next_attempt_trigger == "initial"
+    assert state.output_repair_count == 0
+    assert state.output_repair_history == []
 
 
 def test_node_execution_state_retry_fields_round_trip_without_aliasing() -> None:
@@ -118,6 +131,12 @@ def test_node_execution_state_retry_fields_round_trip_without_aliasing() -> None
         input_snapshot={"topic": {"name": "测试"}},
         upstream_summary_snapshot="上游快照",
         next_attempt_trigger=AUTO_RETRY_TRIGGER,
+        output_repair_count=1,
+        output_repair_history=[{
+            "attempt_number": 2,
+            "repair_index": 1,
+            "resolution": "passed",
+        }],
         child_states={
             "child": NodeExecutionState(node_id="child", attempt_count=1),
         },
@@ -127,6 +146,7 @@ def test_node_execution_state_retry_fields_round_trip_without_aliasing() -> None
     restored = _node_state_from_dict(serialized)
     serialized["attempt_history"][0]["outputs"]["draft"] = "mutated"
     serialized["input_snapshot"]["topic"]["name"] = "mutated"
+    serialized["output_repair_history"][0]["resolution"] = "mutated"
 
     assert restored.attempt_count == 2
     assert restored.automatic_retry_count == 1
@@ -135,6 +155,8 @@ def test_node_execution_state_retry_fields_round_trip_without_aliasing() -> None
     assert restored.input_snapshot == {"topic": {"name": "测试"}}
     assert restored.upstream_summary_snapshot == "上游快照"
     assert restored.next_attempt_trigger == AUTO_RETRY_TRIGGER
+    assert restored.output_repair_count == 1
+    assert restored.output_repair_history[0]["resolution"] == "passed"
     assert restored.child_states["child"].attempt_count == 1
 
 
@@ -204,6 +226,8 @@ def test_begin_attempt_freezes_original_inputs_and_increments_total_attempts() -
     initial = NodeExecutionState(
         node_id="writer",
         rejection_reason="保留既有审批反馈",
+        output_repair_count=1,
+        output_repair_history=[{"attempt_number": 0, "resolution": "passed"}],
     )
     first = begin_node_attempt(
         initial,
@@ -224,8 +248,11 @@ def test_begin_attempt_freezes_original_inputs_and_increments_total_attempts() -
     assert initial.attempt_count == 0
     assert first.status == "running"
     assert first.attempt_count == 1
+    assert first.output_repair_count == 0
+    assert first.output_repair_history == initial.output_repair_history
     assert first.rejection_reason == "保留既有审批反馈"
     assert retried.attempt_count == 2
+    assert retried.output_repair_count == 0
     assert retried.input_snapshot == {}
     assert retried.upstream_summary_snapshot == ""
 

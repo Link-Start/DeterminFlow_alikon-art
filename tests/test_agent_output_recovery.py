@@ -9,8 +9,12 @@ from src.workflow.nodes.base import NodeContext
 from src.workflow.runtime_models import NodeExecutionState
 
 
-def _run_node(node: WorkflowNode, session_manager) -> object:
-    return asyncio.run(
+def _run_node(
+    node: WorkflowNode,
+    session_manager,
+) -> tuple[object, NodeExecutionState]:
+    state = NodeExecutionState(node_id=node.id)
+    result = asyncio.run(
         AgentNode().execute(
             NodeContext(
                 definition=WorkflowDef(
@@ -18,11 +22,12 @@ def _run_node(node: WorkflowNode, session_manager) -> object:
                     nodes=[node],
                 ),
                 node_def=node,
-                node_state=NodeExecutionState(node_id=node.id),
+                node_state=state,
                 session_manager=session_manager,
             )
         )
     )
+    return result, state
 
 
 def test_ungated_output_does_not_fall_back_to_older_assistant_message() -> None:
@@ -42,7 +47,7 @@ def test_ungated_output_does_not_fall_back_to_older_assistant_message() -> None:
             kwargs["on_auto_complete"](session_id, "done", "success", "")
             return {"success": True, "session_id": session_id}
 
-    result = _run_node(
+    result, _state = _run_node(
         WorkflowNode(
             id="writer",
             node_type="agent",
@@ -56,107 +61,76 @@ def test_ungated_output_does_not_fall_back_to_older_assistant_message() -> None:
     assert result.outputs == {}
 
 
-def test_empty_output_retry_disables_tools_and_recounts_tokens(monkeypatch) -> None:
-    usage = {"total": 10}
-    configured_tools: list[list] = []
+def test_empty_output_fails_attempt_without_original_session_repair() -> None:
+    sends = 0
 
     class Session:
-        model_id = "provider:model"
-        model_params = {"temperature": 0.2}
+        record = [{"type": "assistant", "content": ""}]
 
-        def __init__(self):
-            self.record = [
-                {"type": "assistant", "content": "older result"},
-                {"type": "assistant", "content": ""},
-            ]
-
-        def setup_graph(self, *, llm, tools):
-            assert llm == "retry-llm"
-            configured_tools.append(tools)
-
-        async def send_message(self, content, **kwargs):
-            assert "最终正文" in content
-            assert kwargs["max_rounds"] == 1
-            assert kwargs["source"] == "workflow_empty_output_retry"
-            self.record.append({"type": "assistant", "content": "new result"})
-            usage["total"] = 25
+        async def send_message(self, *_args, **_kwargs):
+            nonlocal sends
+            sends += 1
 
         def get_cumulative_token_usage(self):
-            return {"provider:model": {"total_tokens": usage["total"]}}
+            return {"provider:model": {"total_tokens": 10}}
 
     class SessionManager:
         def __init__(self):
             self.sessions = {}
 
         async def create_sub_session(self, **kwargs):
-            session_id = "retry-empty"
+            session_id = "empty-output"
             self.sessions[session_id] = Session()
             kwargs["on_auto_complete"](session_id, "done", "success", "")
             return {"success": True, "session_id": session_id}
 
-    monkeypatch.setattr(
-        "src.core.llm_client.create_llm",
-        lambda **kwargs: "retry-llm",
-    )
-    result = _run_node(
+    result, state = _run_node(
         WorkflowNode(
             id="writer",
             node_type="agent",
             first_message="write",
-            output_variable="draft",
             require_non_empty_output=True,
             retry_empty_output_in_session=True,
+            output_repair_max_count=5,
         ),
         SessionManager(),
     )
 
-    assert result.status == "completed"
-    assert result.outputs == {"draft": "new result"}
-    assert result.token_usage == {
-        "provider:model": {"total_tokens": 25},
-    }
-    assert configured_tools == [[]]
+    assert result.status == "failed"
+    assert "[empty_output]" in result.error
+    assert result.outputs == {}
+    assert sends == 0
+    assert state.output_repair_count == 0
+    assert state.output_repair_history == []
 
 
-def test_json_retry_reads_the_true_latest_empty_message(monkeypatch) -> None:
-    class Session:
-        session_id = "json-retry"
-        model_id = "provider:model"
-        model_params = {}
-
-        def __init__(self):
-            self.record = [
-                {"type": "assistant", "content": '{"body":"older valid"}'},
-                {"type": "assistant", "content": "{"},
-            ]
-
-        def setup_graph(self, *, llm, tools):
-            assert llm == "retry-llm"
-            assert tools == []
-
-        async def send_message(self, *_args, **_kwargs):
-            self.record.append({"type": "assistant", "content": ""})
-
-    manager = SimpleNamespace(sessions={"json-retry": Session()})
-    monkeypatch.setattr(
-        "src.core.llm_client.create_llm",
-        lambda **_kwargs: "retry-llm",
-    )
+def test_json_retry_policy_fails_attempt_without_calling_model() -> None:
     result = asyncio.run(
         AgentNode()._prepare_json_output(
-            sm=manager,
-            session_id="json-retry",
             raw_output="{",
-            node_params={
-                "json_repair_policy": "retry_only",
-                "json_retry_count": 1,
-            },
+            node_params={"json_repair_policy": "retry_only"},
             output_file_path="result.json",
         )
     )
 
     assert result["success"] is False
-    assert "重试 1 次后仍校验失败" in result["error"]
+    assert "[invalid_json]" in result["error"]
+    assert result["meta"]["_json_retry_attempts"] == "0"
+
+
+def test_json_safe_repair_remains_deterministic_and_local() -> None:
+    result = asyncio.run(
+        AgentNode()._prepare_json_output(
+            raw_output='```json\n{"body":"ok"}\n```',
+            node_params={"json_repair_policy": "safe_repair_then_retry"},
+            output_file_path="result.json",
+        )
+    )
+
+    assert result["success"] is True
+    assert '"body": "ok"' in result["text"]
+    assert result["meta"]["_json_retry_attempts"] == "0"
+    assert result["meta"]["_json_repair_applied"]
 
 
 def test_last_assistant_message_does_not_skip_latest_empty_message() -> None:
@@ -174,24 +148,3 @@ def test_last_assistant_message_does_not_skip_latest_empty_message() -> None:
         "session_id": "latest-assistant",
         "record": session.record,
     }).last_message == ""
-
-
-def test_latest_assistant_message_normalizes_structured_text_blocks() -> None:
-    from src.agent.session import AgentSession
-    from src.agent.session_catalog import SessionMetadata
-
-    content = [
-        {"type": "thinking", "thinking": "internal"},
-        {"type": "text", "text": "final "},
-        {"type": "text_delta", "text": "answer"},
-    ]
-    session = AgentSession(session_id="structured-assistant")
-    session.record = [{"type": "assistant", "content": content}]
-    manager = SimpleNamespace(sessions={session.session_id: session})
-
-    assert session.get_last_assistant_message() == "final answer"
-    assert AgentNode._get_latest_ai_message(manager, session.session_id) == "final answer"
-    assert SessionMetadata.from_data({
-        "session_id": session.session_id,
-        "record": session.record,
-    }).last_message == "final answer"

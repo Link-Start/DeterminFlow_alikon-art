@@ -16,17 +16,20 @@ from fastapi.staticfiles import StaticFiles
 from src.config import (
     AGENTS_CONFIG_FILE,
     BASE_DIR,
+    BUILTIN_SKILLS_DIR,
     CONFIG_DIR,
     DATA_DIR,
+    LOCAL_SKILLS_DIR,
     LOGS_DIR,
+    MARKETPLACE_SKILLS_DIR,
     PLUGINS_DIR,
     PRESET_PHRASES_FILE,
     RULES_CONFIG_FILE,
     RULES_DIR,
     SKILLS_CONFIG_FILE,
-    SKILLS_DIR,
     WORKFLOW_EXECUTOR_COUNT,
     WORKFLOW_EXECUTOR_MODE,
+    WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS,
     WORKFLOWS_DIR,
     ensure_dirs,
 )
@@ -51,6 +54,8 @@ from src.web.workflow_routes import router as workflow_router, tasks_router
 from src.web.workflow_node_control_routes import router as workflow_node_control_router
 from src.web.attachment_routes import router as attachment_router
 from src.web.ws_handlers import handle_chat_ws, handle_events_ws
+from src.account.routes import router as account_router
+from src.skill_marketplace.routes import router as resource_marketplace_router
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +107,8 @@ async def lifespan(app: FastAPI):
     workflow_mgr = None
     workflow_executor_pool = None
     inline_executor_leases = None
+    account_service = None
+    resource_marketplace_service = None
 
     async def _cleanup_on_failure():
         """初始化失败时按创建顺序的逆序清理已分配资源。"""
@@ -174,13 +181,69 @@ async def lifespan(app: FastAPI):
         )
         skill_config_mgr = SkillConfigManager(SKILLS_CONFIG_FILE, config_store=skill_config_store)
         skill_mgr = SkillManager(
-            SKILLS_DIR,
+            LOCAL_SKILLS_DIR,
             skill_config_mgr,
+            builtin_skills_dir=BUILTIN_SKILLS_DIR,
+            marketplace_skills_dir=MARKETPLACE_SKILLS_DIR,
+            provenance_path=DATA_DIR / "resource-provenance.json",
             resource_roots=extension_manager.resource_paths("skill_bundles"),
             owner_enabled=extension_manager.is_running,
         )
         skill_mgr.initialize_if_empty()
         logger.info(f"SkillManager 已初始化，加载了 {skill_mgr.get_stats()['total']} 个 skills")
+
+        if os.getenv("DETERMINFLOW_DESKTOP") == "1" and not is_workflow_executor:
+            from src.account.portal import DEFAULT_ACCOUNT_URL, AccountPortalClient
+            from src.account.service import CoreAccountService
+            from src.skill_marketplace.portal import ResourceMarketplaceClient
+            from src.skill_marketplace.service import SkillMarketplaceService
+
+            app_version = os.getenv("DETERMINFLOW_APP_VERSION", "unknown")
+            marketplace_url = os.getenv(
+                "DETERMINFLOW_MARKETPLACE_URL",
+                DEFAULT_ACCOUNT_URL,
+            ).strip()
+            account_url = os.getenv(
+                "DETERMINFLOW_ACCOUNT_URL",
+                marketplace_url,
+            ).strip()
+            allow_loopback_http = (
+                os.getenv("DETERMINFLOW_ACCOUNT_ALLOW_HTTP") == "1"
+                or os.getenv("DETERMINFLOW_MARKETPLACE_ALLOW_HTTP") == "1"
+            )
+            account_client = (
+                AccountPortalClient(
+                    account_url,
+                    app_version=app_version,
+                    allow_loopback_http=allow_loopback_http,
+                )
+                if account_url
+                else None
+            )
+            account_service = CoreAccountService(
+                data_dir=DATA_DIR,
+                portal=account_client,
+            )
+            marketplace_client = (
+                ResourceMarketplaceClient(
+                    marketplace_url,
+                    app_version=app_version,
+                    allow_loopback_http=allow_loopback_http,
+                )
+                if marketplace_url
+                else None
+            )
+            resource_marketplace_service = SkillMarketplaceService(
+                data_dir=DATA_DIR,
+                skill_manager=skill_mgr,
+                marketplace=marketplace_client,
+                account_session=account_service,
+                embed_url=(
+                    os.getenv("DETERMINFLOW_MARKETPLACE_EMBED_URL", "").strip()
+                    or None
+                ),
+                allow_loopback_http=allow_loopback_http,
+            )
 
         # 初始化 RuleManager
         from src.rules.config_manager import RuleConfigManager
@@ -312,6 +375,7 @@ async def lifespan(app: FastAPI):
                 "approval_manager": approval_mgr,
                 "workspace_manager": workspace_mgr,
                 "llm": llm,
+                "_official_account_session": account_service,
             },
         )
         if is_workflow_executor:
@@ -375,6 +439,9 @@ async def lifespan(app: FastAPI):
                     current.executor_id,
                 ).call(
                     "recover_owned_tasks",
+                    request_timeout_seconds=(
+                        WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS
+                    ),
                 )
                 logger.warning(
                     "Workflow Executor 已完成死亡世代交接: old=%s new=%s "
@@ -400,6 +467,9 @@ async def lifespan(app: FastAPI):
                 executor_recovery[identity.executor_id] = await (
                     workflow_executor_pool.client_for(identity.executor_id).call(
                         "recover_owned_tasks",
+                        request_timeout_seconds=(
+                            WORKFLOW_EXECUTOR_RECOVERY_TIMEOUT_SECONDS
+                        ),
                     )
                 )
             logger.info(
@@ -546,6 +616,8 @@ async def lifespan(app: FastAPI):
         app.state.prompt_orchestrator = prompt_orchestrator
         app.state.agent_config_manager = agent_config_mgr
         app.state.skill_manager = skill_mgr
+        app.state.account_service = account_service
+        app.state.resource_marketplace_service = resource_marketplace_service
         app.state.rule_manager = rule_mgr
         app.state.session_manager = session_mgr
         app.state.llm = llm
@@ -717,6 +789,8 @@ def create_app(extension_manager: ExtensionManager | None = None) -> FastAPI:
     application.include_router(tasks_router)
     application.include_router(workflow_node_control_router)
     application.include_router(attachment_router)
+    application.include_router(account_router)
+    application.include_router(resource_marketplace_router)
     application.include_router(extension_router)
     application.include_router(plugin_router)
     for owner, router in manager.routers:

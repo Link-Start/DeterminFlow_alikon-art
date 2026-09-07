@@ -126,16 +126,16 @@ export default function WorkflowToolbar({
         aria-label="确认离开编辑"
       >
         <div
-          className="bg-slate-800 border border-indigo-500/20 rounded-lg p-5 max-w-sm w-full mx-4 shadow-2xl"
+          className="bg-secondary border border-primary/20 rounded-lg p-5 max-w-sm w-full mx-4 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <h3 className="text-sm font-semibold text-slate-200 mb-2">未保存的更改</h3>
-          <p className="text-xs text-slate-400 mb-4">您有未保存的更改，确定要离开吗？</p>
+          <h3 className="text-sm font-semibold text-foreground mb-2">未保存的更改</h3>
+          <p className="text-xs text-muted-foreground mb-4">您有未保存的更改，确定要离开吗？</p>
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setShowLeaveConfirm(false)}
-              className="px-3 py-1.5 rounded text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted-foreground text-foreground transition-colors cursor-pointer"
             >
               取消
             </button>
@@ -143,7 +143,7 @@ export default function WorkflowToolbar({
               ref={leaveConfirmRef}
               type="button"
               onClick={confirmLeave}
-              className="px-3 py-1.5 rounded text-xs bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded text-xs bg-warning hover:bg-warning text-white transition-colors cursor-pointer"
             >
               离开
             </button>
@@ -151,14 +151,14 @@ export default function WorkflowToolbar({
         </div>
       </div>
     )}
-    <div className="h-12 px-4 bg-slate-900 border-b border-indigo-500/10 flex items-center justify-between shrink-0 select-none">
+    <div className="h-12 px-4 bg-card border-b border-primary/10 flex items-center justify-between shrink-0 select-none">
       {/* Left */}
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={handleBack}
           aria-label="返回"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-indigo-500/10 text-sm text-slate-400 hover:text-slate-200 transition-colors cursor-pointer min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-primary/10 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-h-[44px]"
         >
           <ArrowLeft size={14} aria-hidden="true" />
           返回
@@ -175,13 +175,13 @@ export default function WorkflowToolbar({
                 if (e.key === "Escape") { setIsEditing(false); setEditValue(name); }
               }}
               onBlur={handleRenameConfirm}
-              className="text-sm text-slate-200 bg-slate-950 border border-indigo-500/30 rounded px-2 py-0.5 outline-none focus:border-indigo-500 ml-1"
+              className="text-sm text-foreground bg-background border border-primary/30 rounded px-2 py-0.5 outline-none focus:border-primary ml-1"
               placeholder="输入工作流名称"
             />
           ) : (
             <button
               type="button"
-              className="text-sm text-slate-200 ml-1 cursor-pointer hover:text-indigo-500 transition-colors border-b border-transparent hover:border-indigo-500/30 truncate max-w-[200px] bg-transparent p-0 text-left"
+              className="text-sm text-foreground ml-1 cursor-pointer hover:text-primary transition-colors border-b border-transparent hover:border-primary/30 truncate max-w-[200px] bg-transparent p-0 text-left"
               onClick={() => { setIsEditing(true); setEditValue(name); }}
               aria-label="点击编辑工作流名称"
             >
@@ -189,19 +189,19 @@ export default function WorkflowToolbar({
             </button>
           )
         ) : (
-          <div className="text-xs text-slate-500 ml-1 font-mono">
+          <div className="text-xs text-muted-foreground ml-1 font-mono">
             {workflowId}
           </div>
         )}
 
         {mode === "editor" && (
-          <span className="flex items-center gap-1 ml-2 px-2 py-0.5 rounded bg-amber-500/10 text-xs text-amber-500">
+          <span className="flex items-center gap-1 ml-2 px-2 py-0.5 rounded bg-warning/10 text-xs text-warning">
             编辑中
           </span>
         )}
 
         {mode === "view" && (
-          <span className="flex items-center gap-1 ml-2 px-2 py-0.5 rounded bg-blue-500/10 text-xs text-blue-500">
+          <span className="flex items-center gap-1 ml-2 px-2 py-0.5 rounded bg-info/10 text-xs text-info">
             查看模式
           </span>
         )}
@@ -209,13 +209,13 @@ export default function WorkflowToolbar({
 
       {/* Center: Zoom indicator */}
       {mode === "editor" && (
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ZoomIn size={12} aria-hidden="true" />
           <span>右键更多操作</span>
         </div>
       )}
       {mode === "view" && (
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ZoomIn size={12} aria-hidden="true" />
           <span>查看工作流定义 · 点击右上角编辑或启动任务</span>
         </div>
@@ -232,7 +232,7 @@ export default function WorkflowToolbar({
                 if (el instanceof HTMLElement) el.click();
               }}
               aria-label="重置视图"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-indigo-500/10 text-sm text-slate-400 hover:text-slate-200 transition-colors cursor-pointer min-h-[44px]"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-primary/10 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-h-[44px]"
             >
               <Maximize2 size={14} aria-hidden="true" />
               重置
@@ -242,7 +242,7 @@ export default function WorkflowToolbar({
               onClick={handleSave}
               disabled={saving}
               aria-label="保存工作流"
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary hover:bg-primary text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
             >
               <Save size={14} aria-hidden="true" />
               {saving ? "保存中..." : "保存"}
@@ -254,7 +254,7 @@ export default function WorkflowToolbar({
               type="button"
               onClick={onEdit}
               aria-label="编辑工作流"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 text-sm transition-colors cursor-pointer min-h-[44px]"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm transition-colors cursor-pointer min-h-[44px]"
             >
               <Edit size={14} aria-hidden="true" />
               编辑
@@ -266,7 +266,7 @@ export default function WorkflowToolbar({
                 if (el instanceof HTMLElement) el.click();
               }}
               aria-label="重置视图"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-indigo-500/10 text-sm text-slate-400 hover:text-slate-200 transition-colors cursor-pointer min-h-[44px]"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-primary/10 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-h-[44px]"
             >
               <Maximize2 size={14} aria-hidden="true" />
               重置
@@ -276,7 +276,7 @@ export default function WorkflowToolbar({
               onClick={handleStartTask}
               disabled={starting}
               aria-label="启动新任务"
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-500 text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-success/10 hover:bg-success/20 text-success text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
             >
               {starting ? (
                 <Loader size={14} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />

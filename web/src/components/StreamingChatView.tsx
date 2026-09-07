@@ -104,7 +104,7 @@ export default function StreamingChatView({
 
       {/* 输入框 */}
       {showInput && (
-        <div className="p-3 border-t border-slate-700/50 bg-slate-900/50 shrink-0">
+        <div className="p-3 border-t border-border/50 bg-card/50 shrink-0">
           <ConversationComposer
             sessionId={conversationId ?? null}
             onSendMessage={onSendMessage}

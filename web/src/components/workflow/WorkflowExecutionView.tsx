@@ -38,26 +38,26 @@ export default function WorkflowExecutionView({ state, nodes }: WorkflowExecutio
   > = {
     pending: {
       icon: <Clock size={12} aria-hidden="true" />,
-      cls: "text-slate-500 bg-slate-500/5 border-slate-500/10",
+      cls: "text-muted-foreground bg-muted-foreground/5 border-border/10",
     },
     running: {
       icon: <Play size={12} aria-hidden="true" />,
-      cls: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+      cls: "text-info bg-info/10 border-info/20",
     },
     completed: {
       icon: <CheckCircle2 size={12} aria-hidden="true" />,
-      cls: "text-green-500 bg-green-500/10 border-green-500/20",
+      cls: "text-success bg-success/10 border-success/20",
     },
     failed: {
       icon: <XCircle size={12} aria-hidden="true" />,
-      cls: "text-red-500 bg-red-500/10 border-red-500/20",
+      cls: "text-destructive bg-destructive/10 border-destructive/20",
     },
   };
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-20">
       <div
-        className="mx-4 mb-4 p-4 rounded-xl bg-slate-900/95 border border-indigo-500/30 shadow-2xl"
+        className="mx-4 mb-4 p-4 rounded-xl bg-card/95 border border-primary/30 shadow-2xl"
         role="status"
         aria-label="工作流执行状态"
       >
@@ -65,42 +65,42 @@ export default function WorkflowExecutionView({ state, nodes }: WorkflowExecutio
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
-              <span className="text-sm font-medium text-slate-200">运行中</span>
+              <div className="w-2 h-2 rounded-full bg-info animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+              <span className="text-sm font-medium text-foreground">运行中</span>
             </div>
             {currentNode && (
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-muted-foreground">
                 当前节点:{" "}
-                <span className="text-slate-200">
+                <span className="text-foreground">
                   {currentNode.data?.label || currentNode.id}
                 </span>
               </span>
             )}
           </div>
           <div className="flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1 text-green-500">
+            <span className="flex items-center gap-1 text-success">
               <CheckCircle2 size={12} aria-hidden="true" />
               完成 {completedNodes}
             </span>
             {runningNodes > 0 && (
-              <span className="flex items-center gap-1 text-blue-500">
+              <span className="flex items-center gap-1 text-info">
                 <Play size={12} aria-hidden="true" />
                 运行中 {runningNodes}
               </span>
             )}
             {failedNodes > 0 && (
-              <span className="flex items-center gap-1 text-red-500">
+              <span className="flex items-center gap-1 text-destructive">
                 <XCircle size={12} aria-hidden="true" />
                 失败 {failedNodes}
               </span>
             )}
-            <span className="text-slate-500">{progress}%</span>
+            <span className="text-muted-foreground">{progress}%</span>
           </div>
         </div>
 
         {/* Progress bar */}
         <div
-          className="w-full h-2 rounded-full bg-slate-950 overflow-hidden mb-3"
+          className="w-full h-2 rounded-full bg-background overflow-hidden mb-3"
           role="progressbar"
           aria-valuenow={progress}
           aria-valuemin={0}
@@ -109,7 +109,7 @@ export default function WorkflowExecutionView({ state, nodes }: WorkflowExecutio
         >
           <div className="h-full rounded-full flex">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 transition-all duration-500 rounded-l-full"
+              className="h-full bg-gradient-to-r from-primary to-info transition-all duration-500 rounded-l-full"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -130,7 +130,7 @@ export default function WorkflowExecutionView({ state, nodes }: WorkflowExecutio
                 aria-label={`${label}: ${ns.status}`}
                 className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs ${
                   config.cls
-                } ${isActive ? "ring-1 ring-blue-500" : ""}`}
+                } ${isActive ? "ring-1 ring-info" : ""}`}
               >
                 {config.icon}
                 <span className="truncate max-w-[80px]">{label}</span>

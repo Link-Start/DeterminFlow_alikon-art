@@ -72,11 +72,22 @@ class WorkflowExecutorClient:
             raise ExecutorUnavailable(str(frame.get("error") or "Executor request failed"))
         return frame.get("result")
 
-    async def call(self, operation: str, **arguments: Any) -> Any:
+    async def call(
+        self,
+        operation: str,
+        *,
+        request_timeout_seconds: float | None = None,
+        **arguments: Any,
+    ) -> Any:
+        timeout_seconds = (
+            RPC_TIMEOUT_SECONDS
+            if request_timeout_seconds is None
+            else request_timeout_seconds
+        )
         try:
             return await asyncio.wait_for(
                 self._call(operation, arguments),
-                timeout=RPC_TIMEOUT_SECONDS,
+                timeout=timeout_seconds,
             )
         except asyncio.TimeoutError as exc:
             raise ExecutorUnavailable(

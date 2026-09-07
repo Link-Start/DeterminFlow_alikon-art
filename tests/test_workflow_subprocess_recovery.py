@@ -154,7 +154,7 @@ def test_subprocess_resolves_environment_from_child_workflow_owner(
 
     for parent_environment in (
         {},
-        {"PLUGIN_A_SECRET": "must-not-cross-owner"},  # pragma: allowlist secret
+        {"PLUGIN_A_SECRET": "must-not-cross-owner"},
     ):
         result = asyncio.run(SubprocessNode().execute(_context(
             definition=parent,

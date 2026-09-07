@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { WorkflowNodeDef, WorkflowEdgeDef, WorkflowVariable, NodeExecutionInfo } from "../../types";
 import { NODE_TYPE_COLORS, AGENT_TYPE_COLORS } from "../../types";
+import { BRAND_COLORS, NODE_STATUS_COLORS } from "../../lib/brand-colors";
 import NodeFailureRuntimePanel from "./NodeFailureRuntimePanel";
 
 interface SubprocessPopupProps {
@@ -36,16 +37,6 @@ interface SubprocessPopupProps {
   onClose: () => void;
   onActionComplete?: () => void | Promise<void>;
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "#475569",
-  running: "#3B82F6",
-  retry_waiting: "#F59E0B",
-  completed: "#22C55E",
-  failed: "#EF4444",
-  waiting_approval: "#F59E0B",
-  skipped: "#64748B",
-};
 
 export default function SubprocessPopup({
   workflowId,
@@ -175,22 +166,22 @@ export default function SubprocessPopup({
       {/* Popup panel */}
       <div
         ref={popupRef}
-        className="absolute flex flex-col bg-slate-900 border border-indigo-500/30 rounded-xl shadow-2xl overflow-hidden"
+        className="absolute flex flex-col bg-card border border-primary/30 rounded-xl shadow-2xl overflow-hidden"
         style={{ left: position.x, top: position.y, width: 560, height: "min(560px, calc(100dvh - 40px))" }}
         role="dialog"
         aria-label={`子流程: ${nodeDef.label || "未命名"}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-indigo-500/10 bg-slate-950/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10 bg-background/50">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: NODE_TYPE_COLORS.subprocess || "#10B981" }} />
-            <span className="text-sm font-semibold text-slate-200">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: NODE_TYPE_COLORS.subprocess || BRAND_COLORS.node.api }} />
+            <span className="text-sm font-semibold text-foreground">
               子流程: {nodeDef.label || childDefinition.workflow_id || "未命名"}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             aria-label="关闭子流程浮窗"
           >
             <X size={16} />
@@ -214,7 +205,7 @@ export default function SubprocessPopup({
           <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
             <defs>
               <marker id="sp-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                <path d="M0,0 L8,3 L0,6 Z" fill="#6366F1" />
+                <path d="M0,0 L8,3 L0,6 Z" fill={BRAND_COLORS.primary} />
               </marker>
             </defs>
             {edges.map((e) => {
@@ -229,7 +220,7 @@ export default function SubprocessPopup({
                 <line
                   key={e.id}
                   x1={sx} y1={sy} x2={tx} y2={ty}
-                  stroke={e.condition?.is_default ? "#64748B" : "#6366F1"}
+                  stroke={e.condition?.is_default ? BRAND_COLORS.muted : BRAND_COLORS.primary}
                   strokeWidth={1.5}
                   strokeDasharray={e.condition?.is_default ? "6,3" : "none"}
                   markerEnd="url(#sp-arrow)"
@@ -248,8 +239,8 @@ export default function SubprocessPopup({
               const status = state?.status || "pending";
               const nt = n.node_type || "agent";
               const color =
-                NODE_TYPE_COLORS[nt] || AGENT_TYPE_COLORS[n.agent_type] || "#6366F1";
-              const statusColor = STATUS_COLORS[status] || STATUS_COLORS.pending;
+                NODE_TYPE_COLORS[nt] || AGENT_TYPE_COLORS[n.agent_type] || BRAND_COLORS.primary;
+              const statusColor = NODE_STATUS_COLORS[status] || BRAND_COLORS.muted;
               const isRunning = status === "running";
               const hasClick = onChildNodeClick && state?.session_id;
 
@@ -262,7 +253,7 @@ export default function SubprocessPopup({
               return (
                 <div
                   key={n.id}
-                  className={`absolute flex items-stretch rounded-lg bg-slate-800 border ${
+                  className={`absolute flex items-stretch rounded-lg bg-secondary border ${
                     isRunning ? "animate-pulse" : ""
                   } overflow-hidden`}
                   style={{
@@ -289,7 +280,7 @@ export default function SubprocessPopup({
                     <div className="flex items-center justify-between mb-0.5">
                       <span
                         className="text-[10px] uppercase tracking-wider px-1 rounded font-medium"
-                        style={{ backgroundColor: `${color}15`, color }}
+                        style={{ backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)`, color }}
                       >
                         {badgeText}
                       </span>
@@ -298,7 +289,7 @@ export default function SubprocessPopup({
                         style={{ backgroundColor: statusColor }}
                       />
                     </div>
-                    <div className="text-xs font-medium text-slate-300 truncate">
+                    <div className="text-xs font-medium text-foreground truncate">
                       {n.label || "未命名"}
                     </div>
                   </div>

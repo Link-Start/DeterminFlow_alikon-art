@@ -9,6 +9,7 @@ import type {
   WorkflowNodeDef,
   WorkflowVariable,
 } from "../../types";
+import { BRAND_COLORS } from "../../lib/brand-colors";
 
 export const START_NODE_ID = "__start__";
 export const END_NODE_ID = "__end__";
@@ -252,15 +253,15 @@ export function buildWorkflowGraph(
     animated: running,
     style: {
       stroke: edge.condition
-        ? (edge.condition.is_default ? "#64748B" : "#3B82F6")
-        : "#6366F1",
+        ? (edge.condition.is_default ? BRAND_COLORS.muted : BRAND_COLORS.info)
+        : BRAND_COLORS.primary,
       strokeWidth: 2,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
       color: edge.condition
-        ? (edge.condition.is_default ? "#64748B" : "#3B82F6")
-        : "#6366F1",
+        ? (edge.condition.is_default ? BRAND_COLORS.muted : BRAND_COLORS.info)
+        : BRAND_COLORS.primary,
     },
     label: edge.condition && !edge.condition.is_default
       ? edge.condition.label || edge.condition.expression
@@ -269,7 +270,7 @@ export function buildWorkflowGraph(
         : undefined,
     labelStyle: {
       fontSize: 12,
-      fill: edge.condition?.is_default ? "#64748B" : "#3B82F6",
+      fill: edge.condition?.is_default ? BRAND_COLORS.muted : BRAND_COLORS.info,
     },
     deletable: !isReadOnly,
     data: { condition: edge.condition || null },
@@ -499,11 +500,9 @@ export function buildWorkflowSavePayload(
         enable_complete_node_task: original?.enable_complete_node_task !== false,
         output_variable: original?.output_variable || "",
         enable_reject_upstream: original?.enable_reject_upstream || false,
-        max_reject_count: original?.max_reject_count || 3,
         save_output_to_file: original?.save_output_to_file || false,
         output_file_path: original?.output_file_path || "",
         require_non_empty_output: original?.require_non_empty_output || false,
-        retry_empty_output_in_session: original?.retry_empty_output_in_session || false,
         json_output_field: original?.json_output_field || "",
         json_output_field_min_chars: original?.json_output_field_min_chars ?? 0,
         model_override: original?.model_override || "",

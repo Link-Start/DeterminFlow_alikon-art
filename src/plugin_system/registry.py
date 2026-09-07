@@ -1,4 +1,4 @@
-"""Official Plugin static HTTPS Registry v1 transport."""
+"""Signed static HTTPS Plugin distribution v1 transport."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import json
 import os
 import re
 import zipfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -49,14 +49,18 @@ HttpGet = Callable[..., bytes]
 
 
 class PluginRegistryError(RuntimeError):
-    """Raised when official Registry transport cannot be used."""
+    """Raised when signed Registry transport cannot be used."""
 
 
 @dataclass(frozen=True)
 class PluginRegistryConfig:
-    url: str
+    endpoints: tuple[str, ...]
     public_key: bytes
     public_key_text: str
+
+    @property
+    def url(self) -> str:
+        return self.endpoints[0]
 
 
 @dataclass(frozen=True)
@@ -68,6 +72,7 @@ class RegistryPlugin:
     subdirectory: str
     ref: str
     commit: str
+    package_path: str
     package_url: str
     package_sha256: str
     content_sha256: str
@@ -81,25 +86,61 @@ class RegistryManifest:
     plugins: tuple[RegistryPlugin, ...]
 
 
+@dataclass(frozen=True)
+class FetchedRegistryManifest:
+    endpoint: str
+    manifest_bytes: bytes
+    manifest: RegistryManifest
+
+
 def parse_registry_config(raw: Any, *, label: str) -> PluginRegistryConfig:
     if not isinstance(raw, dict):
         raise ValueError(f"{label}.registry 必须是 object")
-    url = raw.get("url")
     public_key = raw.get("public_key")
-    if not isinstance(url, str) or not url.strip():
-        raise ValueError(f"{label}.registry.url 必须是非空字符串")
     if not isinstance(public_key, str) or not public_key.strip():
         raise ValueError(f"{label}.registry.public_key 必须是非空字符串")
+    raw_endpoints = raw.get("endpoints")
+    raw_url = raw.get("url")
+    endpoint_values: list[str]
+    if raw_endpoints is not None:
+        if not isinstance(raw_endpoints, list) or not raw_endpoints:
+            raise ValueError(f"{label}.registry.endpoints 必须是非空字符串数组")
+        if not all(isinstance(item, str) and item.strip() for item in raw_endpoints):
+            raise ValueError(f"{label}.registry.endpoints 必须是非空字符串数组")
+        endpoint_values = [item.strip() for item in raw_endpoints]
+    elif isinstance(raw_url, str) and raw_url.strip():
+        endpoint_values = [raw_url.strip()]
+    else:
+        raise ValueError(f"{label}.registry 必须提供 endpoints 或 url")
     try:
-        canonical_url = canonicalize_registry_url(url)
+        endpoints = tuple(canonicalize_registry_url(item) for item in endpoint_values)
         key_bytes = decode_ed25519_public_key(public_key)
     except PluginRegistryError as exc:
         raise ValueError(f"{label}.registry 配置无效: {exc}") from exc
+    if len(set(endpoints)) != len(endpoints):
+        raise ValueError(f"{label}.registry.endpoints 不能重复")
+    if raw_endpoints is not None and raw_url is not None:
+        if not isinstance(raw_url, str) or not raw_url.strip():
+            raise ValueError(f"{label}.registry.url 必须是非空字符串")
+        try:
+            canonical_url = canonicalize_registry_url(raw_url)
+        except PluginRegistryError as exc:
+            raise ValueError(f"{label}.registry 配置无效: {exc}") from exc
+        if canonical_url != endpoints[0]:
+            raise ValueError(f"{label}.registry.url 必须与 endpoints[0] 一致")
     return PluginRegistryConfig(
-        url=canonical_url,
+        endpoints=endpoints,
         public_key=key_bytes,
         public_key_text=public_key.strip(),
     )
+
+
+def serialize_registry_config(config: PluginRegistryConfig) -> dict[str, Any]:
+    return {
+        "endpoints": list(config.endpoints),
+        "url": config.url,
+        "public_key": config.public_key_text,
+    }
 
 
 def canonicalize_registry_url(url: str) -> str:
@@ -158,9 +199,36 @@ def resolve_package_url(registry_url: str, package_url: str) -> str:
     if not raw:
         raise PluginRegistryError("Registry 包地址不能为空")
     if urlsplit(raw).scheme:
-        canonical = canonicalize_registry_url(raw)
-        return canonical
-    return canonicalize_registry_url(registry_object_url(registry_url, raw))
+        return canonicalize_registry_url(raw)
+    return canonicalize_registry_url(
+        registry_object_url(registry_url, normalize_relative_package_path(raw))
+    )
+
+
+def normalize_relative_package_path(value: str) -> str:
+    raw = str(value).strip().replace("\\", "/")
+    if not raw or raw.startswith("//") or urlsplit(raw).scheme:
+        raise PluginRegistryError("Registry 包路径必须是相对路径")
+    path = PurePosixPath(raw)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise PluginRegistryError("Registry 包路径无效")
+    return path.as_posix()
+
+
+def relative_package_path_from_url(url: str, registry_url: str | None = None) -> str:
+    canonical = canonicalize_registry_url(url)
+    if registry_url:
+        prefix = f"{registry_url.rstrip('/')}/"
+        if canonical.startswith(prefix):
+            relative = canonical[len(prefix) :]
+            if relative:
+                return normalize_relative_package_path(relative)
+    path = urlsplit(canonical).path.lstrip("/")
+    marker = "packages/"
+    index = path.find(marker)
+    if index >= 0:
+        return normalize_relative_package_path(path[index:])
+    return ""
 
 
 def https_get(
@@ -207,7 +275,7 @@ def verify_manifest_signature(
 def parse_registry_manifest(
     document: Any,
     *,
-    registry_url: str,
+    registry_url: str | None = None,
 ) -> RegistryManifest:
     if not isinstance(document, dict):
         raise PluginRegistryError("Registry 清单必须是 object")
@@ -250,7 +318,7 @@ def parse_registry_manifest(
 def _parse_registry_plugin(
     item: Any,
     *,
-    registry_url: str,
+    registry_url: str | None,
 ) -> RegistryPlugin:
     if not isinstance(item, dict):
         raise PluginRegistryError("Registry 清单 Plugin 必须是 object")
@@ -283,20 +351,19 @@ def _parse_registry_plugin(
     package = item.get("package")
     if not isinstance(package, Mapping):
         raise PluginRegistryError(f"Registry 清单 package 无效: {plugin_id}")
-    package_url = package.get("url")
     package_sha256 = package.get("sha256")
-    if not isinstance(package_url, str) or not package_url.strip():
-        raise PluginRegistryError(f"Registry 清单 package.url 无效: {plugin_id}")
     if not isinstance(package_sha256, str) or not _SHA256_RE.fullmatch(
         package_sha256
     ):
         raise PluginRegistryError(f"Registry 清单 package.sha256 无效: {plugin_id}")
     try:
-        resolved_package_url = resolve_package_url(registry_url, package_url)
+        package_path, package_url = _parse_package_locator(
+            package,
+            plugin_id=plugin_id,
+            registry_url=registry_url,
+        )
     except PluginRegistryError as exc:
-        raise PluginRegistryError(
-            f"Registry 清单 package.url 无效: {plugin_id}"
-        ) from exc
+        raise PluginRegistryError(str(exc)) from exc
     return RegistryPlugin(
         plugin_id=plugin_id,
         name=name.strip(),
@@ -305,40 +372,126 @@ def _parse_registry_plugin(
         subdirectory=subdirectory,
         ref=plugin_ref,
         commit=commit.lower(),
-        package_url=resolved_package_url,
+        package_path=package_path,
+        package_url=package_url,
         package_sha256=package_sha256,
         content_sha256=content_digest,
     )
+
+
+def _parse_package_locator(
+    package: Mapping[str, Any],
+    *,
+    plugin_id: str,
+    registry_url: str | None,
+) -> tuple[str, str]:
+    raw_path = package.get("path")
+    raw_url = package.get("url")
+    package_path = ""
+    package_url = ""
+    if raw_path is not None:
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            raise PluginRegistryError(f"Registry 清单 package.path 无效: {plugin_id}")
+        try:
+            package_path = normalize_relative_package_path(raw_path)
+        except PluginRegistryError as exc:
+            raise PluginRegistryError(
+                f"Registry 清单 package.path 无效: {plugin_id}"
+            ) from exc
+    if raw_url is not None:
+        if not isinstance(raw_url, str) or not raw_url.strip():
+            raise PluginRegistryError(f"Registry 清单 package.url 无效: {plugin_id}")
+        raw_url = raw_url.strip()
+        if urlsplit(raw_url).scheme:
+            try:
+                package_url = canonicalize_registry_url(raw_url)
+            except PluginRegistryError as exc:
+                raise PluginRegistryError(
+                    f"Registry 清单 package.url 无效: {plugin_id}"
+                ) from exc
+        else:
+            try:
+                relative = normalize_relative_package_path(raw_url)
+            except PluginRegistryError as exc:
+                raise PluginRegistryError(
+                    f"Registry 清单 package.url 无效: {plugin_id}"
+                ) from exc
+            if package_path and package_path != relative:
+                raise PluginRegistryError(
+                    f"Registry 清单 package.path 与 package.url 不一致: {plugin_id}"
+                )
+            package_path = package_path or relative
+    if not package_path and not package_url:
+        raise PluginRegistryError(
+            f"Registry 清单 package 缺少 path 或 url: {plugin_id}"
+        )
+    if package_path and registry_url and not package_url:
+        package_url = canonicalize_registry_url(
+            registry_object_url(registry_url, package_path)
+        )
+    if package_url and not package_path:
+        try:
+            package_path = relative_package_path_from_url(
+                package_url,
+                registry_url,
+            )
+        except PluginRegistryError as exc:
+            raise PluginRegistryError(
+                f"Registry 清单 package.url 无效: {plugin_id}"
+            ) from exc
+    return package_path, package_url
 
 
 def fetch_signed_manifest(
     registry: PluginRegistryConfig,
     *,
     http_get: HttpGet | None = None,
-) -> tuple[bytes, RegistryManifest]:
+    required_source: str | None = None,
+) -> FetchedRegistryManifest:
     getter = http_get or https_get
-    manifest_url = registry_object_url(registry.url, MANIFEST_NAME)
-    signature_url = registry_object_url(registry.url, SIGNATURE_NAME)
+    errors: list[str] = []
+    for endpoint in registry.endpoints:
+        try:
+            manifest_bytes, manifest = _fetch_signed_manifest_from_endpoint(
+                endpoint,
+                public_key=registry.public_key,
+                getter=getter,
+            )
+            if required_source is not None:
+                require_manifest_source(manifest, required_source)
+            return FetchedRegistryManifest(
+                endpoint=endpoint,
+                manifest_bytes=manifest_bytes,
+                manifest=manifest,
+            )
+        except PluginRegistryError as exc:
+            errors.append(f"{endpoint}: {exc}")
+    detail = "; ".join(errors) if errors else "没有可用端点"
+    raise PluginRegistryError(f"Registry 所有端点均不可用: {detail}")
+
+
+def _fetch_signed_manifest_from_endpoint(
+    endpoint: str,
+    *,
+    public_key: bytes,
+    getter: HttpGet,
+) -> tuple[bytes, RegistryManifest]:
     manifest_bytes = getter(
-        manifest_url,
+        registry_object_url(endpoint, MANIFEST_NAME),
         max_bytes=MAX_MANIFEST_BYTES,
         timeout=MANIFEST_TIMEOUT_SECONDS,
     )
     signature_bytes = getter(
-        signature_url,
+        registry_object_url(endpoint, SIGNATURE_NAME),
         max_bytes=MAX_SIGNATURE_BYTES,
         timeout=MANIFEST_TIMEOUT_SECONDS,
     )
-    verify_manifest_signature(
-        manifest_bytes,
-        signature_bytes,
-        registry.public_key,
-    )
+    verify_manifest_signature(manifest_bytes, signature_bytes, public_key)
     try:
         document = json.loads(manifest_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise PluginRegistryError("Registry 清单不是有效 JSON") from exc
-    manifest = parse_registry_manifest(document, registry_url=registry.url)
+    manifest = parse_registry_manifest(document, registry_url=endpoint)
     _canonical_git_source(manifest.source)
     return manifest_bytes, manifest
 
@@ -349,9 +502,11 @@ def load_verified_manifest(
     *,
     http_get: HttpGet | None = None,
 ) -> RegistryManifest:
-    _, manifest = fetch_signed_manifest(registry, http_get=http_get)
-    require_manifest_source(manifest, canonical_source)
-    return manifest
+    return fetch_signed_manifest(
+        registry,
+        http_get=http_get,
+        required_source=canonical_source,
+    ).manifest
 
 
 def require_manifest_source(manifest: RegistryManifest, canonical_source: str) -> None:
@@ -396,23 +551,86 @@ def select_registry_plugin(
     raise PluginRegistryError(f"Registry 未覆盖该 ref: {requested_ref}")
 
 
+def registry_package_urls(
+    plugin: RegistryPlugin,
+    *,
+    endpoints: Sequence[str] = (),
+    preferred_endpoint: str = "",
+) -> tuple[str, ...]:
+    ordered_endpoints: list[str] = []
+    if preferred_endpoint:
+        ordered_endpoints.append(preferred_endpoint)
+    for endpoint in endpoints:
+        if endpoint not in ordered_endpoints:
+            ordered_endpoints.append(endpoint)
+    urls: list[str] = []
+    package_path = plugin.package_path
+    if not package_path and plugin.package_url:
+        try:
+            package_path = relative_package_path_from_url(
+                plugin.package_url,
+                ordered_endpoints[0] if ordered_endpoints else None,
+            )
+        except PluginRegistryError:
+            package_path = ""
+    if package_path:
+        for endpoint in ordered_endpoints:
+            urls.append(registry_object_url(endpoint, package_path))
+    if plugin.package_url:
+        urls.append(plugin.package_url)
+    unique: list[str] = []
+    seen: set[str] = set()
+    for raw in urls:
+        try:
+            canonical = canonicalize_registry_url(raw)
+        except PluginRegistryError:
+            continue
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+        unique.append(canonical)
+    return tuple(unique)
+
+
 def download_registry_package(
     plugin: RegistryPlugin,
     *,
+    endpoints: Sequence[str] = (),
+    preferred_endpoint: str = "",
     http_get: HttpGet | None = None,
 ) -> bytes:
     getter = http_get or https_get
-    payload = getter(
-        plugin.package_url,
-        max_bytes=MAX_PACKAGE_BYTES,
-        timeout=PACKAGE_TIMEOUT_SECONDS,
+    candidates = registry_package_urls(
+        plugin,
+        endpoints=endpoints,
+        preferred_endpoint=preferred_endpoint,
     )
-    digest = hashlib.sha256(payload).hexdigest()
-    if digest != plugin.package_sha256:
+    if not candidates:
+        raise PluginRegistryError(f"Registry 未提供可下载的包地址: {plugin.plugin_id}")
+    hash_mismatch = False
+    last_error: PluginRegistryError | None = None
+    for url in candidates:
+        try:
+            payload = getter(
+                url,
+                max_bytes=MAX_PACKAGE_BYTES,
+                timeout=PACKAGE_TIMEOUT_SECONDS,
+            )
+        except PluginRegistryError as exc:
+            last_error = exc
+            continue
+        if hashlib.sha256(payload).hexdigest() == plugin.package_sha256:
+            return payload
+        hash_mismatch = True
+    if hash_mismatch:
         raise PluginRegistryError(
             f"Plugin 包 SHA256 与签名清单不一致: {plugin.plugin_id}"
         )
-    return payload
+    if last_error is not None:
+        raise PluginRegistryError(
+            f"Plugin 包下载失败: {plugin.plugin_id}"
+        ) from last_error
+    raise PluginRegistryError(f"Plugin 包下载失败: {plugin.plugin_id}")
 
 
 def extract_plugin_zip(payload: bytes, destination: Path) -> None:

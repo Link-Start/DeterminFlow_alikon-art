@@ -134,7 +134,7 @@ export default function CompressionMonitorPage() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100dvh-3.5rem)] flex items-center justify-center">
+      <div className="flex h-full min-h-0 items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground animate-pulse motion-reduce:animate-none" role="status" aria-label="正在加载压缩监控数据">
           <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
           <span>加载监控数据...</span>
@@ -145,12 +145,12 @@ export default function CompressionMonitorPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] overflow-auto p-6" role="main" aria-label="压缩状态监控页面">
+    <div className="h-full min-h-0 min-w-0 overflow-auto overscroll-contain p-6" role="main" aria-label="压缩状态监控页面">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* 错误提示 */}
         {error && (
-          <div className="flex items-center gap-3 p-4 border border-red-500/20 bg-red-500/5 rounded-lg" role="alert" aria-live="polite">
-            <AlertTriangle size={16} className="text-red-500 shrink-0" aria-hidden="true" />
+          <div className="flex items-center gap-3 p-4 border border-destructive/20 bg-destructive/5 rounded-lg" role="alert" aria-live="polite">
+            <AlertTriangle size={16} className="text-destructive shrink-0" aria-hidden="true" />
             <span className="text-sm flex-1">{error}</span>
             <Button
               variant="outline"
@@ -170,7 +170,7 @@ export default function CompressionMonitorPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Activity className="text-indigo-500" aria-hidden="true" />
+              <Activity className="text-primary" aria-hidden="true" />
               压缩状态监控
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -247,7 +247,7 @@ export default function CompressionMonitorPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="text-purple-500" aria-hidden="true" />
+              <Clock className="text-primary" aria-hidden="true" />
               压缩历史
             </CardTitle>
             <CardDescription>
@@ -292,7 +292,7 @@ export default function CompressionMonitorPage() {
                       </div>
 
                       <div className="text-right">
-                        <div className="text-sm font-medium text-emerald-500">
+                        <div className="text-sm font-medium text-success">
                           -{formatNumber(item.tokens_saved)} tokens
                         </div>
                         <div className="text-sm text-muted-foreground">
@@ -311,7 +311,7 @@ export default function CompressionMonitorPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Zap className="text-amber-500" aria-hidden="true" />
+              <Zap className="text-warning" aria-hidden="true" />
               压缩策略状态
             </CardTitle>
             <CardDescription>
@@ -322,7 +322,7 @@ export default function CompressionMonitorPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4" role="region" aria-label="压缩策略概览">
               <div className="p-4 border rounded-lg" role="article" aria-label="MicroCompact 策略状态">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" aria-hidden="true"></div>
+                  <div className="w-3 h-3 rounded-full bg-success shrink-0" aria-hidden="true"></div>
                   <span className="font-medium">MicroCompact</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -336,7 +336,7 @@ export default function CompressionMonitorPage() {
 
               <div className="p-4 border rounded-lg" role="article" aria-label="FullCompact 策略状态">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500 shrink-0" aria-hidden="true"></div>
+                  <div className="w-3 h-3 rounded-full bg-primary shrink-0" aria-hidden="true"></div>
                   <span className="font-medium">FullCompact</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -350,7 +350,7 @@ export default function CompressionMonitorPage() {
 
               <div className="p-4 border rounded-lg" role="article" aria-label="ReactiveCompact 策略状态">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500 shrink-0" aria-hidden="true"></div>
+                  <div className="w-3 h-3 rounded-full bg-destructive shrink-0" aria-hidden="true"></div>
                   <span className="font-medium">ReactiveCompact</span>
                 </div>
                 <p className="text-sm text-muted-foreground">

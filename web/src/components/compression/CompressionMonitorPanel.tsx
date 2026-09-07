@@ -67,7 +67,7 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-8 gap-3" role="alert" aria-live="polite">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" size="sm" type="button" onClick={loadData} className="min-h-[44px] cursor-pointer">
           <RefreshCw size={14} className="mr-2" aria-hidden="true" />
           重试
@@ -151,7 +151,7 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                <Zap className="h-4 w-4 text-warning" aria-hidden="true" />
                 压缩策略状态
               </CardTitle>
               <CardDescription>
@@ -162,7 +162,7 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 border rounded-lg" role="article" aria-label="MicroCompact 策略">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" aria-hidden="true"></div>
+                    <div className="w-3 h-3 rounded-full bg-success shrink-0" aria-hidden="true"></div>
                     <span className="font-medium">MicroCompact</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
@@ -176,7 +176,7 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
 
                 <div className="p-4 border rounded-lg" role="article" aria-label="FullCompact 策略">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-purple-500 shrink-0" aria-hidden="true"></div>
+                    <div className="w-3 h-3 rounded-full bg-primary shrink-0" aria-hidden="true"></div>
                     <span className="font-medium">FullCompact</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
@@ -190,7 +190,7 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
 
                 <div className="p-4 border rounded-lg" role="article" aria-label="ReactiveCompact 策略">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500 shrink-0" aria-hidden="true"></div>
+                    <div className="w-3 h-3 rounded-full bg-destructive shrink-0" aria-hidden="true"></div>
                     <span className="font-medium">ReactiveCompact</span>
                   </div>
                   <p className="text-sm text-muted-foreground">

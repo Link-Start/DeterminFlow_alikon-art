@@ -54,6 +54,25 @@ from src.core.utils import (
     message_content_reasoning,
     message_content_text,
 )
+from src.core.tool_resolution import pending_tool_resolution_metadata
+from src.core.tool_errors import tool_error_content
+from pydantic import ValidationError
+from src.agent.message_context import (
+    compose_user_model_content,
+    normalize_model_context,
+)
+from src.agent.tool_resume import (
+    PHASE_AWAITING,
+    PHASE_COMPLETED,
+    PHASE_FILLED,
+    PHASE_UNSAFE,
+    blocks_new_user_message,
+    build_accepted_tool_resume,
+    classify_resume_request,
+    contents_match,
+    existing_tool_contents,
+    parse_accepted_tool_resume,
+)
 from src.compression.checker import get_compression_checker
 from src.compression.scheduler import get_compression_scheduler
 
@@ -392,8 +411,11 @@ def _build_injection_content(metadata: dict[str, Any] | None = None) -> tuple[st
     Returns:
         tuple: (注入内容字符串, 注入元信息列表)
     """
-    config = _load_user_injection_config()
-    sections = config.get("sections", [])
+    if not config.USER_MESSAGE_INJECTION_ENABLED:
+        return "", []
+
+    injection_config = _load_user_injection_config()
+    sections = injection_config.get("sections", [])
 
     # 按order排序，只处理启用的sections
     enabled_sections = sorted(
@@ -584,6 +606,14 @@ class AgentSession:
         # Interactive Main keeps the failed user turn separately from the stable
         # model context so the UI can offer an explicit, restart-safe retry.
         self.failed_turn: dict[str, Any] | None = None
+
+        # External resolvers may suspend a tool call without fabricating a
+        # ToolMessage for the model. The original model tool_call_id remains
+        # authoritative across persistence and process restarts.
+        self.pending_tool_resolutions: dict[str, dict[str, Any]] = {}
+        self.pending_tool_remaining_rounds: int | None = None
+        self.accepted_tool_resume: dict[str, Any] | None = None
+        self._invocation_checkpoint: dict[str, Any] | None = None
 
         # 累计 Token 使用数据（按 model_id 分组，用于工作流统计）
         # key = model_id (e.g. "deepseek:deepseek-v4-pro")
@@ -888,9 +918,7 @@ class AgentSession:
             if self._termination_requested:
                 raise RuntimeError(f"Session {self.session_id} 已终止，无法继续执行")
 
-            record_checkpoint = deepcopy(self.record)
-            lc_checkpoint = list(self.lc_messages)
-            context_checkpoint = deepcopy(self.context)
+            self._refresh_invocation_checkpoint()
             self._abort_requested = False
             self._invocation_active = True
             self._invocation_task = asyncio.current_task()
@@ -898,9 +926,7 @@ class AgentSession:
             try:
                 yield
             except asyncio.CancelledError:
-                self.record = record_checkpoint
-                self.lc_messages = lc_checkpoint
-                self.context = context_checkpoint
+                self._restore_invocation_checkpoint()
                 self._current_event_callback = None
                 self.updated_at = datetime.now(timezone.utc).isoformat()
                 try:
@@ -912,6 +938,28 @@ class AgentSession:
                 self._invocation_active = False
                 self._invocation_task = None
                 self._invocation_done.set()
+                self._invocation_checkpoint = None
+
+    def _refresh_invocation_checkpoint(self) -> None:
+        self._invocation_checkpoint = {
+            "record": deepcopy(self.record),
+            "lc_messages": list(self.lc_messages),
+            "context": deepcopy(self.context),
+            "status": self.status,
+            "last_error": deepcopy(self.last_error),
+        }
+
+    def _restore_invocation_checkpoint(self) -> None:
+        checkpoint = self._invocation_checkpoint
+        if checkpoint is None:
+            return
+        self.record = deepcopy(checkpoint["record"])
+        self.lc_messages = list(checkpoint["lc_messages"])
+        self.context = deepcopy(checkpoint["context"])
+        if "status" in checkpoint:
+            self.status = checkpoint["status"]
+        if "last_error" in checkpoint:
+            self.last_error = deepcopy(checkpoint["last_error"])
 
     async def _process_message(self, msg: SessionMessage) -> str:
 
@@ -1057,6 +1105,8 @@ class AgentSession:
 
         invocation_context: dict[str, str] | None = None,
 
+        model_context: dict[str, Any] | None = None,
+
     ) -> str:
 
         """
@@ -1079,12 +1129,18 @@ class AgentSession:
 
             raise RuntimeError(f"Session {self.session_id} 的 Graph 未初始化，请先调用 setup_graph()")
 
+        if blocks_new_user_message(self):
+            raise RuntimeError("Session 正在等待外部工具结果，不能追加新消息")
+        accepted = parse_accepted_tool_resume(self.accepted_tool_resume)
+        if accepted is not None and accepted.get("phase") == PHASE_COMPLETED:
+            self.accepted_tool_resume = None
+
 
 
         callback = event_callback or self._default_event_callback
         async with self._invocation_scope():
 
-            if invocation_context is None:
+            if invocation_context is None and model_context is None:
 
                 return await self._invoke_graph(
                     content,
@@ -1103,7 +1159,185 @@ class AgentSession:
                 source_name,
                 attachments,
                 invocation_context,
+                model_context,
             )
+
+    async def resume_tools(
+        self,
+        resolutions: dict[str, Any],
+        *,
+        event_callback: Callable[[dict], Awaitable[None]] | None = None,
+        invocation_context: dict[str, str] | None = None,
+    ) -> str:
+        """Resolve the original pending tool calls and continue the same turn."""
+        if self.compiled_graph is None:
+            raise RuntimeError(f"Session {self.session_id} 的 Graph 未初始化")
+
+        callback = event_callback or self._default_event_callback
+        async with self._invocation_scope():
+            decision = classify_resume_request(
+                pending_ids=set(self.pending_tool_resolutions),
+                accepted=parse_accepted_tool_resume(self.accepted_tool_resume),
+                existing_contents=existing_tool_contents(self),
+                resolutions=resolutions,
+            )
+            if decision.action == "reject":
+                raise decision.error or ValueError("工具结果必须与全部待解析 tool_call_id 精确匹配")
+            if decision.action == "replay":
+                await self.async_save(force=True, strict=True)
+                return decision.final_result or ""
+            if decision.action == "replay_pending":
+                await self.async_save(force=True, strict=True)
+                if callback:
+                    for tool_call_id, pending in self.pending_tool_resolutions.items():
+                        await callback({
+                            "type": "tool_pending", "session_id": self.session_id,
+                            "tool_call_id": tool_call_id, **deepcopy(pending),
+                        })
+                return ""
+
+            self._current_event_callback = callback
+            remaining_rounds = decision.remaining_rounds
+            if decision.action == "apply":
+                remaining_rounds = await self._apply_accepted_tool_resolutions(
+                    resolutions,
+                    contents=decision.contents,
+                    event_callback=callback,
+                )
+                self._refresh_invocation_checkpoint()
+
+            self._active_turn_tool_started = False
+            # A process exit during graph execution cannot prove whether a tool
+            # ran. Only a handled failure before tool start may restore FILLED.
+            self.accepted_tool_resume["phase"] = PHASE_UNSAFE
+            await self.async_save(force=True, strict=True)
+            try:
+                result = await self._invoke_graph_once(
+                    "",
+                    callback,
+                    remaining_rounds,
+                    invocation_context=invocation_context,
+                    append_input=False,
+                )
+                if self.accepted_tool_resume.get("phase") == PHASE_UNSAFE:
+                    raise RuntimeError("External tool resume did not reach a terminal checkpoint")
+            except asyncio.CancelledError:
+                await self._handle_accepted_resume_failure()
+                raise
+            except Exception:
+                await self._handle_accepted_resume_failure()
+                raise
+            return result
+
+    async def _apply_accepted_tool_resolutions(
+        self,
+        resolutions: dict[str, Any],
+        *,
+        contents: dict[str, str],
+        event_callback: Callable[[dict], Awaitable[None]] | None,
+    ) -> int | None:
+        existing = existing_tool_contents(self)
+        names: dict[str, str] = {}
+        run_ids: dict[str, str] = {}
+        remaining_rounds = self.pending_tool_remaining_rounds
+        for tool_call_id, pending in self.pending_tool_resolutions.items():
+            content = contents[tool_call_id]
+            name = str(pending.get("name") or "unknown")
+            run_id = str(pending.get("run_id") or tool_call_id)
+            names[tool_call_id] = name
+            run_ids[tool_call_id] = run_id
+            if tool_call_id in existing and contents_match(existing[tool_call_id], content):
+                continue
+            output = resolutions[tool_call_id]
+            tool_status = (
+                "completed"
+                if not isinstance(output, dict) or output.get("ok") is not False
+                else "failed"
+            )
+            await self._finish_tool_run(
+                event_callback=event_callback,
+                tool_name=name,
+                result=content,
+                run_id=run_id,
+                tool_status=tool_status,
+                tool_call_id=tool_call_id,
+            )
+            self.lc_messages.append(
+                ToolMessage(
+                    content=content,
+                    tool_call_id=tool_call_id,
+                    name=name,
+                    status="error" if tool_status == "failed" else "success",
+                    additional_kwargs={"tool_status": tool_status},
+                )
+            )
+        accepted = parse_accepted_tool_resume(self.accepted_tool_resume)
+        if remaining_rounds is None and accepted is not None:
+            remaining_rounds = accepted.get("remaining_rounds")
+            if not isinstance(remaining_rounds, int):
+                remaining_rounds = None
+        self.accepted_tool_resume = build_accepted_tool_resume(
+            contents=contents,
+            names=names,
+            run_ids=run_ids,
+            remaining_rounds=remaining_rounds,
+            phase=PHASE_FILLED,
+        )
+        self.pending_tool_resolutions = {}
+        self.pending_tool_remaining_rounds = None
+        self.status = "awaiting_tool_resolution"
+        self._refresh_invocation_checkpoint()
+        await self.async_save(force=True, strict=True)
+        return remaining_rounds
+
+    async def _handle_accepted_resume_failure(self) -> None:
+        accepted = parse_accepted_tool_resume(self.accepted_tool_resume)
+        if accepted is None or accepted.get("phase") != PHASE_UNSAFE:
+            return
+        if self._active_turn_tool_started:
+            await self._fail_closed_accepted_tool_resume()
+            self._refresh_invocation_checkpoint()
+        else:
+            await self._recover_accepted_tool_resume()
+
+    async def _recover_accepted_tool_resume(self) -> None:
+        accepted = parse_accepted_tool_resume(self.accepted_tool_resume)
+        if accepted is None:
+            return
+        self._restore_invocation_checkpoint()
+        accepted["phase"] = PHASE_FILLED
+        self.accepted_tool_resume = accepted
+        self.status = "awaiting_tool_resolution"
+        self.pending_tool_resolutions = {}
+        self.pending_tool_remaining_rounds = None
+        self.last_error = None
+        self.updated_at = datetime.now(timezone.utc).isoformat()
+        await self.async_save(force=True, strict=True)
+
+    async def _fail_closed_accepted_tool_resume(self) -> None:
+        accepted = parse_accepted_tool_resume(self.accepted_tool_resume)
+        if accepted is not None:
+            accepted = dict(accepted)
+            accepted["phase"] = PHASE_UNSAFE
+            self.accepted_tool_resume = accepted
+        self.status = "error"
+        self.updated_at = datetime.now(timezone.utc).isoformat()
+        await self.async_save(force=True, strict=True)
+
+    def _finalize_accepted_tool_resume(self, result: str) -> None:
+        accepted = parse_accepted_tool_resume(self.accepted_tool_resume)
+        if accepted is None:
+            return
+        self.accepted_tool_resume = build_accepted_tool_resume(
+            contents=accepted.get("contents") or {},
+            names=accepted.get("names") or {},
+            run_ids=accepted.get("run_ids") or {},
+            remaining_rounds=accepted.get("remaining_rounds")
+            if isinstance(accepted.get("remaining_rounds"), int)
+            else None,
+            phase=PHASE_AWAITING if self.pending_tool_resolutions else PHASE_COMPLETED,
+            final_result=None if self.pending_tool_resolutions else result,
+        )
 
     async def retry_failed_turn(
         self,
@@ -1159,6 +1393,7 @@ class AgentSession:
                 source="human",
                 source_name="",
                 attachments=deepcopy(attachments),
+                model_context=deepcopy(failed_turn.get("model_context")),
                 retry_attempt_count=attempt_count + 1,
             )
 
@@ -1206,6 +1441,9 @@ class AgentSession:
                 raise ValueError(f"未找到 ID 为 {message_id} 的用户消息")
 
             original_attachments = self.record[target_idx].get("attachments")
+            original_model_context = deepcopy(
+                self.record[target_idx].get("model_context")
+            )
             retained_attachments = [
                 dict(attachment)
                 for attachment in original_attachments
@@ -1252,6 +1490,7 @@ class AgentSession:
                 callback,
                 max_rounds=None,
                 attachments=retained_attachments,
+                model_context=original_model_context,
             )
 
     async def compress(self) -> dict:
@@ -1351,6 +1590,8 @@ class AgentSession:
 
         invocation_context: dict[str, str] | None = None,
 
+        model_context: dict[str, Any] | None = None,
+
         retry_attempt_count: int = 1,
 
     ) -> str:
@@ -1364,6 +1605,7 @@ class AgentSession:
                 source_name,
                 attachments,
                 invocation_context,
+                model_context,
             )
 
         record_checkpoint = deepcopy(self.record)
@@ -1383,6 +1625,7 @@ class AgentSession:
                 source_name,
                 attachments,
                 invocation_context,
+                model_context,
             )
         except Exception as error:
             self.record = record_checkpoint
@@ -1411,6 +1654,7 @@ class AgentSession:
                 "tool_started": self._active_turn_tool_started,
                 "attempt_count": max(1, retry_attempt_count),
                 "model_id": self.model_id,
+                "model_context": deepcopy(model_context),
                 "error": deepcopy(self.last_error),
             }
             self.status = "running"
@@ -1421,16 +1665,12 @@ class AgentSession:
 
             if event_callback:
                 try:
-                    await event_callback({
-                        "type": "error",
-                        "session_id": self.session_id,
-                        "message": error_message,
-                        "terminal": True,
-                        "session_status": self.status,
-                        "messages": self._visible_record(),
-                        "last_error": deepcopy(self.last_error),
-                        "failed_turn": deepcopy(self.failed_turn),
-                    })
+                    await event_callback(self._terminal_error_event(
+                        error_message,
+                        session_status=self.status,
+                        last_error=deepcopy(self.last_error),
+                        failed_turn=deepcopy(self.failed_turn),
+                    ))
                 except Exception:
                     pass
             raise
@@ -1461,6 +1701,10 @@ class AgentSession:
         attachments: list[dict[str, str]] | None = None,
 
         invocation_context: dict[str, str] | None = None,
+
+        model_context: dict[str, Any] | None = None,
+
+        append_input: bool = True,
 
     ) -> str:
 
@@ -1518,20 +1762,34 @@ class AgentSession:
 
             msg_kwargs["additional_kwargs"] = {"source": source}
 
-        # 用户消息注入：自动注入元信息到用户消息头部
-        injection_content, injection_meta = _build_injection_content()
-        if injection_content:
-            # 将注入内容添加到用户消息头部，使用单尖括号标记
-            content = f"<SYSTEM_INJECTION>\n{injection_content}\n<USER_MESSAGE>\n{content}"
+        # 用户消息注入：仅影响入模内容；展示正文始终保留用户原话。
+        _injection_content, injection_meta = _build_injection_content() if append_input else ("", [])
+        normalized_model_context = (
+            normalize_model_context(model_context) if append_input else None
+        )
+        model_content = content
+        if append_input:
+            model_content = compose_user_model_content(
+                content,
+                model_context=normalized_model_context,
+                injection_meta=injection_meta,
+            )
+            if injection_meta or normalized_model_context is not None:
+                if "additional_kwargs" not in msg_kwargs:
+                    msg_kwargs["additional_kwargs"] = {}
+                msg_kwargs["additional_kwargs"]["display_content"] = content
+                if injection_meta:
+                    msg_kwargs["additional_kwargs"]["injection_meta"] = deepcopy(
+                        injection_meta
+                    )
+                if normalized_model_context is not None:
+                    msg_kwargs["additional_kwargs"]["model_context"] = deepcopy(
+                        normalized_model_context
+                    )
 
-            # 记录注入元信息到消息元数据
-            if "additional_kwargs" not in msg_kwargs:
-                msg_kwargs["additional_kwargs"] = {}
-            msg_kwargs["additional_kwargs"]["injection_meta"] = injection_meta
-
-        human_msg = HumanMessage(content=content, **msg_kwargs)
-
-        self.lc_messages.append(human_msg)
+        if append_input:
+            human_msg = HumanMessage(content=model_content, **msg_kwargs)
+            self.lc_messages.append(human_msg)
 
         # 序列化消息也附加 name/source
 
@@ -1553,7 +1811,11 @@ class AgentSession:
         if injection_meta:
             add_extra["injection_meta"] = injection_meta
 
-        await self.add_message("user", content, **add_extra)
+        if normalized_model_context is not None:
+            add_extra["model_context"] = normalized_model_context
+
+        if append_input:
+            await self.add_message("user", content, **add_extra)
 
         if self._abort_requested:
             return await self._finish_pre_stream_abort("准备阶段")
@@ -1561,7 +1823,8 @@ class AgentSession:
 
 
         # 压缩检查（API调用前，先于截断执行）
-        await self._check_and_compress_messages()
+        if append_input:
+            await self._check_and_compress_messages()
 
         if self._abort_requested:
             return await self._finish_pre_stream_abort("压缩阶段")
@@ -1576,6 +1839,7 @@ class AgentSession:
 
         # 构建初始状态
 
+        graph_message_start = len(self.lc_messages)
         initial_state = {
 
             "messages": list(self.lc_messages),
@@ -1622,6 +1886,7 @@ class AgentSession:
         tool_calls_pending: dict[str, dict] = {}
 
         final_messages = None
+        final_remaining_rounds = rounds
         tool_rounds_executed = 0  # 本轮工具调用次数（用于错误追踪）
         incremental_saved_count = 0  # 流式循环中已增量保存到 record 的消息数
         tool_call_streaming: dict[int, dict] = {}  # index → {id, name, args, complete}
@@ -1631,6 +1896,26 @@ class AgentSession:
         pending_tool_run_ids_by_call_id: dict[str, str] = {}
         pending_tool_run_ids_by_node_run_id: dict[str, str] = {}
         llm_call_started_at: dict[str, str] = {}
+        settled_tool_call_ids: set[str] = set()
+
+        async def finish_unsettled_tools(code: str, status: str = "failed"):
+            nonlocal incremental_saved_count
+            calls = {
+                str(slot.get("id")): slot for slot in tool_call_delta_slots if slot.get("id")
+            }
+            for run_id, pending in tool_calls_pending.items():
+                calls[pending.get("tool_call_id") or run_id] = {**pending, "id": run_id}
+            for call_id, call in calls.items():
+                if call_id in settled_tool_call_ids:
+                    continue
+                await self._finish_tool_run(
+                    event_callback=event_callback, tool_name=call.get("name", "unknown"),
+                    result=tool_error_content(code, "工具调用已停止，未收到完整执行结果。"),
+                    run_id=call.get("id") or call_id, tool_status=status, tool_call_id=call_id,
+                )
+                settled_tool_call_ids.add(call_id)
+                incremental_saved_count += 1
+            tool_calls_pending.clear()
 
         try:
 
@@ -1707,10 +1992,11 @@ class AgentSession:
                         # 处理 tool_call 流式增量（LLM 逐字生成工具调用参数）
                         if hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks:
                             for tc_chunk in chunk.tool_call_chunks:
-                                idx = getattr(tc_chunk, "index", 0) if hasattr(tc_chunk, "index") else 0
-                                tc_id = getattr(tc_chunk, "id", None) if hasattr(tc_chunk, "id") else None
-                                tc_name = getattr(tc_chunk, "name", None) if hasattr(tc_chunk, "name") else None
-                                tc_args_delta = getattr(tc_chunk, "args", "") if hasattr(tc_chunk, "args") else ""
+                                value = tc_chunk.get if isinstance(tc_chunk, dict) else lambda key, default=None: getattr(tc_chunk, key, default)
+                                idx = value("index", 0) or 0
+                                tc_id = value("id")
+                                tc_name = value("name")
+                                tc_args_delta = value("args", "")
 
                                 if idx not in tool_call_streaming:
                                     tool_call_streaming[idx] = {
@@ -1837,6 +2123,11 @@ class AgentSession:
                     data = event.get("data", {})
                     if not isinstance(data, dict):
                         data = {}
+                    # ToolNode wraps validation errors into safe, filtered field
+                    # feedback. Wait for its canonical output instead of leaking
+                    # raw input/injected fields from the BaseTool callback.
+                    if isinstance(data.get("error"), ValidationError):
+                        continue
                     actual_tool_call_id = str(data.get("tool_call_id") or "")
                     event_tool_name = str(event.get("name", "unknown"))
                     unique_run_id = _resolve_pending_tool_run_id(
@@ -1856,6 +2147,9 @@ class AgentSession:
                         or node_run_id
                         or unique_run_id
                     )
+                    if actual_tool_call_id in settled_tool_call_ids:
+                        continue
+                    settled_tool_call_ids.add(actual_tool_call_id)
                     await self._finish_tool_run(
                         event_callback=event_callback,
                         tool_name=tool_name,
@@ -1871,6 +2165,8 @@ class AgentSession:
                     node_run_id = str(event.get("run_id", "") or "")
 
                     output = event.get("data", {}).get("output", "")
+
+                    pending_metadata = pending_tool_resolution_metadata(output)
 
                     if hasattr(output, "content"):
 
@@ -1914,6 +2210,26 @@ class AgentSession:
                         or node_run_id
                         or unique_run_id
                     )
+                    if pending_metadata is not None:
+                        settled_tool_call_ids.add(actual_tool_call_id)
+                        self.pending_tool_resolutions[actual_tool_call_id] = {
+                            "name": tool_name,
+                            "run_id": unique_run_id,
+                            "metadata": pending_metadata,
+                        }
+                        if event_callback:
+                            await self._emit_event({
+                                "type": "tool_pending",
+                                "session_id": self.session_id,
+                                "name": tool_name,
+                                "run_id": unique_run_id,
+                                "tool_call_id": actual_tool_call_id,
+                                "metadata": pending_metadata,
+                            })
+                        continue
+                    if actual_tool_call_id in settled_tool_call_ids:
+                        continue
+                    settled_tool_call_ids.add(actual_tool_call_id)
                     await self._finish_tool_run(
                         event_callback=event_callback,
                         tool_name=tool_name,
@@ -1925,25 +2241,41 @@ class AgentSession:
                     incremental_saved_count += 1
 
                 elif kind == "on_chain_end":
-                    # [事件层] 仅捕获根图级事件（包含完整 messages 状态），
-                    # 过滤节点级事件（仅包含该节点新增的消息子集，会导致 _sanitize_tool_pairs 误判）
-                    event_tags = event.get("tags", [])
-                    # 根图事件无 langgraph_node 标签，节点级事件有
-                    # tags 可能是 list（如 ["langgraph_node"]) 或 dict
-                    if isinstance(event_tags, dict) and event_tags.get("langgraph_node"):
-                        continue
-                    elif isinstance(event_tags, list) and "langgraph_node" in event_tags:
-                        continue
-
                     output = event.get("data", {}).get("output")
-
-                    if isinstance(output, dict) and "messages" in output:
-
-                        final_messages = output["messages"]
+                    if not isinstance(output, dict) or "messages" not in output:
+                        continue
+                    # Guarded/skipped calls do not run BaseTool callbacks. Settle
+                    # their canonical ToolMessages from the graph node output.
+                    known = {slot["id"] for slot in tool_call_delta_slots}
+                    for message in output["messages"]:
+                        if not isinstance(message, ToolMessage):
+                            continue
+                        call_id = message.tool_call_id
+                        if call_id not in known or call_id in settled_tool_call_ids:
+                            continue
+                        if pending_tool_resolution_metadata(message) is not None:
+                            continue
+                        await self._finish_tool_run(
+                            event_callback=event_callback,
+                            tool_name=message.name or "unknown", result=message_content_text(message.content),
+                            run_id=call_id, tool_call_id=call_id,
+                            tool_status="failed" if message.status == "error" else "completed",
+                        )
+                        settled_tool_call_ids.add(call_id)
+                        incremental_saved_count += 1
+                    # v2 events identify the root by parent_ids; node tags are not
+                    # a reliable root marker and can contain partial message lists.
+                    if event.get("parent_ids"):
+                        continue
+                    final_messages = output["messages"]
+                    value = output.get("remaining_rounds")
+                    if isinstance(value, int):
+                        final_remaining_rounds = value
 
 
 
         except GraphRecursionError:
+            await finish_unsettled_tools("tool_round_limit")
             # 业务层追踪：打印上下文信息而非代码堆栈
             self._logger.warning(
                 f"会话 {self.session_id} 达到递归上限: "
@@ -1979,6 +2311,7 @@ class AgentSession:
             return ""
 
         except BadRequestError as e:
+            await finish_unsettled_tools("tool_call_interrupted")
             error_msg = str(e)
             if "Content Exists Risk" in error_msg:
                 # Content Exists Risk 专项处理：保存消息快照、追加警告 record、不中断会话
@@ -2029,18 +2362,13 @@ class AgentSession:
                 await self._rollback_on_error(sanitize_pairs=True, sync_snapshot=False)
                 if event_callback:
                     try:
-                        await event_callback({
-                            "type": "error",
-                            "session_id": self.session_id,
-                            "message": error_message,
-                            "terminal": True,
-                            "messages": self._visible_record(),
-                        })
+                        await event_callback(self._terminal_error_event(error_message))
                     except Exception:
                         pass
                 raise
 
         except ContentFilterFinishReasonError as e:
+            await finish_unsettled_tools("tool_call_interrupted")
             # 流式响应被内容过滤中断（模型生成过程中被审查拦截）
             self._logger.warning(
                 f"会话 {self.session_id} 触发流式内容过滤拦截 | "
@@ -2076,6 +2404,7 @@ class AgentSession:
             return ""
 
         except Exception as e:
+            await finish_unsettled_tools("tool_call_interrupted")
 
             self._logger.debug(
                 "[SESSION] _invoke_graph 异常: session=%s, error=%s",
@@ -2095,19 +2424,18 @@ class AgentSession:
 
             if event_callback:
                 try:
-                    await event_callback({
-                        "type": "error",
-                        "session_id": self.session_id,
-                        "message": error_message,
-                        "terminal": True,
-                        "messages": self._visible_record(),
-                    })
+                    await event_callback(self._terminal_error_event(error_message))
                 except Exception:
                     pass  # event_callback 可能因 WS 断线失败，不影响主流程
 
             raise
 
 
+
+        await finish_unsettled_tools(
+            "tool_call_cancelled" if abort_triggered else "tool_call_incomplete",
+            "cancelled" if abort_triggered else "failed",
+        )
 
         # 中止处理：回滚用户消息（与其他错误路径保持一致，避免污染后续对话上下文）
         if abort_triggered:
@@ -2116,21 +2444,32 @@ class AgentSession:
         # 同步消息（先清理不完整的 tool_calls/tool 配对，避免下轮 API 400 错误）
 
         if final_messages:
-
-            final_messages = _sanitize_tool_pairs(final_messages)
-
-            await self._sync_messages(final_messages, skip_count=incremental_saved_count)
+            final_messages = [
+                message
+                for message in final_messages
+                if pending_tool_resolution_metadata(message) is None
+            ]
+            if not self.pending_tool_resolutions:
+                final_messages = _sanitize_tool_pairs(final_messages)
+            await self._sync_messages(
+                final_messages,
+                skip_count=incremental_saved_count,
+                new_start_index=graph_message_start,
+            )
 
         # [兜底层] 对 self.lc_messages 最终清理，确保无论 final_messages 是否可用，
         # 都不会残留悬空的 tool_calls 配对
-        self.lc_messages = _sanitize_tool_pairs(self.lc_messages)
+        if not self.pending_tool_resolutions:
+            self.lc_messages = _sanitize_tool_pairs(self.lc_messages)
 
 
 
         # 恢复状态
 
-        if self.status == "streaming":
-
+        if self.pending_tool_resolutions:
+            self.pending_tool_remaining_rounds = final_remaining_rounds
+            self.status = "awaiting_tool_resolution"
+        elif self.status == "streaming":
             self.status = "running" if self.session_type == "main" else "completed"
 
 
@@ -2142,7 +2481,12 @@ class AgentSession:
             "[SESSION] _invoke_graph 正常完成: session=%s, msg_count=%s",
             self.session_id, msg_count,
         )
-        await self.async_save()
+        if self.accepted_tool_resume is not None:
+            self._finalize_accepted_tool_resume(self.get_last_assistant_message())
+            self._refresh_invocation_checkpoint()
+            await self.async_save(force=True, strict=True)
+        else:
+            await self.async_save()
 
 
 
@@ -2181,7 +2525,26 @@ class AgentSession:
             "message": presented.message,
             "occurred_at": datetime.now(timezone.utc).isoformat(),
         }
+        if presented.provider_error_code:
+            self.last_error["provider_error_code"] = presented.provider_error_code
         return presented.message
+
+    def _terminal_error_event(self, error_message: str, **extra: Any) -> dict[str, Any]:
+        """Build a public terminal error event without raw provider payloads."""
+        event: dict[str, Any] = {
+            "type": "error",
+            "session_id": self.session_id,
+            "message": error_message,
+            "terminal": True,
+            "messages": self._visible_record(),
+        }
+        provider_error_code = None
+        if isinstance(self.last_error, dict):
+            provider_error_code = self.last_error.get("provider_error_code")
+        if isinstance(provider_error_code, str) and provider_error_code:
+            event["provider_error_code"] = provider_error_code
+        event.update(extra)
+        return event
 
     async def _rollback_on_error(
         self,
@@ -2527,10 +2890,8 @@ class AgentSession:
             # 获取压缩检查器和调度器
             checker = get_compression_checker()
             scheduler = get_compression_scheduler()
-            from src.compression.checker import (
-                CompressionDecision,
-                CompressionStrategy,
-            )
+
+            from src.compression.checker import CompressionStrategy, CompressionDecision
             is_compressor = self.agent_type == "compressor"
             original_count = len(self.lc_messages)
             applied_strategies: list[str] = []
@@ -2570,6 +2931,7 @@ class AgentSession:
                     messages=self.lc_messages,
                     model_override=self.model_id,
                 )
+
                 if decision.strategy.value == CompressionStrategy.MICRO.value:
                     await _apply(decision)
                     if not is_compressor:
@@ -2647,16 +3009,33 @@ class AgentSession:
             self._logger.error(f"压缩检查失败: {e}", exc_info=True)
             # 压缩失败不影响正常流程
 
-    def _serialize_lc_messages(self, lc_msgs: list[BaseMessage]) -> list[dict]:
+    def _serialize_lc_messages(
+        self,
+        lc_msgs: list[BaseMessage],
+        *,
+        use_display_content: bool = True,
+    ) -> list[dict]:
         """将 LangChain 消息列表序列化为 OpenAI 标准 dict 列表。"""
         result = []
         for msg in lc_msgs:
             if isinstance(msg, SystemMessage):
                 result.append({"role": "system", "content": msg.content})
             elif isinstance(msg, HumanMessage):
-                entry = {"role": "user", "content": msg.content}
+                kwargs = getattr(msg, "additional_kwargs", {})
+                entry = {
+                    "role": "user",
+                    "content": (
+                        kwargs.get("display_content", msg.content)
+                        if use_display_content
+                        else msg.content
+                    ),
+                }
                 if hasattr(msg, "name") and msg.name:
                     entry["name"] = msg.name
+                if use_display_content:
+                    for key in ("source", "injection_meta", "model_context"):
+                        if key in kwargs:
+                            entry[key] = deepcopy(kwargs[key])
                 result.append(entry)
             elif isinstance(msg, AIMessage):
                 entry = {"role": "assistant", "content": msg.content}
@@ -2673,13 +3052,23 @@ class AgentSession:
                 }
                 if hasattr(msg, "tool_call_id") and msg.tool_call_id:
                     entry["tool_call_id"] = msg.tool_call_id
-                if getattr(msg, "status", None):
-                    entry["status"] = msg.status
-                tool_status = getattr(msg, "additional_kwargs", {}).get("tool_status")
-                if tool_status:
-                    entry["tool_status"] = tool_status
+                if use_display_content:
+                    if getattr(msg, "status", None):
+                        entry["status"] = msg.status
+                    tool_status = getattr(msg, "additional_kwargs", {}).get(
+                        "tool_status"
+                    )
+                    if tool_status:
+                        entry["tool_status"] = tool_status
                 result.append(entry)
         return result
+
+    def get_model_input_messages(self) -> list[dict]:
+        """返回当前会话下一次模型调用会使用的真实 LangChain 消息快照。"""
+        return self._serialize_lc_messages(
+            list(self.lc_messages),
+            use_display_content=False,
+        )
 
     def _sync_context_snapshot(self, force: bool = False) -> None:
         """
@@ -2937,7 +3326,12 @@ class AgentSession:
 
 
 
-    async def _sync_messages(self, final_messages: list[BaseMessage], skip_count: int = 0) -> None:
+    async def _sync_messages(
+        self,
+        final_messages: list[BaseMessage],
+        skip_count: int = 0,
+        new_start_index: int | None = None,
+    ) -> None:
 
         """
         同步消息：更新 lc_messages + 增量追加新消息到 record + 更新 context。
@@ -2949,11 +3343,12 @@ class AgentSession:
         self.lc_messages = list(final_messages)
 
         # 找到最后一个 HumanMessage（本轮用户输入）
-        new_start_index = len(final_messages)
-        for i in range(len(final_messages) - 1, -1, -1):
-            if isinstance(final_messages[i], HumanMessage):
-                new_start_index = i + 1  # HumanMessage 之后开始
-                break
+        if new_start_index is None:
+            new_start_index = len(final_messages)
+            for i in range(len(final_messages) - 1, -1, -1):
+                if isinstance(final_messages[i], HumanMessage):
+                    new_start_index = i + 1
+                    break
 
         # 跳过已在流式循环中增量保存的消息
         append_start = new_start_index + skip_count
@@ -2998,7 +3393,8 @@ class AgentSession:
         """返回最新一条 assistant 消息，不用更早的非空正文替代它。"""
         for msg in reversed(self.record):
             if msg.get("type") == "assistant":
-                return message_content_text(msg.get("content"))
+                content = msg.get("content")
+                return content if isinstance(content, str) else ""
 
         return ""
 
@@ -3225,6 +3621,12 @@ class AgentSession:
         if self.failed_turn:
             result["failed_turn"] = self.failed_turn
 
+        if self.pending_tool_resolutions:
+            result["pending_tool_resolutions"] = self.pending_tool_resolutions
+            result["pending_tool_remaining_rounds"] = self.pending_tool_remaining_rounds
+        if self.accepted_tool_resume:
+            result["accepted_tool_resume"] = self.accepted_tool_resume
+
         # 持久化累计 token 使用数据（按 model_id 分组）
         if self._token_usage_cumulative:
             result["token_usage_cumulative"] = self._token_usage_cumulative
@@ -3272,6 +3674,21 @@ class AgentSession:
         session.model_id = data.get("model_id")
 
         session.status = data.get("status", "completed")
+        raw_pending = data.get("pending_tool_resolutions")
+        if isinstance(raw_pending, dict):
+            session.pending_tool_resolutions = {
+                str(tool_call_id): dict(value)
+                for tool_call_id, value in raw_pending.items()
+                if isinstance(tool_call_id, str)
+                and tool_call_id
+                and isinstance(value, dict)
+            }
+        raw_remaining = data.get("pending_tool_remaining_rounds")
+        if isinstance(raw_remaining, int):
+            session.pending_tool_remaining_rounds = raw_remaining
+        session.accepted_tool_resume = parse_accepted_tool_resume(
+            data.get("accepted_tool_resume")
+        )
         session.created_at = data.get("created_at", session.created_at)
         session.updated_at = data.get("updated_at", session.updated_at)
 
@@ -3286,11 +3703,18 @@ class AgentSession:
                 isinstance(value, str) and value
                 for value in (code, message, occurred_at)
             ):
-                session.last_error = {
+                last_error = {
                     "code": code,
                     "message": message,
                     "occurred_at": occurred_at,
                 }
+                provider_error_code = raw_last_error.get("provider_error_code")
+                if isinstance(provider_error_code, str):
+                    from src.core.provider_errors import PUBLIC_PROVIDER_ERROR_CODES
+
+                    if provider_error_code in PUBLIC_PROVIDER_ERROR_CODES:
+                        last_error["provider_error_code"] = provider_error_code
+                session.last_error = last_error
         raw_failed_turn = data.get("failed_turn")
         if isinstance(raw_failed_turn, dict):
             failure_id = raw_failed_turn.get("failure_id")
@@ -3455,9 +3879,28 @@ class AgentSession:
             if role == "system":
                 self.lc_messages.append(SystemMessage(content=content))
             elif role == "user":
-                entry = HumanMessage(content=content)
+                model_context = m.get("model_context")
+                injection_meta = m.get("injection_meta")
+                entry = HumanMessage(
+                    content=compose_user_model_content(
+                        content,
+                        model_context=model_context,
+                        injection_meta=injection_meta,
+                    )
+                )
                 if m.get("name"):
                     entry.name = m["name"]
+                additional_kwargs = {}
+                if m.get("source"):
+                    additional_kwargs["source"] = m["source"]
+                if injection_meta:
+                    additional_kwargs["injection_meta"] = deepcopy(injection_meta)
+                if model_context is not None:
+                    additional_kwargs["model_context"] = deepcopy(model_context)
+                if injection_meta or model_context is not None:
+                    additional_kwargs["display_content"] = content
+                if additional_kwargs:
+                    entry.additional_kwargs = additional_kwargs
                 self.lc_messages.append(entry)
             elif role == "assistant":
                 entry = AIMessage(content=content)
@@ -3485,7 +3928,8 @@ class AgentSession:
                 self.lc_messages.insert(0, SystemMessage(content=self.system_prompt))
 
         # [持久化层] 从磁盘恢复时清理不完整的 tool_calls/tool 配对
-        self.lc_messages = _sanitize_tool_pairs(self.lc_messages)
+        if not self.pending_tool_resolutions:
+            self.lc_messages = _sanitize_tool_pairs(self.lc_messages)
 
     def _restore_lc_from_record(self) -> None:
         """从 record 重建 lc_messages（旧格式兼容，跳过 display 和 system_prompt 条目）。"""
@@ -3502,11 +3946,28 @@ class AgentSession:
                 continue
             content = msg.get("content_blocks", msg.get("content", ""))
             if msg_type == "user":
-                entry = HumanMessage(content=content)
+                model_context = msg.get("model_context")
+                injection_meta = msg.get("injection_meta")
+                entry = HumanMessage(
+                    content=compose_user_model_content(
+                        content,
+                        model_context=model_context,
+                        injection_meta=injection_meta,
+                    )
+                )
                 if msg.get("name"):
                     entry.name = msg["name"]
+                additional_kwargs = {}
                 if msg.get("source"):
-                    entry.additional_kwargs = {"source": msg["source"]}
+                    additional_kwargs["source"] = msg["source"]
+                if injection_meta:
+                    additional_kwargs["injection_meta"] = deepcopy(injection_meta)
+                if model_context is not None:
+                    additional_kwargs["model_context"] = deepcopy(model_context)
+                if injection_meta or model_context is not None:
+                    additional_kwargs["display_content"] = content
+                if additional_kwargs:
+                    entry.additional_kwargs = additional_kwargs
                 self.lc_messages.append(entry)
             elif msg_type == "assistant":
                 entry = AIMessage(content=content)
@@ -3531,7 +3992,8 @@ class AgentSession:
                 ))
 
         # 修复 record 中可能存在的悬挂 tool_calls（服务异常中断导致）
-        self.lc_messages = _sanitize_tool_pairs(self.lc_messages)
+        if not self.pending_tool_resolutions:
+            self.lc_messages = _sanitize_tool_pairs(self.lc_messages)
 
     def __repr__(self):
 

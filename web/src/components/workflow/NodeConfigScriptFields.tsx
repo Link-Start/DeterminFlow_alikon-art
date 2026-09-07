@@ -30,8 +30,6 @@ interface NodeConfigScriptFieldsProps {
   scriptLoaded: boolean;
   enableRejectUpstream: boolean;
   setEnableRejectUpstream: (value: boolean) => void;
-  maxRejectCount: string;
-  setMaxRejectCount: (value: string) => void;
   isReadOnly: boolean;
   readOnlyInput: string;
   baseInputClass: string;
@@ -62,8 +60,6 @@ export default function NodeConfigScriptFields({
   scriptLoaded,
   enableRejectUpstream,
   setEnableRejectUpstream,
-  maxRejectCount,
-  setMaxRejectCount,
   isReadOnly,
   readOnlyInput,
   baseInputClass,
@@ -72,7 +68,7 @@ export default function NodeConfigScriptFields({
   return (
     <>
       <div>
-        <label htmlFor="script-source" className="block text-xs font-medium text-slate-400 mb-1.5">
+        <label htmlFor="script-source" className="block text-xs font-medium text-muted-foreground mb-1.5">
           脚本来源
         </label>
         <select
@@ -84,7 +80,7 @@ export default function NodeConfigScriptFields({
           }}
           disabled={isReadOnly}
           aria-label="选择脚本来源"
-          className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none ${
+          className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none ${
             isReadOnly ? "pointer-events-none opacity-60" : ""
           }`}
         >
@@ -94,8 +90,8 @@ export default function NodeConfigScriptFields({
       </div>
 
       <div>
-        <label htmlFor="script-type" className="block text-xs font-medium text-slate-400 mb-1.5">
-          脚本类型 {!isReadOnly && <span className="text-red-400">*</span>}
+        <label htmlFor="script-type" className="block text-xs font-medium text-muted-foreground mb-1.5">
+          脚本类型 {!isReadOnly && <span className="text-destructive">*</span>}
         </label>
         <select
           id="script-type"
@@ -103,7 +99,7 @@ export default function NodeConfigScriptFields({
           onChange={(event) => setScriptType(event.target.value)}
           disabled={isReadOnly}
           aria-label="选择脚本类型"
-          className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none ${
+          className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none ${
             isReadOnly ? "pointer-events-none opacity-60" : ""
           }`}
         >
@@ -115,8 +111,8 @@ export default function NodeConfigScriptFields({
       {scriptSource === "library" && (
         <>
           <div>
-            <label htmlFor="script-group" className="block text-xs font-medium text-slate-400 mb-1.5">
-              分组 {!isReadOnly && <span className="text-red-400">*</span>}
+            <label htmlFor="script-group" className="block text-xs font-medium text-muted-foreground mb-1.5">
+              分组 {!isReadOnly && <span className="text-destructive">*</span>}
             </label>
             <select
               id="script-group"
@@ -127,7 +123,7 @@ export default function NodeConfigScriptFields({
               }}
               disabled={isReadOnly}
               aria-label="选择脚本库分组"
-              className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none ${
+              className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none ${
                 isReadOnly ? "pointer-events-none opacity-60" : ""
               }`}
             >
@@ -142,8 +138,8 @@ export default function NodeConfigScriptFields({
 
           {scriptGroup && (
             <div>
-              <label htmlFor="script-select" className="block text-xs font-medium text-slate-400 mb-1.5">
-                脚本 {!isReadOnly && <span className="text-red-400">*</span>}
+              <label htmlFor="script-select" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                脚本 {!isReadOnly && <span className="text-destructive">*</span>}
               </label>
               <select
                 id="script-select"
@@ -161,7 +157,7 @@ export default function NodeConfigScriptFields({
                 }}
                 disabled={isReadOnly}
                 aria-label="选择脚本库中的脚本"
-                className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none ${
+                className={`w-full px-3 py-2 rounded-lg bg-background border border-primary/20 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none ${
                   isReadOnly ? "pointer-events-none opacity-60" : ""
                 }`}
               >
@@ -174,7 +170,7 @@ export default function NodeConfigScriptFields({
                     </option>
                   ))}
               </select>
-              <p className="text-xs text-slate-500 mt-1">运行时将从脚本库拉取最新版本执行</p>
+              <p className="text-xs text-muted-foreground mt-1">运行时将从脚本库拉取最新版本执行</p>
             </div>
           )}
         </>
@@ -182,8 +178,8 @@ export default function NodeConfigScriptFields({
 
       {scriptSource !== "library" && (
         <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1.5">
-            脚本名 {!isReadOnly && <span className="text-red-400">*</span>}
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+            脚本名 {!isReadOnly && <span className="text-destructive">*</span>}
           </label>
           <VarInput
             value={scriptName}
@@ -194,15 +190,15 @@ export default function NodeConfigScriptFields({
             inputClass={baseInputClass}
             variables={variables}
           />
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             脚本文件名（不含扩展名），存储为 data/workflows/脚本名.{scriptType === "shell" ? "sh" : "py"}
           </p>
         </div>
       )}
 
       <div>
-        <label className="block text-xs font-medium text-slate-400 mb-1.5">
-          脚本参数 <span className="text-slate-500">(可选)</span>
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+          脚本参数 <span className="text-muted-foreground">(可选)</span>
         </label>
         {useScriptArgv ? (
           <div className="space-y-2">
@@ -223,7 +219,7 @@ export default function NodeConfigScriptFields({
                   <button
                     type="button"
                     onClick={() => setScriptArgv(scriptArgv.filter((_, itemIndex) => itemIndex !== index))}
-                    className="shrink-0 rounded border border-slate-700 px-2 py-2 text-xs text-slate-400 hover:border-red-500/50 hover:text-red-300"
+                    className="shrink-0 rounded border border-border px-2 py-2 text-xs text-muted-foreground hover:border-destructive/50 hover:text-destructive"
                     aria-label={`删除参数 ${index + 1}`}
                   >
                     删除
@@ -235,12 +231,12 @@ export default function NodeConfigScriptFields({
               <button
                 type="button"
                 onClick={() => setScriptArgv([...scriptArgv, ""])}
-                className="rounded border border-indigo-500/30 px-2.5 py-1.5 text-xs text-indigo-300 hover:border-indigo-400/60"
+                className="rounded border border-primary/30 px-2.5 py-1.5 text-xs text-primary hover:border-primary/60"
               >
                 添加参数
               </button>
             )}
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               安全参数列表：每项作为一个完整参数传递，空格和 {"{{key}}"} 占位符不会被 Shell 重新拆分。
             </p>
           </div>
@@ -255,7 +251,7 @@ export default function NodeConfigScriptFields({
               inputClass={baseInputClass}
               variables={variables}
             />
-            <p className="text-xs text-amber-500/80 mt-1">
+            <p className="text-xs text-warning/80 mt-1">
               兼容旧定义的参数字符串；新工作流应使用安全参数列表。
             </p>
           </>
@@ -263,7 +259,7 @@ export default function NodeConfigScriptFields({
       </div>
 
       <div>
-        <label htmlFor="script-timeout" className="block text-xs font-medium text-slate-400 mb-1.5">
+        <label htmlFor="script-timeout" className="block text-xs font-medium text-muted-foreground mb-1.5">
           超时时间（秒）
         </label>
         <input
@@ -280,7 +276,7 @@ export default function NodeConfigScriptFields({
         />
       </div>
 
-      <div className="space-y-3 pt-3 border-t border-indigo-500/10">
+      <div className="space-y-3 pt-3 border-t border-primary/10">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
@@ -290,45 +286,22 @@ export default function NodeConfigScriptFields({
               onMarkUnsaved();
             }}
             disabled={isReadOnly}
-            className="mt-0.5 w-4 h-4 rounded border-indigo-500/30 bg-slate-950 text-indigo-500 focus:ring-indigo-500/30"
+            className="mt-0.5 w-4 h-4 rounded border-primary/30 bg-background text-primary focus:ring-primary/30"
           />
           <div>
-            <span className="text-sm text-slate-100">允许脚本打回上游</span>
-            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-              开启后脚本可输出 {"<WF_REJECT_UPSTREAM>"} 反馈，要求上游节点重试。
+            <span className="text-sm text-foreground">允许脚本打回上游</span>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              开启后脚本可输出 {"<WF_REJECT_UPSTREAM>"} 反馈；目标上游节点的当前
+              attempt 将失败，再由其节点失败策略处理。
             </p>
           </div>
         </label>
-
-        {enableRejectUpstream && (
-          <div className="ml-7">
-            <label htmlFor="script-max-reject-count" className="block text-xs font-medium text-slate-400 mb-1">
-              最大打回次数
-            </label>
-            <input
-              type="number"
-              id="script-max-reject-count"
-              min="1"
-              max="100"
-              value={maxRejectCount}
-              onChange={(event) => {
-                setMaxRejectCount(event.target.value);
-                onMarkUnsaved();
-              }}
-              disabled={isReadOnly}
-              className={`w-full px-3 py-2 rounded-lg bg-slate-950 border border-indigo-500/20 text-slate-100 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors ${
-                isReadOnly ? "pointer-events-none opacity-60" : ""
-              }`}
-              placeholder="3"
-            />
-          </div>
-        )}
       </div>
 
       {scriptSource !== "library" && (
         <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1.5">
-            脚本内容 {!isReadOnly && <span className="text-red-400">*</span>}
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+            脚本内容 {!isReadOnly && <span className="text-destructive">*</span>}
           </label>
           {scriptLoaded ? (
             <CodeEditor
@@ -344,11 +317,11 @@ export default function NodeConfigScriptFields({
               }
             />
           ) : (
-            <div className="flex items-center justify-center h-[100px] rounded-lg bg-slate-950 border border-indigo-500/10">
-              <span className="text-xs text-slate-500">正在加载脚本内容...</span>
+            <div className="flex items-center justify-center h-[100px] rounded-lg bg-background border border-primary/10">
+              <span className="text-xs text-muted-foreground">正在加载脚本内容...</span>
             </div>
           )}
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             点击"保存"按钮将脚本内容持久化到文件，并更新节点配置
           </p>
         </div>

@@ -18,6 +18,7 @@ from typing import Any, Awaitable, Callable
 from langchain_core.messages import ToolMessage
 
 from src.core.types import GuardResult
+from src.core.tool_errors import repeated_invalid_tool_result
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,10 @@ def make_guarded_wrapper(guards: list[ToolGuard] | None = None):
                     name=tool_name,
                     status="error",
                 )
+
+        repeated = repeated_invalid_tool_result(state.get("messages") or [], tool_call)
+        if repeated is not None:
+            return repeated
 
         # 所有 guard 通过，正常执行
         logger.debug(

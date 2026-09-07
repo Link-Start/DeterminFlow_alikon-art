@@ -1,4 +1,4 @@
-"""Build and publish deterministic official Plugin Registry v1 snapshots."""
+"""Build and publish deterministic signed Plugin Registry v1 snapshots."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import tomllib
 from typing import Callable
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 import zipfile
 
@@ -247,8 +247,8 @@ def build_registry(
     source_url: str,
     ref: str,
     output: Path,
-    public_base_url: str,
     private_key: Ed25519PrivateKey,
+    public_base_url: str | None = None,
 ) -> dict[str, object]:
     repository = repository.resolve()
     if not (repository / ".git").exists():
@@ -256,7 +256,8 @@ def build_registry(
     canonical_source, source_kind, _ = canonicalize_plugin_source(source_url)
     if source_kind != "git":
         raise PluginRegistryReleaseError("Registry source identity must be a Git URL")
-    registry_root = canonicalize_registry_url(public_base_url)
+    if public_base_url:
+        canonicalize_registry_url(public_base_url)
     resolved_commit = _resolve_commit(repository, ref)
     entries = _repository_entries(
         repository,
@@ -287,10 +288,6 @@ def build_registry(
             package_path = temporary / relative_package
             package_path.parent.mkdir(parents=True, exist_ok=True)
             _write_deterministic_zip(package, package_path)
-            package_url = (
-                f"{registry_root.rstrip('/')}/"
-                + "/".join(quote(part, safe="") for part in relative_package.parts)
-            )
             plugins.append(
                 {
                     "id": entry["id"],
@@ -300,7 +297,7 @@ def build_registry(
                     "commit": plugin_commit,
                     "content_sha256": content_sha256,
                     "package": {
-                        "url": package_url,
+                        "path": relative_package.as_posix(),
                         "sha256": _sha256(package_path),
                     },
                 }
@@ -321,10 +318,7 @@ def build_registry(
             signature,
             private_key.public_key().public_bytes_raw(),
         )
-        parse_registry_manifest(
-            json.loads(manifest_bytes),
-            registry_url=registry_root,
-        )
+        parse_registry_manifest(json.loads(manifest_bytes))
         (temporary / "manifest.json").write_bytes(manifest_bytes)
         (temporary / "manifest.json.sig").write_text(
             base64.b64encode(signature).decode("ascii") + "\n",
@@ -343,20 +337,22 @@ def _public_object_url(public_base_url: str, key: str) -> str:
     return f"{base}/" + "/".join(quote(part, safe="") for part in key.split("/"))
 
 
-class R2RegistryPublisher:
+class S3CompatibleRegistryPublisher:
     def __init__(
         self,
         *,
         bucket: str,
         endpoint_url: str,
-        public_base_url: str,
+        public_base_url: str | None = None,
         aws_binary: str = "aws",
         runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
         fetcher: Callable[..., object] = urlopen,
     ) -> None:
         self.bucket = bucket
         self.endpoint_url = canonicalize_registry_url(endpoint_url)
-        self.public_base_url = canonicalize_registry_url(public_base_url)
+        self.public_base_url = (
+            canonicalize_registry_url(public_base_url) if public_base_url else None
+        )
         self.aws_binary = aws_binary
         self.runner = runner
         self.fetcher = fetcher
@@ -384,7 +380,7 @@ class R2RegistryPublisher:
             return json.loads(result.stdout)
         if any(marker in result.stderr for marker in ("404", "Not Found", "NoSuchKey")):
             return None
-        raise PluginRegistryReleaseError(f"R2 head-object failed: {key}")
+        raise PluginRegistryReleaseError(f"head-object failed: {key}")
 
     def _put(self, path: Path, key: str, cache_control: str) -> None:
         content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
@@ -404,16 +400,36 @@ class R2RegistryPublisher:
             f"sha256={_sha256(path)}",
         )
 
-    def _verify_public(self, path: Path, key: str) -> None:
+    def _verify(self, path: Path, key: str) -> None:
         expected = _sha256(path)
+        if self.public_base_url:
+            self._verify_public(path, key, expected)
+            return
+        self._verify_stored(path, key, expected)
+
+    def _verify_public(self, path: Path, key: str, expected: str) -> None:
         request = Request(
-            f"{_public_object_url(self.public_base_url, key)}?sha256={expected}",
+            f"{_public_object_url(self.public_base_url or '', key)}?sha256={expected}",
             headers={"Cache-Control": "no-cache"},
         )
         with self.fetcher(request, timeout=30) as response:
             payload = response.read()
         if hashlib.sha256(payload).hexdigest() != expected:
-            raise PluginRegistryReleaseError(f"R2 public checksum mismatch: {key}")
+            raise PluginRegistryReleaseError(f"published checksum mismatch: {key}")
+
+    def _verify_stored(self, path: Path, key: str, expected: str) -> None:
+        with tempfile.TemporaryDirectory(prefix="plugin-registry-get-") as raw:
+            destination = Path(raw) / "object"
+            self._run(
+                "get-object",
+                "--bucket",
+                self.bucket,
+                "--key",
+                key,
+                str(destination),
+            )
+            if not destination.is_file() or _sha256(destination) != expected:
+                raise PluginRegistryReleaseError(f"stored checksum mismatch: {key}")
 
     def publish_immutable(self, path: Path, key: str) -> None:
         digest = _sha256(path)
@@ -423,22 +439,57 @@ class R2RegistryPublisher:
             stored_digest = metadata.get("sha256") if isinstance(metadata, dict) else None
             if stored_digest != digest or existing.get("ContentLength") != path.stat().st_size:
                 raise PluginRegistryReleaseError(
-                    f"immutable R2 object has different content: {key}"
+                    f"immutable object has different content: {key}"
                 )
         else:
             self._put(path, key, IMMUTABLE_CACHE_CONTROL)
-        self._verify_public(path, key)
+        self._verify(path, key)
 
     def publish_latest(self, path: Path, key: str) -> None:
         self._put(path, key, LATEST_CACHE_CONTROL)
-        self._verify_public(path, key)
+        self._verify(path, key)
+
+
+R2RegistryPublisher = S3CompatibleRegistryPublisher
+
+
+def _manifest_package_relative(
+    package: dict[str, object],
+    *,
+    prefix: str,
+    publisher: S3CompatibleRegistryPublisher,
+) -> str:
+    raw_path = package.get("path")
+    if isinstance(raw_path, str) and raw_path.strip():
+        path = PurePosixPath(raw_path.strip())
+        if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+            raise PluginRegistryReleaseError("Registry package path is invalid")
+        return path.as_posix()
+    package_url = package.get("url")
+    if not isinstance(package_url, str) or not package_url.strip():
+        raise PluginRegistryReleaseError("Registry package path is missing")
+    if not urlsplit(package_url).scheme:
+        path = PurePosixPath(package_url.strip())
+        if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+            raise PluginRegistryReleaseError("Registry package path is invalid")
+        return path.as_posix()
+    if publisher.public_base_url is None:
+        raise PluginRegistryReleaseError(
+            "Registry package URL cannot be verified without a relative path"
+        )
+    expected_registry_root = _public_object_url(
+        publisher.public_base_url, prefix
+    ).rstrip("/")
+    if not package_url.startswith(f"{expected_registry_root}/packages/"):
+        raise PluginRegistryReleaseError("Registry package URL does not match publish prefix")
+    return package_url.removeprefix(f"{expected_registry_root}/")
 
 
 def publish_registry(
     *,
     registry_dir: Path,
     prefix: str,
-    publisher: R2RegistryPublisher,
+    publisher: S3CompatibleRegistryPublisher,
 ) -> None:
     registry_dir = registry_dir.resolve()
     manifest_path = registry_dir / "manifest.json"
@@ -451,18 +502,17 @@ def publish_registry(
     if not isinstance(resolved_commit, str) or not _COMMIT_RE.fullmatch(resolved_commit):
         raise PluginRegistryReleaseError("Registry resolved commit is invalid")
     normalized_prefix = prefix.strip("/")
-    expected_registry_root = _public_object_url(
-        publisher.public_base_url, normalized_prefix
-    ).rstrip("/")
     expected_packages: dict[str, str] = {}
     for plugin in manifest.get("plugins", []):
-        package_url = plugin.get("package", {}).get("url") if isinstance(plugin, dict) else None
-        if not isinstance(package_url, str) or not package_url.startswith(
-            f"{expected_registry_root}/packages/"
-        ):
-            raise PluginRegistryReleaseError("Registry package URL does not match R2 prefix")
-        package_relative = package_url.removeprefix(f"{expected_registry_root}/")
-        expected_hash = plugin.get("package", {}).get("sha256")
+        package = plugin.get("package") if isinstance(plugin, dict) else None
+        if not isinstance(package, dict):
+            raise PluginRegistryReleaseError("Registry package is invalid")
+        package_relative = _manifest_package_relative(
+            package,
+            prefix=normalized_prefix,
+            publisher=publisher,
+        )
+        expected_hash = package.get("sha256")
         if not isinstance(expected_hash, str):
             raise PluginRegistryReleaseError("Registry package SHA256 is invalid")
         expected_packages[package_relative] = expected_hash
@@ -491,16 +541,19 @@ def main() -> int:
     build.add_argument("--source-url", required=True)
     build.add_argument("--ref", default="main")
     build.add_argument("--output", type=Path, required=True)
-    build.add_argument("--public-base-url", required=True)
+    build.add_argument("--public-base-url", default=None)
     build.add_argument("--private-key-env", default="PLUGIN_REGISTRY_SIGNING_KEY")
 
-    publish = subparsers.add_parser("publish")
-    publish.add_argument("--registry-dir", type=Path, required=True)
-    publish.add_argument("--prefix", default="plugins/v1")
-    publish.add_argument("--bucket", required=True)
-    publish.add_argument("--endpoint-url", required=True)
-    publish.add_argument("--public-base-url", required=True)
-    publish.add_argument("--aws-binary", default="aws")
+    def add_publish_arguments(subparser: argparse.ArgumentParser) -> None:
+        subparser.add_argument("--registry-dir", type=Path, required=True)
+        subparser.add_argument("--prefix", default="plugins/v1")
+        subparser.add_argument("--bucket", required=True)
+        subparser.add_argument("--endpoint-url", required=True)
+        subparser.add_argument("--public-base-url", default=None)
+        subparser.add_argument("--aws-binary", default="aws")
+
+    add_publish_arguments(subparsers.add_parser("publish"))
+    add_publish_arguments(subparsers.add_parser("publish-s3"))
     options = parser.parse_args()
 
     if options.command == "build":
@@ -514,14 +567,14 @@ def main() -> int:
             source_url=options.source_url,
             ref=options.ref,
             output=options.output,
-            public_base_url=options.public_base_url,
             private_key=decode_ed25519_private_key(raw_key),
+            public_base_url=options.public_base_url,
         )
         return 0
     publish_registry(
         registry_dir=options.registry_dir,
         prefix=options.prefix,
-        publisher=R2RegistryPublisher(
+        publisher=S3CompatibleRegistryPublisher(
             bucket=options.bucket,
             endpoint_url=options.endpoint_url,
             public_base_url=options.public_base_url,

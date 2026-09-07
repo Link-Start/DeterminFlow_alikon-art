@@ -11,6 +11,9 @@ export interface Session {
   updated_at: string;
   last_message: string;
   agent_type?: string;
+  runtime_scope?: "interactive" | "workflow";
+  lifecycle_profile?: string;
+  resource_owner?: string;
   workspace_path?: string;
 }
 
@@ -151,6 +154,7 @@ export interface Message {
   event?: CompressionEventData;  // 压缩事件（新格式，与 type="compression_divider" 搭配）
   strategy?: string;       // 压缩策略（"full" / "micro" / "reactive"，消息级别字段）
   injection_meta?: InjectionMeta[];  // 用户消息注入元信息
+  model_context?: Record<string, unknown>; // 仅入模的产品上下文快照
   attachments?: MessageAttachment[]; // UI 附件元数据；正文仍保留发给 LLM 的绝对路径
   // Recursion Limit 相关字段
   tool_rounds?: number;              // recursion_limit_reached: 已执行工具轮数
@@ -580,13 +584,14 @@ export interface WorkflowNodeDef {
   enable_complete_node_task?: boolean;  // 是否注入 complete_node_task 工具
   output_variable?: string;         // 输出变量 key
   enable_reject_upstream?: boolean; // 是否注入 reject_upstream 工具
-  max_reject_count?: number;        // 最大拒绝次数
+  max_reject_count?: number;        // 历史兼容字段；新调度忽略
   save_output_to_file?: boolean;    // 是否将LLM最后输出保存到文件
   output_file_path?: string;        // 保存路径（支持绝对/相对/{{key}}占位符）
   require_non_empty_output?: boolean; // 是否要求最后一条 LLM 输出非空
-  retry_empty_output_in_session?: boolean; // 空输出时是否在原会话追问一次
+  retry_empty_output_in_session?: boolean; // 历史兼容字段；新调度忽略
   json_output_field?: string;       // 要求最小字数的 JSON 字符串字段路径
   json_output_field_min_chars?: number; // JSON 字段字数必须严格大于此值
+  output_repair_max_count?: number; // 历史兼容字段；新调度忽略
   model_override?: string;          // 模型覆盖（格式 "provider_id:model_name"，空则使用 agent 类型默认模型，支持 {{key}} 占位符）
   sub_workflow_id?: string | null;  // 子流程节点：引用的目标流程 ID
   sub_scheme_id?: string | null;    // 子流程节点：使用的执行方案 ID（空=全部执行）
@@ -659,6 +664,8 @@ export interface NodeExecutionInfo {
   automatic_retry_count?: number;
   next_retry_at?: string | null;
   attempt_history?: NodeAttemptHistoryEntry[];
+  output_repair_count?: number;
+  output_repair_history?: Array<Record<string, unknown>>;
   input_snapshot?: unknown;
   available_actions?: string[];
   parent_node_id?: string;
@@ -830,39 +837,12 @@ export interface NodeTypeOption {
   }[];
 }
 
-/**
- * Agent 类型颜色映射（用于 ReactFlow 等可视化组件，值对齐 Tailwind 标准色板）
- * coder=green-500, reviewer=blue-500, researcher=amber-500, reader=violet-500, default=indigo-500
- */
-export const AGENT_TYPE_COLORS: Record<string, string> = {
-  coder: "#22C55E",
-  reviewer: "#3B82F6",
-  researcher: "#F59E0B",
-  reader: "#8B5CF6",
-  default: "#6366F1",
-};
-
-/**
- * 节点类型颜色映射（用于 ReactFlow 画布节点，值对齐 Tailwind 标准色板）
- * agent=indigo-500, approval=amber-500, script=cyan-500
- */
-export const NODE_TYPE_COLORS: Record<string, string> = {
-  agent: "#6366F1",
-  approval: "#F59E0B",
-  script: "#06B6D4",
-  subprocess: "#10B981",
-};
-
-/**
- * 工作流节点状态颜色（用于 ReactFlow 画布节点状态指示，值对齐 Tailwind 标准色板）
- * pending=slate-400, running=blue-500, completed=green-500, failed=red-500
- */
-export const NODE_STATUS_COLORS: Record<string, string> = {
-  pending: "#94A3B8",
-  running: "#3B82F6",
-  completed: "#22C55E",
-  failed: "#EF4444",
-};
+/** Theme-aware colors for ReactFlow and other visualization consumers. */
+export {
+  AGENT_TYPE_COLORS,
+  NODE_STATUS_COLORS,
+  NODE_TYPE_COLORS,
+} from "@/lib/brand-colors";
 
 // ============================================================
 // 工作流 WebSocket 实时事件类型（替代 HTTP 轮询）

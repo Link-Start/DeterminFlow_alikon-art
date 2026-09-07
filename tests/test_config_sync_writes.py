@@ -11,7 +11,7 @@ def _write_json(path, document):
     )
 
 
-def test_skill_directory_sync_does_not_rewrite_unchanged_config(tmp_path):
+def test_skill_directory_sync_does_not_rewrite_current_config(tmp_path):
     config_file = tmp_path / "skills_config.json"
     _write_json(
         config_file,
@@ -24,7 +24,7 @@ def test_skill_directory_sync_does_not_rewrite_unchanged_config(tmp_path):
                     "enabled": True,
                     "priority": 50,
                     "auto_inject": False,
-                    "workflow_only": False,
+                    "scope_override": "all",
                 }
             },
             "groups": [
@@ -42,6 +42,29 @@ def test_skill_directory_sync_does_not_rewrite_unchanged_config(tmp_path):
 
     assert manager.sync_with_directory(["workflow-guide"]) is True
     assert config_file.read_bytes() == before
+
+
+def test_existing_skill_without_auto_inject_keeps_legacy_default(tmp_path):
+    config_file = tmp_path / "skills_config.json"
+    _write_json(
+        config_file,
+        {
+            "version": "1.0",
+            "skills": {"legacy-skill": {}},
+            "skill_configs": {
+                "legacy-skill": {
+                    "enabled": True,
+                    "priority": 50,
+                }
+            },
+            "groups": [],
+        },
+    )
+
+    manager = SkillConfigManager(config_file)
+
+    assert manager.sync_with_directory(["legacy-skill"]) is True
+    assert manager.should_auto_inject("legacy-skill") is False
 
 
 def test_rule_directory_sync_does_not_rewrite_unchanged_config(tmp_path):
@@ -110,6 +133,7 @@ def test_directory_sync_still_persists_real_changes(tmp_path):
     saved_skills = json.loads(skill_config.read_text(encoding="utf-8"))
     saved_rules = json.loads(rule_config.read_text(encoding="utf-8"))
     assert "new-skill" in saved_skills["skills"]
+    assert saved_skills["skill_configs"]["new-skill"]["auto_inject"] is True
     assert "new-rule" in saved_rules["rules"]
     assert saved_skills["last_updated"] != "2026-01-01T00:00:00+00:00"
     assert saved_rules["last_updated"] != "2026-01-01T00:00:00+00:00"

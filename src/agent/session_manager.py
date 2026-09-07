@@ -28,6 +28,27 @@ from src.extension_api import PromptContextRequest
 
 logger = logging.getLogger(__name__)
 
+_AGENT_FAILURE_MESSAGE_LIMIT = 4000
+_AGENT_FAILURE_FALLBACK = "Agent 执行异常结束（可能是达到轮次上限）"
+
+
+def workflow_agent_failure_error(
+    *,
+    session_status: str,
+    exception: BaseException | None = None,
+) -> str:
+    if isinstance(exception, asyncio.CancelledError):
+        return "Agent 执行被取消"
+    if isinstance(exception, GraphRecursionError):
+        return _AGENT_FAILURE_FALLBACK
+    if exception is not None:
+        text = str(exception).strip()
+        if text:
+            return text[:_AGENT_FAILURE_MESSAGE_LIMIT]
+    if session_status == "error":
+        return _AGENT_FAILURE_FALLBACK
+    return f"Agent 执行被中断（状态: {session_status})"
+
 
 class NotificationBroadcaster:
     """通知广播器：将通知 fan-out 到所有订阅者。
@@ -637,7 +658,8 @@ class SessionManager(SessionLifecycleMixin):
                                   enable_complete_node_task: bool = True,
                                   on_auto_complete=None,
                                   template_vars: dict[str, str] | None = None,
-                                  on_reject_upstream=None) -> dict:
+                                  on_reject_upstream=None,
+                                  input_snapshot: dict | None = None) -> dict:
         active_count = self.get_active_sub_count()
         if active_count >= MAX_SUB_SESSIONS:
             return {"success": False, "session_id": "", "message": f"已达到最大并发 sub session 数量 ({MAX_SUB_SESSIONS})"}
@@ -758,11 +780,28 @@ class SessionManager(SessionLifecycleMixin):
             final_model = None
         agent_params = dict(agent_def.model_params or {}) if agent_def else {}
         agent_params.update(model_params_override or {})
-        sub_llm = create_llm(
-            model_override=final_model,
-            streaming=True,
-            model_params=agent_params,
-        )
+        request_fingerprint = None
+        if is_workflow_node:
+            from src.workflow.request_fingerprint import (
+                build_workflow_llm_request_fingerprint,
+            )
+            request_fingerprint = build_workflow_llm_request_fingerprint(
+                workflow_id=workflow_id,
+                task_id=task_id,
+                node_id=node_id,
+                model=final_model,
+                agent_type=agent_type,
+                input_snapshot=input_snapshot,
+                model_params=agent_params,
+            )
+        create_llm_kwargs = {
+            "model_override": final_model,
+            "streaming": True,
+            "model_params": agent_params,
+        }
+        if request_fingerprint:
+            create_llm_kwargs["request_fingerprint"] = request_fingerprint
+        sub_llm = create_llm(**create_llm_kwargs)
         session.model_id = final_model  # 记录模型标识到 session
         session.model_params = dict(agent_params or {})
         session.setup_graph(llm=sub_llm, tools=sub_tools)
@@ -775,6 +814,7 @@ class SessionManager(SessionLifecycleMixin):
 
         # 异步发送首条消息（task_description 作为第一轮对话的 HumanMessage）
         async def _auto_first_message():
+            completion_exception: BaseException | None = None
             try:
                 event_callback = self._make_event_callback(session.session_id)
                 await session.send_message(
@@ -783,14 +823,17 @@ class SessionManager(SessionLifecycleMixin):
                     max_rounds=max_rounds,
                 )
                 _try_emit_event({"type": "session_update", "action": "status_changed", "session_id": session.session_id, "status": session.status})
-            except asyncio.CancelledError:
+            except asyncio.CancelledError as exc:
                 session.status = "error"
+                completion_exception = exc
                 logger.info(f"Sub session {session.session_id} 被取消")
-            except GraphRecursionError:
+            except GraphRecursionError as exc:
                 # 已在 session._invoke_graph 中记录上下文日志，此处只标记状态
                 session.status = "error"
+                completion_exception = exc
             except Exception as e:
                 session.status = "error"
+                completion_exception = e
                 logger.error(f"Sub session {session.session_id} 首条消息执行异常: {e}", exc_info=True)
                 await self.notification_broadcaster.put({
                     "type": "error", "from": session.session_id,
@@ -806,16 +849,15 @@ class SessionManager(SessionLifecycleMixin):
                         session._on_auto_complete(
                             session.session_id, last_msg, "success", "",
                         )
-                    elif session.status == "error":
-                        error_msg = "Agent 执行异常结束（可能是达到轮次上限）"
-                        session._on_auto_complete(
-                            session.session_id, last_msg, "failure", error_msg,
-                        )
                     else:
-                        # 审查拦截等非错误非成功状态（如 ContentFilter/Risk 被捕获后 session 保持 running）
-                        error_msg = f"Agent 执行被中断（状态: {session.status}）"
                         session._on_auto_complete(
-                            session.session_id, last_msg, "failure", error_msg,
+                            session.session_id,
+                            last_msg,
+                            "failure",
+                            workflow_agent_failure_error(
+                                session_status=session.status,
+                                exception=completion_exception,
+                            ),
                         )
 
                 session.updated_at = datetime.now(timezone.utc).isoformat()

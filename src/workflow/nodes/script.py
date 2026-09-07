@@ -288,14 +288,6 @@ class ScriptNode(BaseNodePlugin):
                 "default": False,
                 "description": "开启后脚本可通过 <WF_REJECT_UPSTREAM>...</WF_REJECT_UPSTREAM> 请求上游节点重试",
             },
-            {
-                "key": "max_reject_count",
-                "label": "最大打回次数",
-                "type": "number",
-                "required": False,
-                "default": "3",
-                "description": "允许同一上游节点被此脚本节点自动打回的最大次数",
-            },
         ]
 
     async def execute(self, ctx: NodeContext) -> NodeResult:

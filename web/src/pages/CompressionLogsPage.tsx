@@ -180,7 +180,7 @@ export default function CompressionLogsPage() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100dvh-3.5rem)] flex items-center justify-center">
+      <div className="flex h-full min-h-0 items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground animate-pulse motion-reduce:animate-none" role="status" aria-label="正在加载日志数据">
           <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
           <span>加载日志数据...</span>
@@ -191,12 +191,12 @@ export default function CompressionLogsPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] overflow-auto p-6" role="main" aria-label="压缩日志查看页面">
+    <div className="h-full min-h-0 min-w-0 overflow-auto overscroll-contain p-6" role="main" aria-label="压缩日志查看页面">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* 错误提示 */}
         {error && (
-          <div className="flex items-center gap-3 p-4 border border-red-500/20 bg-red-500/5 rounded-lg" role="alert" aria-live="polite">
-            <AlertTriangle size={16} className="text-red-500 shrink-0" aria-hidden="true" />
+          <div className="flex items-center gap-3 p-4 border border-destructive/20 bg-destructive/5 rounded-lg" role="alert" aria-live="polite">
+            <AlertTriangle size={16} className="text-destructive shrink-0" aria-hidden="true" />
             <span className="text-sm flex-1">{error}</span>
             <Button
               variant="outline"
@@ -216,7 +216,7 @@ export default function CompressionLogsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="text-indigo-500" aria-hidden="true" />
+              <FileText className="text-primary" aria-hidden="true" />
               压缩日志查看
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -233,7 +233,7 @@ export default function CompressionLogsPage() {
         <Card aria-label="日志筛选条件">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Filter className="text-amber-500" aria-hidden="true" />
+              <Filter className="text-warning" aria-hidden="true" />
               筛选条件
             </CardTitle>
           </CardHeader>
@@ -350,7 +350,7 @@ export default function CompressionLogsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="text-purple-500" aria-hidden="true" />
+              <FileText className="text-primary" aria-hidden="true" />
               日志列表
             </CardTitle>
             <CardDescription>
@@ -442,10 +442,10 @@ export default function CompressionLogsPage() {
             role="dialog"
             aria-modal="true"
             aria-label="确认删除日志"
-            className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
+            className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
           >
             <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
+              <AlertTriangle size={20} className="text-destructive shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <h2 className="text-lg font-semibold">确认删除日志</h2>
                 <p className="text-sm text-muted-foreground mt-1">

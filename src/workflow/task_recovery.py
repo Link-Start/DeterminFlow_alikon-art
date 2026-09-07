@@ -9,9 +9,8 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
-from src.config import WORKFLOWS_DIR
-
 from .definition import WorkflowDef, WorkflowTask, _now_iso
+from .active_task_index import ACTIVE_TASK_STATUSES
 from .failure_policy import (
     AUTO_RETRY_TRIGGER,
     MANUAL_RETRY_TRIGGER,
@@ -636,40 +635,40 @@ class WorkflowTaskRecoveryMixin:
             "errors": 0,
         }
         self._task_recovery_stopping = False
-        if not WORKFLOWS_DIR.exists():
-            return summary
-
-        for workflow_dir in sorted(WORKFLOWS_DIR.iterdir()):
-            if not workflow_dir.is_dir():
-                continue
-            workflow_id = workflow_dir.name
-            if not self.is_workflow_owner_enabled(workflow_id):
-                continue
-            tasks_dir = workflow_dir / "tasks"
-            if not tasks_dir.exists():
-                continue
-            for task_file in sorted(tasks_dir.glob("*.json")):
-                try:
-                    task = WorkflowTask.from_dict(
-                        json.loads(task_file.read_text(encoding="utf-8"))
+        for ref in self._active_task_index.recovery_refs():
+            task_file = self._get_task_path(ref.workflow_id, ref.task_id)
+            try:
+                task = self._load_task(ref.workflow_id, ref.task_id)
+                if task is None:
+                    if not task_file.exists():
+                        self._active_task_index.remove(
+                            ref.workflow_id, ref.task_id,
+                        )
+                    else:
+                        summary["errors"] += 1
+                    continue
+                if task.status not in ACTIVE_TASK_STATUSES:
+                    self._active_task_index.remove(
+                        ref.workflow_id, ref.task_id,
                     )
-                    if task.status not in _RECOVERABLE_TASK_STATUSES:
-                        continue
-                    if executor_identity is not None and (
-                        task.executor_id != executor_identity.executor_id
-                        or task.executor_epoch != executor_identity.epoch
-                    ):
-                        continue
-                    summary["scanned"] += 1
-                    action = await self._recover_task(task)
-                    summary[action] += 1
-                except Exception:
-                    summary["errors"] += 1
-                    logger.exception(
-                        "恢复工作流任务失败: workflow=%s file=%s",
-                        workflow_id,
-                        task_file,
-                    )
+                    continue
+                if task.status not in _RECOVERABLE_TASK_STATUSES:
+                    continue
+                if executor_identity is not None and (
+                    task.executor_id != executor_identity.executor_id
+                    or task.executor_epoch != executor_identity.epoch
+                ):
+                    continue
+                summary["scanned"] += 1
+                action = await self._recover_task(task)
+                summary[action] += 1
+            except Exception:
+                summary["errors"] += 1
+                logger.exception(
+                    "恢复工作流任务失败: workflow=%s file=%s",
+                    ref.workflow_id,
+                    task_file,
+                )
         return summary
 
     async def _recover_task(self, task: WorkflowTask) -> str:

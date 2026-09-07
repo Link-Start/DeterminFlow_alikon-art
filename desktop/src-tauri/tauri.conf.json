@@ -39,6 +39,11 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["determinflow"]
+      }
+    },
     "updater": {
       "endpoints": [
         "https://downloads.determinflow.com/desktop/stable/latest.json"

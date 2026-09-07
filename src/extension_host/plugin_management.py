@@ -26,6 +26,7 @@ from .plugin_config import (
 from .plugin_preflight import validate_plugin_checkout
 from .source_config import (
     PluginCatalogService,
+    PluginSourceConfig,
     PluginSourceStore,
     source_config_response,
 )
@@ -132,9 +133,22 @@ class PluginManagement:
             }
         return self._catalog.get(refresh=refresh)
 
-    def create_source(self, *, name: str, url: str, ref: str) -> dict[str, Any]:
+    def create_source(
+        self,
+        *,
+        name: str,
+        url: str,
+        ref: str,
+        registry: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         self._ensure_package_mutable()
-        source = self._source_store.create(name=name, url=url, ref=ref)
+        source = self._source_store.create(
+            name=name,
+            url=url,
+            ref=ref,
+            registry=registry,
+        )
+        self._sync_source_registry(previous=None, current=source)
         self._reload_catalog_sources()
         return {
             "source": source_config_response(source),
@@ -148,14 +162,21 @@ class PluginManagement:
         name: str,
         url: str,
         ref: str,
+        registry: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         self._ensure_package_mutable()
+        previous = next(
+            (item for item in self._source_store.list() if item.id == source_id),
+            None,
+        )
         source = self._source_store.update(
             source_id,
             name=name,
             url=url,
             ref=ref,
+            registry=registry,
         )
+        self._sync_source_registry(previous=previous, current=source)
         self._reload_catalog_sources()
         return {
             "source": source_config_response(source),
@@ -165,11 +186,23 @@ class PluginManagement:
     def delete_source(self, source_id: str) -> dict[str, Any]:
         self._ensure_package_mutable()
         source = self._source_store.delete(source_id)
+        self._sync_source_registry(previous=source, current=None)
         self._reload_catalog_sources()
         return {"source": source_config_response(source)}
 
     def _reload_catalog_sources(self) -> None:
         self._catalog.replace_sources(self._source_store.list())
+
+    def _sync_source_registry(
+        self,
+        *,
+        previous: PluginSourceConfig | None,
+        current: PluginSourceConfig | None,
+    ) -> None:
+        if previous is not None:
+            self.store.set_source_registry(previous.url, None)
+        if current is not None and current.registry is not None:
+            self.store.set_source_registry(current.url, current.registry)
 
     def install(
         self,

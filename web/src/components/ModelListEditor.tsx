@@ -41,8 +41,8 @@ function SortableModelChip({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`flex h-9 max-w-full items-center rounded-lg border pl-1 pr-1.5 text-sm transition-colors ${
         isDragging
-          ? "z-10 border-indigo-400 bg-indigo-500/20 shadow-lg shadow-slate-950/40"
-          : "border-slate-600/80 bg-slate-700/70 text-slate-200"
+          ? "z-10 border-primary bg-primary/20 shadow-lg shadow-background/40"
+          : "border-border/80 bg-muted/70 text-foreground"
       }`}
     >
       <button
@@ -50,7 +50,7 @@ function SortableModelChip({
         {...attributes}
         {...listeners}
         aria-label={`拖动排序 ${model}`}
-        className="flex h-8 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-slate-500 hover:bg-slate-600/70 hover:text-slate-300 active:cursor-grabbing"
+        className="flex h-8 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted-foreground/70 hover:text-foreground active:cursor-grabbing"
       >
         <GripVertical size={14} aria-hidden="true" />
       </button>
@@ -59,7 +59,7 @@ function SortableModelChip({
         type="button"
         onClick={onRemove}
         aria-label={`移除模型 ${model}`}
-        className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+        className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
       >
         <X size={13} aria-hidden="true" />
       </button>
@@ -95,7 +95,7 @@ export default function ModelListEditor({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={models} strategy={rectSortingStrategy}>
-        <div className="flex min-h-14 w-full flex-wrap items-center gap-2 rounded-xl border border-slate-600 bg-slate-800/65 p-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20">
+        <div className="flex min-h-14 w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/65 p-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
           {models.map((model) => (
             <SortableModelChip
               key={model}
@@ -114,7 +114,7 @@ export default function ModelListEditor({
             }}
             aria-label={inputLabel}
             placeholder={models.length === 0 ? "输入模型，按 Enter 添加" : "添加模型"}
-            className="h-9 min-w-40 flex-1 bg-transparent px-2 font-mono text-sm text-slate-200 outline-none placeholder:text-slate-500"
+            className="h-9 min-w-40 flex-1 bg-transparent px-2 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
       </SortableContext>

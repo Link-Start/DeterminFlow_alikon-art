@@ -68,29 +68,29 @@ export default function ContentSafetyWarningMsg({
   return (
     <div className="flex items-center gap-2 my-4">
       {/* 分割线 */}
-      <div className="flex-1 h-px bg-amber-500/30" />
+      <div className="flex-1 h-px bg-warning/30" />
 
       {/* 警告卡片 */}
       <div className="flex-shrink-0 max-w-[85%]">
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3" role="alert" aria-label="内容安全警告">
+        <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3" role="alert" aria-label="内容安全警告">
           {/* 标题行 */}
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={16} className="text-amber-400" aria-hidden="true" />
-            <span className="text-sm font-medium text-amber-400">内容安全警告</span>
+            <AlertTriangle size={16} className="text-warning" aria-hidden="true" />
+            <span className="text-sm font-medium text-warning">内容安全警告</span>
           </div>
 
           {/* 错误消息 */}
-          <p className="text-xs text-slate-300 mb-2 leading-relaxed">{errorMessage}</p>
+          <p className="text-xs text-foreground mb-2 leading-relaxed">{errorMessage}</p>
 
           {/* 错误详情 */}
           {errorDetail && (
-            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+            <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
               {errorDetail}
             </p>
           )}
 
           {requestState.message && (
-            <p className={`mb-2 text-xs ${requestState.phase === "failed" ? "text-red-300" : "text-slate-400"}`} role={requestState.phase === "failed" ? "alert" : "status"}>
+            <p className={`mb-2 text-xs ${requestState.phase === "failed" ? "text-destructive" : "text-muted-foreground"}`} role={requestState.phase === "failed" ? "alert" : "status"}>
               {requestState.message}
             </p>
           )}
@@ -101,7 +101,7 @@ export default function ContentSafetyWarningMsg({
             onClick={handleDiagnose}
             disabled={requestPending || requestCompleted || readonly || !onCommand || !sessionId}
             aria-label="运行详细诊断"
-            className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Search size={14} aria-hidden="true" />
             {buttonLabel}
@@ -110,7 +110,7 @@ export default function ContentSafetyWarningMsg({
       </div>
 
       {/* 分割线 */}
-      <div className="flex-1 h-px bg-amber-500/30" />
+      <div className="flex-1 h-px bg-warning/30" />
     </div>
   );
 }

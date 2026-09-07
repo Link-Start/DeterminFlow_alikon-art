@@ -41,6 +41,7 @@ from .plugin_config import (
     PluginConfigStore,
     load_settings_schema,
     prepare_applied_plugin_configs,
+    runtime_plugin_settings,
     settings_environment,
 )
 from .plugin_management import PluginManagement
@@ -155,10 +156,10 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
                     for source in self.plugin_sources
                     if source.kind == "official"
                 },
-                official_registries={
+                source_registries={
                     source.url: source.registry
                     for source in self.plugin_sources
-                    if source.kind == "official" and source.registry is not None
+                    if source.registry is not None
                 },
             )
         self._applied_plugin_records = self.plugin_store.apply_pending()
@@ -910,10 +911,28 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
 
     def _owner_runtime(self, owner: str, runtime: CoreRuntime) -> CoreRuntime:
         manifest = self._manifests[owner]
+        plugin_config = dict(self._applied_plugin_configs.get(owner, {}))
+        if manifest.settings_schema and manifest.base_path is not None:
+            plugin_config = runtime_plugin_settings(
+                load_settings_schema(
+                    manifest.base_path,
+                    manifest.settings_schema,
+                ),
+                plugin_config,
+            )
         services = dict(runtime.services)
         services.pop("resource_resolver", None)
+        account_session = services.pop("_official_account_session", None)
+        applied_record = self._applied_plugin_records.get(owner)
+        if (
+            owner == "public-api"
+            and applied_record is not None
+            and applied_record.trust == "official"
+            and account_session is not None
+        ):
+            services["account_session"] = account_session
         services.update({
-            "plugin_config": dict(self._applied_plugin_configs.get(owner, {})),
+            "plugin_config": plugin_config,
             "plugin_config_file": self.applied_plugin_config_store.path_for(owner),
             "plugin_data_dir": self.plugin_data_dir / owner,
             "plugin_dir": manifest.base_path,

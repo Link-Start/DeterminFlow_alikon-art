@@ -4,6 +4,7 @@ import App from "./App";
 import { ExtensionProvider } from "./extensions/context";
 import { initializeTheme } from "./lib/theme";
 import { ThemeProvider } from "./theme";
+import { DialogProvider } from "./components/ui/dialog-provider";
 import "./index.css";
 
 initializeTheme();
@@ -12,7 +13,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
       <ExtensionProvider>
-        <App />
+        <DialogProvider><App /></DialogProvider>
       </ExtensionProvider>
     </ThemeProvider>
   </React.StrictMode>

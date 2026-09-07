@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type {
   PluginCatalogSource,
   PluginSourceRequest,
@@ -46,6 +47,13 @@ export function PluginRepositoryDialog({
   const [name, setName] = useState(source?.name ?? "");
   const [url, setUrl] = useState(source?.url ?? "");
   const [ref, setRef] = useState(source?.ref ?? "main");
+  const [distributionEndpoints, setDistributionEndpoints] = useState(
+    source?.registry?.endpoints.join("\n") ?? "",
+  );
+  const [distributionPublicKey, setDistributionPublicKey] = useState(
+    source?.registry?.public_key ?? "",
+  );
+  const [distributionOpen, setDistributionOpen] = useState(Boolean(source?.registry));
   const [view, setView] = useState(initialView);
   const busy = Boolean(busyAction);
   const adding = !source;
@@ -70,7 +78,7 @@ export function PluginRepositoryDialog({
       }
       if (event.key !== "Tab" || !panel) return;
       const focusable = panel.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
       );
       if (focusable.length === 0) return;
       const first = focusable[0];
@@ -98,13 +106,27 @@ export function PluginRepositoryDialog({
       if (await onDelete(source)) onClose();
       return;
     }
+    const endpoints = distributionEndpoints
+      .split(/\r?\n/)
+      .map((endpoint) => endpoint.trim())
+      .filter(Boolean);
+    const publicKey = distributionPublicKey.trim();
     const saved = await onSave(source, {
       name: name.trim(),
       url: url.trim(),
       ref: ref.trim() || "HEAD",
+      registry: endpoints.length > 0 && publicKey
+        ? { endpoints, public_key: publicKey }
+        : null,
     });
     if (saved) onClose();
   };
+
+  const hasDistributionEndpoints = distributionEndpoints
+    .split(/\r?\n/)
+    .some((endpoint) => endpoint.trim());
+  const hasDistributionKey = Boolean(distributionPublicKey.trim());
+  const distributionIncomplete = hasDistributionEndpoints !== hasDistributionKey;
 
   return (
     <div
@@ -173,6 +195,47 @@ export function PluginRepositoryDialog({
               />
             </div>
 
+            {!deleting ? (
+              <details
+                className="rounded-md border p-3 text-sm"
+                open={distributionOpen}
+                onToggle={(event) => setDistributionOpen(event.currentTarget.open)}
+              >
+                <summary className="cursor-pointer font-medium">签名下载加速（可选）</summary>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  可填写作者自行托管的静态 HTTPS 地址。Git 仓库仍是插件身份；加速不可用或校验失败时自动回退 Git。
+                </p>
+                <div className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="plugin-source-distribution-endpoints">分发地址</Label>
+                    <Textarea
+                      id="plugin-source-distribution-endpoints"
+                      value={distributionEndpoints}
+                      onChange={(event) => setDistributionEndpoints(event.target.value)}
+                      placeholder={"https://cdn.example.com/plugins/v1\nhttps://backup.example.com/plugins/v1"}
+                      disabled={busy}
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">每行一个 HTTPS 地址，按顺序尝试。</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="plugin-source-distribution-public-key">Ed25519 公钥</Label>
+                    <Input
+                      id="plugin-source-distribution-public-key"
+                      value={distributionPublicKey}
+                      onChange={(event) => setDistributionPublicKey(event.target.value)}
+                      placeholder="Base64 或 Hex 编码的 32 字节公钥"
+                      disabled={busy}
+                      spellCheck={false}
+                    />
+                  </div>
+                  {distributionIncomplete ? (
+                    <p className="text-xs text-destructive" role="alert">分发地址和公钥必须同时填写。</p>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
+
             {adding ? (
               <>
                 <details className="rounded-md border p-3 text-sm">
@@ -181,8 +244,8 @@ export function PluginRepositoryDialog({
                     使用主进程所在主机已有的 Git 或 SSH 凭据，不在这里保存访问令牌。
                   </p>
                 </details>
-                <div className="flex items-start gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
-                  <ShieldAlert className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+                <div className="flex items-start gap-3 rounded-md border border-warning/40 bg-warning/5 p-3">
+                  <ShieldAlert className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
                   <div>
                     <p className="text-sm font-medium">第三方仓库</p>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -232,7 +295,7 @@ export function PluginRepositoryDialog({
               <Button
                 type="submit"
                 variant={deleting ? "destructive" : "default"}
-                disabled={busy || (!deleting && (!name.trim() || !url.trim() || !ref.trim()))}
+                disabled={busy || (!deleting && (!name.trim() || !url.trim() || !ref.trim() || distributionIncomplete))}
               >
                 {busy
                   ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden="true" />

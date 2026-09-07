@@ -11,16 +11,17 @@ import CompressionLogsPanel from "../components/compression/CompressionLogsPanel
 import { formatTime, truncate } from "../lib/utils-helpers";
 import { fetchPromptHistory } from "../lib/api";
 import { PromptHistoryEntry, Session } from "../types";
+import { BRAND_COLORS } from "../lib/brand-colors";
 
 /* Status color map (single source of truth) */
 const STATUS_STYLES: Record<string, { bg: string; label: string }> = {
-  running:   { bg: "#22C55E", label: "运行中" },
-  streaming: { bg: "#06B6D4", label: "流式传输" },
-  completed: { bg: "#3B82F6", label: "已完成" },
-  error:     { bg: "#EF4444", label: "错误"   },
-  idle:      { bg: "#94A3B8", label: "空闲"   },
+  running:   { bg: BRAND_COLORS.success, label: "运行中" },
+  streaming: { bg: BRAND_COLORS.info, label: "流式传输" },
+  completed: { bg: BRAND_COLORS.success, label: "已完成" },
+  error:     { bg: BRAND_COLORS.destructive, label: "错误" },
+  idle:      { bg: BRAND_COLORS.muted, label: "空闲" },
 };
-const DEFAULT_STATUS = { bg: "#F59E0B", label: "未知" };
+const DEFAULT_STATUS = { bg: BRAND_COLORS.warning, label: "未知" };
 
 function getStatusStyle(status: string) {
   return STATUS_STYLES[status] ?? DEFAULT_STATUS;
@@ -48,11 +49,11 @@ export default function DashboardPage() {
 
   if (!status) {
     return (
-      <div className="h-[calc(100dvh-3.5rem)] flex flex-col items-center justify-center gap-3" role="status" aria-label="加载中" aria-live="polite">
+      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3" role="status" aria-label="加载中" aria-live="polite">
         <div className="flex gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-cyan-500/60 animate-pulse motion-reduce:animate-none [animation-delay:0ms]" aria-hidden="true" />
-          <span className="w-2 h-2 rounded-full bg-cyan-500/60 animate-pulse motion-reduce:animate-none [animation-delay:150ms]" aria-hidden="true" />
-          <span className="w-2 h-2 rounded-full bg-cyan-500/60 animate-pulse motion-reduce:animate-none [animation-delay:300ms]" aria-hidden="true" />
+          <span className="w-2 h-2 rounded-full bg-info/60 animate-pulse motion-reduce:animate-none [animation-delay:0ms]" aria-hidden="true" />
+          <span className="w-2 h-2 rounded-full bg-info/60 animate-pulse motion-reduce:animate-none [animation-delay:150ms]" aria-hidden="true" />
+          <span className="w-2 h-2 rounded-full bg-info/60 animate-pulse motion-reduce:animate-none [animation-delay:300ms]" aria-hidden="true" />
         </div>
         <span className="text-sm text-muted-foreground">加载系统状态...</span>
       </div>
@@ -60,7 +61,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <ScrollArea className="h-[calc(100dvh-3.5rem)]">
+    <ScrollArea className="h-full min-h-0 min-w-0">
       <div className="p-6 space-y-8 max-w-[1400px] mx-auto" role="main" aria-label="仪表盘">
         {/* Stats Cards Row */}
         <section aria-label="系统指标概览">
@@ -79,11 +80,11 @@ export default function DashboardPage() {
           </div>
           <div className="max-h-[350px] overflow-y-auto rounded-lg" role="region" aria-label="提示词历史时间线">
             {historyError ? (
-              <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-4 h-full flex flex-col items-center justify-center gap-2" role="alert">
-                <span className="text-sm text-red-400">加载提示词历史失败</span>
+              <div className="bg-secondary/80 border border-border/50 rounded-lg p-4 h-full flex flex-col items-center justify-center gap-2" role="alert">
+                <span className="text-sm text-destructive">加载提示词历史失败</span>
                 <button
                   onClick={loadHistory}
-                  className="text-xs text-cyan-500 hover:underline cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-cyan-500/30 rounded"
+                  className="text-xs text-info hover:underline cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-info/30 rounded"
                   aria-label="重新加载提示词历史"
                 >
                   重试
@@ -96,7 +97,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Compression Monitor */}
-        <section className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-5" aria-label="压缩状态监控">
+        <section className="bg-secondary/80 border border-border/50 rounded-lg p-5" aria-label="压缩状态监控">
           <h3 className="text-xs font-semibold text-muted-foreground/70 mb-3">压缩状态监控</h3>
           <div className="max-h-[300px] overflow-y-auto rounded">
             <CompressionMonitorPanel compact={true} />
@@ -104,7 +105,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Compression Logs */}
-        <section className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-5" aria-label="压缩日志">
+        <section className="bg-secondary/80 border border-border/50 rounded-lg p-5" aria-label="压缩日志">
           <h3 className="text-xs font-semibold text-muted-foreground/70 mb-3">压缩日志</h3>
           <div className="max-h-[300px] overflow-y-auto rounded">
             <CompressionLogsPanel compact={true} />
@@ -127,7 +128,7 @@ function StatusDot({ status }: { status: string }) {
         style={{ backgroundColor: style.bg }}
         aria-hidden="true"
       />
-      <span className="text-xs text-slate-300">{status}</span>
+      <span className="text-xs text-foreground">{status}</span>
       <span className="sr-only">{style.label}</span>
     </span>
   );
@@ -135,7 +136,7 @@ function StatusDot({ status }: { status: string }) {
 
 function SessionsTable({ sessions }: { sessions: Session[] }) {
   return (
-    <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-5">
+    <div className="bg-secondary/80 border border-border/50 rounded-lg p-5">
       <h3 className="text-xs font-semibold text-muted-foreground/70 mb-3">会话实时状态</h3>
       <div className="overflow-x-auto">
         <table className="w-full text-sm" aria-label="会话列表">
@@ -165,14 +166,14 @@ function SessionsTable({ sessions }: { sessions: Session[] }) {
                     role="row"
                   >
                     <td className="py-2.5 px-3">
-                      <span className="font-mono text-xs text-cyan-400">{session.session_id}</span>
+                      <span className="font-mono text-xs text-info">{session.session_id}</span>
                     </td>
                     <td className="py-2.5 px-3">
                       <Badge
                         variant="outline"
                         className={`text-xs font-medium ${
                           session.type === "main"
-                            ? "text-indigo-400 border-indigo-500/20"
+                            ? "text-primary border-primary/20"
                             : "text-muted-foreground/50 border-muted-foreground/15"
                         }`}
                       >
@@ -183,7 +184,7 @@ function SessionsTable({ sessions }: { sessions: Session[] }) {
                       <StatusDot status={session.status} />
                     </td>
                     <td className="py-2.5 px-3 max-w-[200px]">
-                      <span className="text-xs text-slate-400 truncate block" title={session.task || undefined}>
+                      <span className="text-xs text-muted-foreground truncate block" title={session.task || undefined}>
                         {truncate(session.task || (session.type === "main" ? "主会话" : "-"), 40)}
                       </span>
                     </td>

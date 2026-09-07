@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import subprocess
 from pathlib import Path
@@ -341,7 +342,7 @@ def test_plugin_list_fails_closed_when_schema_changes_object_to_string(
     store_config = store.root / "config"
     store_config.mkdir(parents=True)
     (store_config / "demo-plugin.json").write_text(
-        '{"token":{"old_password":"must-not-leak"}}',  # pragma: allowlist secret
+        '{"token":{"old_password":"must-not-leak"}}',
         encoding="utf-8",
     )
     client = TestClient(create_app(_manager(tmp_path / "core", store)))
@@ -921,3 +922,68 @@ subdirectory = ""
     )
     assert deleted.status_code == 200
     assert client.get("/api/plugins/sources").json()["sources"] == []
+
+
+def test_plugin_source_routes_persist_custom_registry(
+    tmp_path: Path,
+    admin_headers: dict[str, str],
+):
+    repo = _create_repo(tmp_path)
+    (repo / "plugin-repository.toml").write_text(
+        """
+schema_version = "1"
+
+[[plugins]]
+id = "demo-plugin"
+subdirectory = ""
+""",
+        encoding="utf-8",
+    )
+    _git(repo, "add", "plugin-repository.toml")
+    _git(repo, "commit", "-m", "add catalog")
+    base_dir = tmp_path / "core"
+    store = PluginStore(tmp_path / "runtime" / "plugins")
+    client = TestClient(create_app(_manager(base_dir, store)))
+    public_key = base64.b64encode(b"\x11" * 32).decode("ascii")
+    registry = {
+        "endpoints": ["https://cdn.example.invalid/plugins/v1"],
+        "public_key": public_key,
+    }
+
+    created = client.post(
+        "/api/plugins/sources",
+        headers=admin_headers,
+        json={
+            "name": "Team Plugins",
+            "url": str(repo),
+            "ref": "main",
+            "registry": registry,
+        },
+    )
+    assert created.status_code == 200
+    body = created.json()
+    assert body["source"]["kind"] == "custom"
+    assert body["source"]["registry"]["endpoints"] == registry["endpoints"]
+    assert body["source"]["registry"]["public_key"] == public_key
+    persisted = json.loads(
+        (base_dir / "config" / "plugin-sources.json").read_text(encoding="utf-8")
+    )
+    assert persisted["custom_sources"][0]["registry"]["endpoints"] == registry[
+        "endpoints"
+    ]
+
+    listed = client.get("/api/plugins/sources").json()["sources"]
+    assert listed[0]["registry"]["endpoints"] == registry["endpoints"]
+
+    updated = client.put(
+        f"/api/plugins/sources/{body['source']['id']}",
+        headers=admin_headers,
+        json={
+            "name": "Team Stable",
+            "url": str(repo),
+            "ref": "main",
+            "registry": None,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["source"]["registry"] is None

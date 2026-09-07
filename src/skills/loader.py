@@ -22,6 +22,73 @@ from .models import Skill, SkillCategory
 
 logger = logging.getLogger(__name__)
 
+_STANDARD_FRONTMATTER_KEYS = {
+    "name", "description", "license", "compatibility", "allowed-tools", "metadata",
+    "version", "aliases",
+}
+_LEGACY_METADATA_KEYS = {
+    "aliases",
+    "agent_types",
+    "category",
+    "locale",
+    "marketplace",
+    "priority",
+    "required_apps",
+    "required_plugins",
+    "required_tools",
+    "scope",
+    "skill_format_version",
+    "workflow_only",
+    "determinflow.requires_core",
+    "determinflow.requires_tools",
+}
+_VALID_SCOPES = {"all", "workflow"}
+
+
+def _string_value(value: Any, default: str = "") -> str:
+    if value is None:
+        return default
+    if isinstance(value, (str, int, float, bool)):
+        return str(value).strip()
+    return default
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        raw = re.split(r"[\s,]+", value)
+    elif isinstance(value, list):
+        raw = [item for item in value if isinstance(item, str)]
+    else:
+        raw = []
+    result: list[str] = []
+    for item in raw:
+        normalized = item.strip()
+        if normalized and normalized not in result:
+            result.append(normalized)
+    return result
+
+
+def _category_value(value: Any, warnings: list[str]) -> SkillCategory | str:
+    normalized = _string_value(value)
+    if not normalized:
+        return SkillCategory.UNCATEGORIZED
+    try:
+        return SkillCategory(normalized)
+    except ValueError:
+        return normalized
+
+
+def _legacy_priority(value: Any, warnings: list[str]) -> int:
+    try:
+        priority = int(value)
+    except (TypeError, ValueError):
+        warnings.append("旧 priority 不是整数，已使用本地默认值 50")
+        return 50
+    if not 0 <= priority <= 100:
+        warnings.append("旧 priority 超出 0-100，已使用本地默认值 50")
+        return 50
+    return priority
+
 
 class SkillResourceConflictError(ValueError):
     """Raised when multiple active owners claim the same Skill ID."""
@@ -182,38 +249,50 @@ class SkillLoader:
             logger.error("_build_skill_from_parsed: 缺少 name 或 description")
             return None
 
-        metadata = frontmatter.get("metadata", {})
+        raw_metadata = frontmatter.get("metadata", {})
+        metadata = dict(raw_metadata) if isinstance(raw_metadata, dict) else {}
+        marketplace = metadata.get("marketplace")
+        marketplace = marketplace if isinstance(marketplace, dict) else {}
+        warnings: list[str] = []
 
-        # 推断分类
-        category_str = metadata.get("category", "general")
-        try:
-            category = SkillCategory(category_str)
-        except ValueError:
-            category = SkillCategory.GENERAL
+        category = _category_value(metadata.get("category"), warnings)
+        agent_types = _string_list(metadata.get("agent_types"))
+        tags = _string_list(metadata.get("tags"))
+        scope = _string_value(
+            metadata.get("determinflow.scope") or metadata.get("scope")
+        ).lower()
+        if scope not in _VALID_SCOPES:
+            if scope:
+                warnings.append(f"未知适用范围 '{scope}'，已使用 all")
+            scope = "workflow" if metadata.get("workflow_only") is True else "all"
 
-        # 提取 agent_types
-        agent_types_raw = metadata.get("agent_types", [])
-        if isinstance(agent_types_raw, list):
-            agent_types = agent_types_raw
-        elif isinstance(agent_types_raw, str):
-            agent_types = agent_types_raw.split()
-        else:
-            agent_types = []
-
-        # 提取 tags
-        tags_raw = metadata.get("tags", "")
-        if isinstance(tags_raw, list):
-            tags = tags_raw
-        elif isinstance(tags_raw, str):
-            tags = tags_raw.split()
-        else:
-            tags = []
+        legacy_required_tools = _string_list(
+            metadata.get("determinflow.requires_tools")
+            or metadata.get("required_tools")
+            or marketplace.get("required_tools")
+        )
+        allowed_tools = _string_list(frontmatter.get("allowed-tools"))
+        if not allowed_tools:
+            allowed_tools = legacy_required_tools
+        required_tools = _string_list(
+            legacy_required_tools or allowed_tools
+        )
+        required_plugins = _string_list(
+            metadata.get("determinflow.requires_plugins")
+            or metadata.get("required_plugins")
+            or marketplace.get("required_plugins")
+        )
+        required_apps = _string_list(
+            metadata.get("determinflow.requires_apps")
+            or metadata.get("required_apps")
+            or marketplace.get("required_apps")
+        )
 
         # 构建目录相关元数据
         skill_meta: dict[str, Any] = {
-            "license": frontmatter.get("license", ""),
-            "compatibility": frontmatter.get("compatibility", ""),
-            "allowed_tools": frontmatter.get("allowed-tools", ""),
+            "license": _string_value(frontmatter.get("license")),
+            "compatibility": _string_value(frontmatter.get("compatibility")),
+            "allowed_tools": allowed_tools,
         }
         if skill_dir is not None:
             skill_meta["skill_dir"] = str(skill_dir)
@@ -221,19 +300,47 @@ class SkillLoader:
             skill_meta["has_references"] = (skill_dir / "references").exists()
             skill_meta["has_assets"] = (skill_dir / "assets").exists()
 
+        legacy_requires_core = _string_value(
+            metadata.get("determinflow.requires_core")
+            or marketplace.get("determinflow_requires")
+        )
+        compatibility = _string_value(frontmatter.get("compatibility"))
+        if not compatibility:
+            compatibility = legacy_requires_core
+
         return Skill(
             id=name,
-            name=metadata.get("display_name", name),
+            name=_string_value(metadata.get("display_name"), name) or name,
             description=description,
             content=body,
             category=category,
             agent_types=agent_types,
-            workflow_only=metadata.get("workflow_only", False),
-            priority=int(metadata.get("priority", 50)),
+            workflow_only=scope == "workflow",
+            priority=_legacy_priority(metadata.get("priority", 50), warnings),
             tags=tags,
             enabled=True,
-            version=metadata.get("version", "1.0.0"),
-            author=metadata.get("author", ""),
+            version=_string_value(metadata.get("version") or frontmatter.get("version")),
+            author=_string_value(metadata.get("author")),
+            language=_string_value(
+                metadata.get("language")
+                or metadata.get("locale")
+                or marketplace.get("locale")
+            ),
+            scope=scope,
+            license=_string_value(frontmatter.get("license")),
+            compatibility=compatibility,
+            requires_core=legacy_requires_core,
+            allowed_tools=allowed_tools,
+            required_tools=required_tools,
+            required_plugins=required_plugins,
+            required_apps=required_apps,
+            manifest_metadata=metadata,
+            frontmatter_extra={
+                key: value
+                for key, value in frontmatter.items()
+                if key not in _STANDARD_FRONTMATTER_KEYS
+            },
+            validation_warnings=warnings,
             metadata=skill_meta,
         )
 
@@ -288,34 +395,62 @@ class SkillLoader:
 
             # 构建 YAML frontmatter
             frontmatter = {
+                **skill.frontmatter_extra,
                 "name": skill.id,
                 "description": skill.description,
             }
 
             # 添加可选字段（从 metadata 的副本读取，避免受后续写入影响）
-            meta_snapshot = dict(skill.metadata)
-            if meta_snapshot.get("license"):
-                frontmatter["license"] = meta_snapshot["license"]
-            if meta_snapshot.get("compatibility"):
-                frontmatter["compatibility"] = meta_snapshot["compatibility"]
-            if meta_snapshot.get("allowed_tools"):
-                frontmatter["allowed-tools"] = meta_snapshot["allowed_tools"]
+            if skill.license:
+                frontmatter["license"] = skill.license
+            compatibility = skill.compatibility or skill.requires_core
+            if compatibility:
+                frontmatter["compatibility"] = compatibility
+            if skill.allowed_tools:
+                frontmatter["allowed-tools"] = " ".join(skill.allowed_tools)
 
-            # 添加 metadata
-            category_value = skill.category.value if hasattr(skill.category, 'value') else skill.category
+            # 内容元数据随 Skill 传播；运行设置只保存在本地配置中。
             fm_metadata = {
-                "display_name": skill.name,
-                "version": skill.version,
-                "author": skill.author,
-                "category": category_value,
-                "priority": skill.priority,
-                "workflow_only": skill.workflow_only,
+                key: value
+                for key, value in skill.manifest_metadata.items()
+                if key not in _LEGACY_METADATA_KEYS
             }
-            if skill.agent_types:
-                fm_metadata["agent_types"] = " ".join(skill.agent_types)
+            if skill.name and skill.name != skill.id:
+                fm_metadata["display_name"] = skill.name
+            else:
+                fm_metadata.pop("display_name", None)
+            if skill.version:
+                fm_metadata["version"] = skill.version
+            else:
+                fm_metadata.pop("version", None)
+            if skill.author:
+                fm_metadata["author"] = skill.author
+            else:
+                fm_metadata.pop("author", None)
             if skill.tags:
-                fm_metadata["tags"] = " ".join(skill.tags)
-            frontmatter["metadata"] = fm_metadata
+                fm_metadata["tags"] = skill.tags
+            else:
+                fm_metadata.pop("tags", None)
+            if skill.language:
+                fm_metadata["language"] = skill.language
+            else:
+                fm_metadata.pop("language", None)
+            if skill.scope == "workflow":
+                fm_metadata["determinflow.scope"] = skill.scope
+            else:
+                fm_metadata.pop("determinflow.scope", None)
+            requirement_fields = {
+                "determinflow.requires_plugins": skill.required_plugins,
+                "determinflow.requires_apps": skill.required_apps,
+            }
+            for key, value in requirement_fields.items():
+                if value:
+                    fm_metadata[key] = value
+                else:
+                    fm_metadata.pop(key, None)
+            if fm_metadata:
+                frontmatter["metadata"] = fm_metadata
+            skill.manifest_metadata = dict(fm_metadata)
 
             # 构建 SKILL.md 内容
             yaml_str = yaml.dump(frontmatter, allow_unicode=True, sort_keys=False)

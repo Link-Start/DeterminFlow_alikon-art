@@ -21,3 +21,10 @@ test("timeline follow uses a local overflow container", () => {
   assert.match(source, /conversation-output-scroll/);
   assert.equal(source.includes("scrollIntoView"), false);
 });
+
+test("user message bubbles wrap long unbroken product context locally", () => {
+  const source = readFileSync(join(here, "../MessageRenderer.tsx"), "utf8");
+  assert.match(source, /flex w-full min-w-0 justify-end/);
+  assert.match(source, /min-w-0 max-w-\[70%\]/);
+  assert.match(source, /whitespace-pre-wrap \[overflow-wrap:anywhere\]/);
+});

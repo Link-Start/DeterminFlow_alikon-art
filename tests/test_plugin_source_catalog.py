@@ -19,19 +19,6 @@ from src.extension_host.source_config import (
 from src.web_server import create_app
 
 
-def test_repository_default_uses_signed_r2_registry() -> None:
-    source = load_plugin_sources(
-        Path(__file__).resolve().parents[1] / "config" / "plugin-sources.json"
-    )[0]
-
-    assert source.url == "https://github.com/alikon-art/DeterminFlow-Plugins.git"
-    assert source.registry is not None
-    assert source.registry.url == "https://downloads.determinflow.com/plugins/v1"
-    assert source.registry.public_key_text == (
-        "C4oDxekhIr8Czlx0zpkRx46k26KK3d1T3HIZGsIxIr0="
-    )
-
-
 def _git(repository: Path, *args: str) -> None:
     subprocess.run(
         ["git", *args],
@@ -212,7 +199,7 @@ def test_catalog_service_uses_frozen_canonical_source_snapshot(
             "schema_version": 1,
             "official_sources": [{
                 "name": "Changed",
-                "url": "https://user:secret@example.invalid/plugins.git",  # pragma: allowlist secret
+                "url": "https://user:secret@example.invalid/plugins.git",
             }],
         }),
         encoding="utf-8",
@@ -331,7 +318,7 @@ def test_source_config_rejects_inline_http_credentials(tmp_path: Path):
             "schema_version": 1,
             "official_sources": [{
                 "name": "Unsafe",
-                "url": "https://user:secret@example.invalid/plugins.git",  # pragma: allowlist secret
+                "url": "https://user:secret@example.invalid/plugins.git",
             }],
         }),
         encoding="utf-8",

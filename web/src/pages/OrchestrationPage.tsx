@@ -132,7 +132,7 @@ export default function OrchestrationPage() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100dvh-3.5rem)] flex items-center justify-center" role="status" aria-label="加载编排数据">
+      <div className="flex h-full min-h-0 items-center justify-center" role="status" aria-label="加载编排数据">
         <div className="flex items-center gap-2 text-muted-foreground animate-pulse motion-reduce:animate-none">
           <RefreshCw size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
           <span className="sr-only">加载编排数据中...</span>
@@ -143,7 +143,7 @@ export default function OrchestrationPage() {
   }
 
   return (
-    <div ref={containerRef} className="h-[calc(100dvh-3.5rem)] flex" role="main" aria-label="Agent 编排配置">
+    <div ref={containerRef} className="orchestration-workbench flex h-full min-h-0 min-w-0 overflow-hidden" role="main" aria-label="Agent 编排配置">
       {/* Left: Editor Panel */}
       <div className="flex flex-col min-w-0 border-r border-border/30" style={{ width: `${leftRatio * 100}%` }}>
         {/* Sub Tabs */}
@@ -157,10 +157,10 @@ export default function OrchestrationPage() {
                 role="tab"
                 aria-selected={activeTab === key}
                 aria-label={label}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:outline-none ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
                   activeTab === key
-                    ? "bg-amber-500/15 text-amber-500 border border-amber-500/30"
-                    : "text-muted-foreground hover:text-foreground hover:bg-slate-800/60"
+                    ? "bg-primary/15 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                 }`}
               >
                 <Icon size={13} aria-hidden="true" />
@@ -172,7 +172,7 @@ export default function OrchestrationPage() {
             type="button"
             onClick={reload}
             aria-label="重新加载数据"
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-slate-800/60 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:outline-none"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
             title="重新加载数据"
           >
             <RefreshCw size={14} aria-hidden="true" />
@@ -184,7 +184,7 @@ export default function OrchestrationPage() {
           <div className="p-4">
             {activeTab === "prompts" && (
               <div className="space-y-3">
-                <div className="flex gap-1 rounded-lg bg-slate-800/50 p-1 border border-border/40 w-fit flex-wrap">
+                <div className="flex gap-1 rounded-lg bg-secondary/50 p-1 border border-border/40 w-fit flex-wrap">
                   {availableTemplates.map((tmpl) => (
                     <button
                       key={tmpl}
@@ -193,9 +193,9 @@ export default function OrchestrationPage() {
                       onContextMenu={(e) => handleTemplateContextMenu(e, tmpl)}
                       aria-label={`选择模板 ${tmpl}`}
                       aria-pressed={promptTarget === tmpl}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none ${
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
                         promptTarget === tmpl
-                          ? "bg-indigo-500/20 text-indigo-500"
+                          ? "bg-primary/20 text-primary"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
@@ -259,9 +259,9 @@ export default function OrchestrationPage() {
           if (e.key === "ArrowLeft") setLeftRatio((r) => Math.max(0.25, r - 0.05));
           if (e.key === "ArrowRight") setLeftRatio((r) => Math.min(0.75, r + 0.05));
         }}
-        className="w-2 flex-shrink-0 cursor-col-resize hover:bg-indigo-500/30 active:bg-indigo-500/50 bg-transparent transition-colors flex items-center justify-center group border-x border-transparent hover:border-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+        className="w-2 flex-shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 bg-transparent transition-colors flex items-center justify-center group border-x border-transparent hover:border-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       >
-        <GripVertical size={10} aria-hidden="true" className="text-muted-foreground/40 group-hover:text-indigo-500/80 transition-colors" />
+        <GripVertical size={10} aria-hidden="true" className="text-muted-foreground/40 group-hover:text-primary/80 transition-colors" />
       </div>
 
       {/* Right: Preview Panel */}
@@ -284,7 +284,7 @@ export default function OrchestrationPage() {
         <div
           role="menu"
           aria-label="模板操作"
-          className="fixed z-50 min-w-[140px] rounded-lg bg-slate-900 border border-indigo-500/20 shadow-2xl shadow-black/40 overflow-hidden"
+          className="fixed z-50 min-w-[140px] rounded-lg bg-card border border-primary/20 shadow-2xl shadow-black/40 overflow-hidden"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
@@ -293,8 +293,8 @@ export default function OrchestrationPage() {
             onClick={handleDeleteTemplate}
             className={`flex items-center gap-2.5 w-full px-3 py-2 text-xs transition-colors cursor-pointer ${
               deleteConfirmTmpl === contextMenu.templateName
-                ? "text-red-500 bg-red-500/10"
-                : "text-red-500 hover:bg-red-500/10"
+                ? "text-destructive bg-destructive/10"
+                : "text-destructive hover:bg-destructive/10"
             }`}
           >
             <Trash2 size={14} aria-hidden="true" />
@@ -308,7 +308,7 @@ export default function OrchestrationPage() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-lg bg-slate-800 border border-border/50 text-xs text-slate-200 shadow-lg"
+          className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-lg bg-secondary border border-border/50 text-xs text-foreground shadow-lg"
         >
           {deleteFeedback}
         </div>
@@ -359,14 +359,14 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
   };
 
   return (
-    <div className="rounded-lg border border-border/40 bg-slate-800/30 p-3" role="region" aria-label="自定义变量块">
+    <div className="rounded-lg border border-border/40 bg-secondary/30 p-3" role="region" aria-label="自定义变量块">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-medium text-muted-foreground">自定义变量块</h3>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleAdd}
-            className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center rounded text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:outline-none"
+            className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
             title="新增变量块"
             aria-label="新增变量块"
           >
@@ -375,7 +375,7 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
           <button
             type="button"
             onClick={handleSave}
-            className="px-2 py-1 min-h-[44px] rounded text-xs font-medium bg-indigo-500/15 text-indigo-500 hover:bg-indigo-500/25 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+            className="px-2 py-1 min-h-[44px] rounded text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
           >
             保存变量块
           </button>
@@ -386,23 +386,23 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
       ) : (
         <div className="space-y-2">
           {variables.map((v) => (
-            <div key={v.key} className="flex items-start gap-2 p-2 rounded bg-slate-900/50 border border-border/20">
+            <div key={v.key} className="flex items-start gap-2 p-2 rounded bg-card/50 border border-border/20">
               <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-1">
-                  <code className="px-1 py-0.5 rounded bg-indigo-500/10 text-indigo-500 text-xs font-mono">
+                  <code className="px-1 py-0.5 rounded bg-primary/10 text-primary text-xs font-mono">
                     {`{{${v.key}}}`}
                   </code>
                   {editing === v.key ? (
                     <input
                       value={v.name}
                       onChange={(e) => handleUpdate(v.key, "name", e.target.value)}
-                      className="flex-1 px-1.5 py-0.5 min-h-[44px] bg-slate-900 border border-border/30 rounded text-xs text-foreground outline-none focus:border-indigo-500/40"
+                      className="flex-1 px-1.5 py-0.5 min-h-[44px] bg-card border border-border/30 rounded text-xs text-foreground outline-none focus:border-primary/40"
                       placeholder="变量名"
                       aria-label="变量名"
                     />
                   ) : (
                     <span
-                      className="text-xs text-foreground cursor-pointer hover:text-indigo-500"
+                      className="text-xs text-foreground cursor-pointer hover:text-primary"
                       role="button"
                       tabIndex={0}
                       onClick={() => setEditing(v.key)}
@@ -421,7 +421,7 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
                         id={`tvar-key-${v.key}`}
                         value={v.key}
                         onChange={(e) => handleUpdate(v.key, "key", e.target.value)}
-                        className="w-full px-1.5 py-0.5 min-h-[44px] bg-slate-900 border border-border/30 rounded text-xs text-foreground outline-none focus:border-indigo-500/40 font-mono"
+                        className="w-full px-1.5 py-0.5 min-h-[44px] bg-card border border-border/30 rounded text-xs text-foreground outline-none focus:border-primary/40 font-mono"
                       />
                     </div>
                     <div>
@@ -431,7 +431,7 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
                         value={v.description}
                         onChange={(e) => handleUpdate(v.key, "description", e.target.value)}
                         rows={2}
-                        className="w-full px-1.5 py-0.5 min-h-[56px] bg-slate-900 border border-border/30 rounded text-xs text-foreground outline-none focus:border-indigo-500/40 resize-none"
+                        className="w-full px-1.5 py-0.5 min-h-[56px] bg-card border border-border/30 rounded text-xs text-foreground outline-none focus:border-primary/40 resize-none"
                       />
                     </div>
                     <div>
@@ -440,7 +440,7 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
                         id={`tvar-default-${v.key}`}
                         value={v.default}
                         onChange={(e) => handleUpdate(v.key, "default", e.target.value)}
-                        className="w-full px-1.5 py-0.5 min-h-[44px] bg-slate-900 border border-border/30 rounded text-xs text-foreground outline-none focus:border-indigo-500/40"
+                        className="w-full px-1.5 py-0.5 min-h-[44px] bg-card border border-border/30 rounded text-xs text-foreground outline-none focus:border-primary/40"
                       />
                     </div>
                     <div className="flex items-center gap-1.5 min-h-[44px]">
@@ -449,7 +449,7 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
                         type="checkbox"
                         checked={v.required}
                         onChange={(e) => handleUpdate(v.key, "required", e.target.checked)}
-                        className="w-4 h-4 rounded border-border/30 bg-slate-900 text-amber-500 focus:ring-amber-500/30 cursor-pointer"
+                        className="w-4 h-4 rounded border-border/30 bg-card text-primary focus:ring-primary/30 cursor-pointer"
                       />
                       <label htmlFor={`tvar-required-${v.key}`} className="text-xs text-muted-foreground cursor-pointer">必填</label>
                     </div>
@@ -461,7 +461,7 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
                 onClick={() => {
                   setEditing(editing === v.key ? null : v.key);
                 }}
-                className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-indigo-500 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:outline-none"
+                className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-primary transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                 title={editing === v.key ? "收起" : "编辑"}
                 aria-label={editing === v.key ? "收起编辑" : "编辑变量"}
               >
@@ -474,7 +474,7 @@ function TemplateVariablesEditor({ variables, onVariablesChange, onSave }: Templ
               <button
                 type="button"
                 onClick={() => handleRemove(v.key)}
-                className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-red-400 transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500/30 focus-visible:outline-none"
+                className="p-1 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-destructive/30 focus-visible:outline-none"
                 title="删除"
                 aria-label={`删除变量 ${v.name}`}
               >

@@ -85,12 +85,12 @@ export default function MarkdownViewer({
         className="prose prose-invert prose-sm max-w-none
           prose-headings:text-foreground prose-headings:font-semibold
           prose-p:text-muted-foreground prose-p:leading-relaxed
-          prose-code:text-purple-400 prose-code:bg-muted/60 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.9em]
+          prose-code:text-primary prose-code:bg-muted/60 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.9em]
           prose-pre:bg-background prose-pre:border prose-pre:border-border/10 prose-pre:rounded-lg
           prose-blockquote:border-l-primary/60 prose-blockquote:text-muted-foreground prose-blockquote:bg-primary/5 prose-blockquote:py-1 prose-blockquote:px-3 prose-blockquote:rounded-r
           prose-li:text-muted-foreground prose-li:leading-relaxed
           prose-table:border-collapse prose-th:bg-muted prose-th:text-foreground prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-border/10 prose-th:text-xs prose-td:border prose-td:border-border/10 prose-td:px-3 prose-td:py-2 prose-td:text-sm prose-td:text-muted-foreground
-          prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline
+          prose-a:text-primary prose-a:no-underline hover:prose-a:underline
           prose-strong:text-foreground
           prose-hr:border-border/20
         "

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from src.config import DATA_DIR, WORKFLOWS_DIR
 from src.core.change_broadcaster import ChangeBroadcaster
+from .active_task_index import ActiveTaskIndex
 from .definition import (
     WorkflowDef, WorkflowState, WorkflowTask, NodeExecutionState,
     WorkflowRunRecord, WorkflowVariable, ExecutionScheme, _now_iso, _generate_id,
@@ -75,6 +76,7 @@ class WorkflowManager(
         self._execution_delegate = None
         self._local_executor_identity = None
         self._execution_control = ExecutionControl(DATA_DIR, WORKFLOWS_DIR)
+        self._active_task_index = ActiveTaskIndex(WORKFLOWS_DIR)
         self._init_task_recovery()
         WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -778,6 +780,7 @@ class WorkflowManager(
                     }
                 if task and task.status == "pending":
                     self._get_task_path(workflow_id, task_id).unlink(missing_ok=True)
+                    self._active_task_index.remove(workflow_id, task_id)
                     logger.info("未启动任务已丢弃: %s", task_id)
                     return {
                         "success": True, "message": "未启动任务已丢弃",
@@ -914,6 +917,7 @@ class WorkflowManager(
 
             try:
                 self._get_task_path(workflow_id, task_id).unlink(missing_ok=True)
+                self._active_task_index.remove(workflow_id, task_id)
             except OSError:
                 logger.exception(
                     "删除关联 Workflow Task 失败: workflow=%s task=%s",
@@ -1053,11 +1057,14 @@ class WorkflowManager(
         """持久化任务状态（原子写入，防崩溃损坏）。"""
         task.updated_at = _now_iso()
         task_file = self._get_task_path(task.workflow_id, task.task_id)
+        task_data = task.to_dict()
+        self._active_task_index.track_before_save(task)
         try:
-            write_task_state_file(task_file, task.to_dict())
+            write_task_state_file(task_file, task_data)
         except (IOError, OSError):
             logger.exception(f"任务状态持久化失败: {task_file}")
             raise
+        self._active_task_index.track_after_save(task)
 
     def _push_task_update(self, workflow_id: str, task: WorkflowTask) -> None:
         """在引擎已初始化时推送任务快照，保留轻量测试与迁移兼容性。"""

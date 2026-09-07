@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from datetime import datetime, timedelta
 import logging
 import re
@@ -26,8 +27,8 @@ from .failure_policy import (
     can_auto_retry,
     normalize_node_status,
     prepare_node_retry,
+    record_attempt,
     should_auto_skip,
-    VALIDATOR_RETRY_TRIGGER,
 )
 
 logger = logging.getLogger(f"{__package__}.engine")
@@ -91,6 +92,42 @@ def _update_rejection_retry_audit(
         "failed" if normalize_node_status(state.status) == "failed" else "passed"
     )
     event["resolved_at"] = _now_iso()
+
+
+def _retract_rejected_node_outputs(
+    parameter_values: dict,
+    state: NodeExecutionState,
+    shared_ws: Path | None,
+) -> None:
+    """撤回被下游拒绝的变量和工作空间文件，避免失败后继续传播。"""
+    rejected_outputs = dict(state.outputs)
+    for key, value in rejected_outputs.items():
+        if parameter_values.get(key) != value:
+            continue
+        if key in state.input_snapshot:
+            parameter_values[key] = deepcopy(state.input_snapshot[key])
+        else:
+            parameter_values.pop(key, None)
+
+    raw_path = rejected_outputs.get("_output_file")
+    if not raw_path or shared_ws is None:
+        return
+    workspace = shared_ws.resolve()
+    candidate = Path(str(raw_path))
+    if not candidate.is_absolute():
+        candidate = workspace / candidate
+    resolved = candidate.resolve()
+    if not resolved.is_relative_to(workspace) or not resolved.is_file():
+        return
+    try:
+        resolved.unlink()
+    except OSError:
+        logger.warning(
+            "无法撤回被拒绝的 Workflow 输出文件: node=%s path=%s",
+            state.node_id,
+            resolved,
+            exc_info=True,
+        )
 
 
 class WorkflowFlowMixin:
@@ -409,18 +446,9 @@ class WorkflowFlowMixin:
                         logger.warning(message)
                         return {"success": False, "message": message}
 
-                    if definition.get_node(upstream_id) is None:
+                    upstream_node = definition.get_node(upstream_id)
+                    if upstream_node is None:
                         message = f"reject_upstream: 上游节点 {upstream_id} 不在工作流定义中"
-                        logger.warning(message)
-                        return {"success": False, "message": message}
-
-                    # 检查拒绝次数限制
-                    max_reject = self._get_max_reject_count(node_def)
-                    if upstream_state.reject_upstream_count >= max_reject:
-                        message = (
-                            f"reject_upstream: 上游节点 {upstream_id} 已被拒绝 "
-                            f"{upstream_state.reject_upstream_count} 次，达到上限 {max_reject}"
-                        )
                         logger.warning(message)
                         return {"success": False, "message": message}
 
@@ -447,8 +475,8 @@ class WorkflowFlowMixin:
                         "occurred_at": _now_iso(),
                         "validator_node_id": node_id,
                         "target_node_id": upstream_id,
-                        "retry_index": upstream_state.reject_upstream_count,
-                        "max_retries": max_reject,
+                        "retry_index": upstream_state.automatic_retry_count + 1,
+                        "max_retries": max(0, upstream_node.auto_retry_count),
                         "error_codes": error_codes or ["unclassified"],
                         "reason": reason,
                         "resolution": "retrying",
@@ -456,24 +484,30 @@ class WorkflowFlowMixin:
                         "retry_session_id": "",
                         "retry_call_ids": [],
                     })
-                    upstream_state.status = "waiting_retry"
-                    upstream_state.error = ""
+                    upstream_state.status = "failed"
+                    upstream_state.error = (
+                        f"输出校验失败（来自节点 {node_id}）: {reason}"
+                    )
+                    upstream_state.completed_at = _now_iso()
+                    upstream_state = record_attempt(
+                        upstream_state,
+                        status="failed",
+                        completed_at=upstream_state.completed_at,
+                    )
                     task.node_states[upstream_id] = upstream_state
                     task.node_states[node_id] = node_state
 
                     logger.info(
-                        "reject_upstream: 上游节点 %s 被拒绝，将创建新 Session 重试",
+                        "reject_upstream: 上游节点 %s 当前 attempt 被判定失败",
                         upstream_id,
                     )
                     return {
                         "success": True,
                         "message": (
-                            f"已打回上游节点 {upstream_id}，"
-                            f"第 {upstream_state.reject_upstream_count}/{max_reject} 次"
+                            f"已将上游节点 {upstream_id} 的当前 attempt 标记为失败"
                         ),
                         "upstream_id": upstream_id,
-                        "attempt": upstream_state.reject_upstream_count,
-                        "max_reject_count": max_reject,
+                        "attempt": upstream_state.attempt_count,
                     }
 
             async def _on_node_checkpoint(
@@ -543,77 +577,50 @@ class WorkflowFlowMixin:
                         logger.warning(f"reject_upstream 回滚: 上游节点 {upstream_id} 不存在")
                         return "failed"
                     else:
-                        old_call_ids = {
-                            str(item.get("call_id", ""))
-                            for item in upstream_state.token_usage_calls
-                        }
-                        retry_state = prepare_node_retry(
-                            replace(upstream_state, status="failed"),
-                            trigger=VALIDATOR_RETRY_TRIGGER,
+                        _retract_rejected_node_outputs(
+                            task.parameter_values,
+                            upstream_state,
+                            shared_ws,
                         )
-                        retry_node_def = _with_rejection_feedback(
+                        upstream_state.outputs = {}
+                        upstream_state.stdout = ""
+                        upstream_state.stderr = ""
+                        will_auto_retry = can_auto_retry(
                             upstream_node_def,
-                            retry_state,
-                        )
-                        task.node_states[upstream_id] = retry_state
-                        await self._save_task_state(definition.workflow_id, task)
-                        self._push_wf_task_update(definition.workflow_id, task)
-
-                        async def _on_upstream_retry_checkpoint(
-                            checkpoint_state: NodeExecutionState,
-                        ) -> None:
-                            async with self._node_state_lock:
-                                task.node_states[upstream_id] = checkpoint_state
-                            await self._save_task_state(
-                                definition.workflow_id,
-                                task,
-                            )
-                            self._push_wf_task_update(
-                                definition.workflow_id,
-                                task,
-                            )
-
-                        retry_state = await self._execute_node(
-                            definition, retry_node_def, retry_state, shared_ws,
-                            parent_id=parent_id,
-                            on_node_started=on_node_started,
-                            parameter_values=task.parameter_values,
-                            node_states=task.node_states,
-                            workflow_id=definition.workflow_id,
-                            task_id=task.task_id,
-                            task_name=task.name,
-                            execution_order=ids,
-                            node_index=ids.index(upstream_id) if upstream_id in ids else 0,
-                            needs_approval=needs_approval,
-                            on_node_checkpoint=_on_upstream_retry_checkpoint,
-                        )
-                        will_auto_retry = (
-                            retry_state.status == "failed"
-                            and can_auto_retry(
-                                upstream_node_def,
-                                retry_state,
-                            )
+                            upstream_state,
                         )
                         _update_rejection_retry_audit(
-                            retry_state,
-                            previous_call_ids=old_call_ids,
+                            upstream_state,
+                            previous_call_ids={
+                                str(item.get("call_id", ""))
+                                for item in upstream_state.token_usage_calls
+                            },
                             will_retry=will_auto_retry,
                         )
-                        task.node_states[upstream_id] = retry_state
-                        run_record.node_executions.append(retry_state)
-                        upstream_state = retry_state
+                        task.node_states[upstream_id] = upstream_state
                         logger.info(
-                            "reject_upstream 回滚: 上游节点 %s 已通过新 Session 重试完成",
+                            "reject_upstream: 上游节点 %s 进入统一失败策略",
                             upstream_id,
                         )
 
-                    # 下游节点等待上游真正完成；包括 provider 故障进入
-                    # retry_waiting 的情况，恢复后会重新执行本校验节点。
+                    # Validator 已完成本次检查；失败归属只写入目标上游
+                    # attempt。随后把 Validator 恢复为 pending，等待新产出。
+                    validator_attempt = record_attempt(
+                        replace(node_state, status="completed", error=""),
+                        status="completed",
+                        completed_at=node_state.completed_at or _now_iso(),
+                    )
+                    run_record.node_executions[-1] = validator_attempt
+                    node_state = deepcopy(validator_attempt)
                     node_state.status = "pending"
                     node_state.rejection_reason = ""
                     node_state.completed_at = None
                     node_state.session_id = ""
                     node_state.error = ""
+                    node_state.summary = ""
+                    node_state.outputs = {}
+                    node_state.stdout = ""
+                    node_state.stderr = ""
                     task.node_states[node_id] = node_state
 
                     if upstream_state and upstream_state.status == "failed":

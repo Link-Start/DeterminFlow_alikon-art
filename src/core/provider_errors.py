@@ -15,6 +15,14 @@ PROVIDER_ERROR_CODES = frozenset(
         "unknown",
     }
 )
+PUBLIC_PROVIDER_ERROR_CODES = frozenset(
+    {
+        "provider_quota_exhausted",
+        "provider_auth_failed",
+        "provider_permission_denied",
+        "provider_bad_request",
+    }
+)
 
 _DEFAULT_PROVIDER_MESSAGES = {
     "quota_exhausted": "模型额度或余额不足",
@@ -47,6 +55,21 @@ _AUTHENTICATION_CODES = {
     "permission_denied",
     "unauthorized",
 }
+_AUTH_ONLY_CODES = {
+    "authentication_error",
+    "authentication_failed",
+    "invalid_api_key",
+    "unauthorized",
+}
+_PERMISSION_CODES = {
+    "permission_denied",
+    "forbidden",
+}
+_BAD_REQUEST_CODES = {
+    "bad_request",
+    "invalid_request",
+    "invalid_request_error",
+}
 _SERVICE_CODES = {
     "api_connection_error",
     "internal_server_error",
@@ -74,6 +97,7 @@ _PROVIDER_EXCEPTION_NAMES = {
 class PresentedError:
     code: str
     message: str
+    provider_error_code: str | None = None
 
 
 def normalize_provider_error_messages(value: Any) -> dict[str, str]:
@@ -104,11 +128,13 @@ def present_session_error(
     provider_config: dict[str, Any] | None = None,
 ) -> PresentedError:
     """Return a safe error for persistence and user-facing session surfaces."""
+    provider_error_code = classify_provider_error_code(error)
     code = classify_provider_error(error)
     if code is None:
         return PresentedError(
             code="session_failed",
             message="会话运行失败，请稍后再试",
+            provider_error_code=provider_error_code,
         )
 
     messages: dict[str, str] = {}
@@ -122,7 +148,58 @@ def present_session_error(
     return PresentedError(
         code=code,
         message=messages.get(code) or _DEFAULT_PROVIDER_MESSAGES[code],
+        provider_error_code=provider_error_code,
     )
+
+
+def classify_provider_error_code(error: Exception) -> str | None:
+    """Return a public provider failure code without raw upstream messages."""
+    raw_code = _extract_error_code(error)
+    status_code = _extract_status_code(error)
+    exception_name = type(error).__name__.lower()
+    message = str(error).lower()
+
+    if raw_code in _QUOTA_CODES or _contains_any(
+        message,
+        (
+            "insufficient balance",
+            "insufficient quota",
+            "insufficient_user_quota",
+            "public credential quota exceeded",
+            "subscription quota insufficient",
+            "余额不足",
+            "额度不足",
+        ),
+    ):
+        return "provider_quota_exhausted"
+    if (
+        exception_name == "badrequesterror"
+        or status_code == 400
+        or raw_code in _BAD_REQUEST_CODES
+    ):
+        return "provider_bad_request"
+    if (
+        exception_name
+        in {
+            "authenticationerror",
+            "modelcredentialnotconfigurederror",
+        }
+        or status_code == 401
+        or raw_code in _AUTH_ONLY_CODES
+    ):
+        return "provider_auth_failed"
+    if (
+        exception_name == "permissiondeniederror"
+        or status_code == 403
+        or raw_code in _PERMISSION_CODES
+    ):
+        return "provider_permission_denied"
+    return None
+
+
+def is_permanent_provider_error(error: Exception) -> bool:
+    """Quota, auth, permission, and bad-request failures must not be retried."""
+    return classify_provider_error_code(error) in PUBLIC_PROVIDER_ERROR_CODES
 
 
 def classify_provider_error(error: Exception) -> str | None:

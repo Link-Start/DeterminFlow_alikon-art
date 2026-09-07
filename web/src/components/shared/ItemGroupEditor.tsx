@@ -145,13 +145,13 @@ export function ItemGroupEditor({
                       value={quickCreateForm.id}
                       onChange={e => setQuickCreateForm(p => ({ ...p, id: e.target.value }))}
                       placeholder="组ID"
-                      className="flex-1 bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                      className="flex-1 bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
                     />
                     <input
                       value={quickCreateForm.name}
                       onChange={e => setQuickCreateForm(p => ({ ...p, name: e.target.value }))}
                       placeholder="组名称"
-                      className="flex-1 bg-slate-800/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                      className="flex-1 bg-secondary/60 border border-border/50 rounded-md px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/50"
                     />
                   </div>
                   <div className="flex justify-end gap-2">

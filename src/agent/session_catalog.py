@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from src.core.utils import message_content_text
-
 if TYPE_CHECKING:
     from src.agent.session import AgentSession
 
@@ -96,7 +94,8 @@ class SessionMetadata:
         for message in reversed(messages):
             if not isinstance(message, dict) or message.get("type") != "assistant":
                 continue
-            last_message = message_content_text(message.get("content"))[:200]
+            content = message.get("content")
+            last_message = str(content)[:200] if content is not None else ""
             break
 
         session_type = str(data.get("session_type") or "sub")
@@ -168,6 +167,9 @@ class SessionMetadata:
             "updated_at": self.updated_at,
             "last_message": self.last_message,
             "agent_type": self.agent_type,
+            "runtime_scope": self.runtime_scope,
+            "lifecycle_profile": self.lifecycle_profile,
+            "resource_owner": self.resource_owner,
         }
         for key in ("workspace_path", "workflow_id", "task_id", "node_id"):
             value = getattr(self, key)

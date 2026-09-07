@@ -10,6 +10,7 @@ from src.extension_host.plugin_config import (
     load_applied_plugin_configs,
     load_settings_schema,
     redact_plugin_settings,
+    runtime_plugin_settings,
     settings_environment,
 )
 from src.workflow.script_library import ScriptLibraryCatalog
@@ -144,7 +145,7 @@ def test_plugin_password_settings_are_redacted_recursively() -> None:
             "token": "top-secret",
             "service": {
                 "endpoint": "http://127.0.0.1",
-                "secret": "nested-secret",  # pragma: allowlist secret
+                "secret": "nested-secret",
             },
         },
     )
@@ -400,3 +401,59 @@ def test_runtime_environment_precedes_schema_default_but_not_saved_value(
             "port": 9000,
         },
     }
+
+
+def test_in_process_runtime_materializes_file_secret_without_persisting_it(
+    tmp_path: Path,
+) -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "ENDPOINT": {"type": "string", "format": "uri"},
+            "SECRET": {"type": "string", "format": "password"},
+            "ENABLED": {"type": "boolean", "default": False},
+        },
+        "required": ["ENDPOINT", "SECRET"],
+    }
+    secret = tmp_path / "secret"
+    secret.write_text("runtime-secret-value\n", encoding="utf-8")
+    applied = {"ENABLED": False}
+
+    resolved = runtime_plugin_settings(
+        schema,
+        applied,
+        environ={
+            "ENDPOINT": "https://service.internal",
+            "SECRET": "inline-secret-must-not-win",
+            "SECRET_FILE": str(secret),
+            "ENABLED": "true",
+        },
+    )
+
+    assert resolved == {
+        "ENDPOINT": "https://service.internal",
+        "SECRET": "runtime-secret-value",
+        "ENABLED": False,
+    }
+    assert applied == {"ENABLED": False}
+
+
+def test_in_process_runtime_rejects_unsafe_setting_file(tmp_path: Path) -> None:
+    target = tmp_path / "secret"
+    target.write_text("secret", encoding="utf-8")
+    link = tmp_path / "secret-link"
+    link.symlink_to(target)
+    schema = {
+        "type": "object",
+        "properties": {
+            "SECRET": {"type": "string", "format": "password"},
+        },
+        "required": ["SECRET"],
+    }
+
+    with pytest.raises(ValueError, match="配置文件不安全"):
+        runtime_plugin_settings(
+            schema,
+            {},
+            environ={"SECRET_FILE": str(link)},
+        )

@@ -294,7 +294,7 @@ export default function ExtensionsPage() {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-3.5rem)] bg-background text-foreground">
+    <div className="min-w-0 bg-background text-foreground">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-md bg-muted"><Boxes aria-hidden="true" /></div>
@@ -384,9 +384,9 @@ export default function ExtensionsPage() {
         ) : null}
 
         {restartRequired ? (
-          <Card role="status" className="border-amber-500/40 bg-amber-500/5">
+          <Card role="status" className="border-warning/40 bg-warning/5">
             <CardContent className="flex items-start gap-3 p-4">
-              <RotateCcw className="mt-0.5 text-amber-500" aria-hidden="true" />
+              <RotateCcw className="mt-0.5 text-warning" aria-hidden="true" />
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <p className="text-sm font-medium">{pendingCount > 0 ? `${pendingCount} 项插件变更等待重启` : "插件变更等待重启"}</p>
                 <p className="text-xs text-muted-foreground">当前进程继续使用原状态；重启 DeterminFlow 主进程后统一生效。</p>

@@ -25,36 +25,36 @@ export default function FailedTurnCard({
 
   return (
     <aside
-      className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3"
+      className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3"
       role="alert"
       aria-busy={retrying}
     >
       <div className="flex items-start gap-3">
         <AlertTriangle
           size={17}
-          className="mt-0.5 shrink-0 text-red-400"
+          className="mt-0.5 shrink-0 text-destructive"
           aria-hidden="true"
         />
         <div className="min-w-0 flex-1 space-y-2">
           <div>
-            <p className="text-sm font-medium text-red-300">本轮生成失败</p>
-            <p className="mt-0.5 text-sm text-slate-300">{failedTurn.errorMessage}</p>
+            <p className="text-sm font-medium text-destructive">本轮生成失败</p>
+            <p className="mt-0.5 text-sm text-foreground">{failedTurn.errorMessage}</p>
           </div>
-          <p className="line-clamp-2 break-words border-l border-slate-600 pl-3 text-xs text-slate-400">
+          <p className="line-clamp-2 break-words border-l border-border pl-3 text-xs text-muted-foreground">
             {failedTurn.content}
           </p>
           {needsModelChange && (
-            <p className="text-xs text-slate-400">请先切换模型或更新模型配置。</p>
+            <p className="text-xs text-muted-foreground">请先切换模型或更新模型配置。</p>
           )}
           {failedTurn.attemptCount > 1 && (
-            <p className="text-xs text-slate-500">已尝试 {failedTurn.attemptCount} 次</p>
+            <p className="text-xs text-muted-foreground">已尝试 {failedTurn.attemptCount} 次</p>
           )}
           {canRetry ? (
             <button
               type="button"
               onClick={onRetry}
               disabled={retrying}
-              className="inline-flex min-h-10 items-center gap-2 rounded-md border border-red-500/25 bg-red-500/10 px-3 text-sm text-red-200 transition-colors hover:bg-red-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-10 items-center gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 text-sm text-destructive transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {retrying ? (
                 <Loader2
@@ -68,7 +68,7 @@ export default function FailedTurnCard({
               {retrying ? "正在重试" : "重试本轮"}
             </button>
           ) : (
-            <p className="text-xs leading-5 text-amber-200/80">{blockedMessage}</p>
+            <p className="text-xs leading-5 text-warning/80">{blockedMessage}</p>
           )}
         </div>
       </div>

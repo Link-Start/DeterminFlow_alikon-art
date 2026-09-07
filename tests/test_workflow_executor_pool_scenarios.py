@@ -87,6 +87,7 @@ def _install_reject_workflow(manager, runtime, workflow_id: str) -> None:
                 "id": "producer",
                 "label": "producer",
                 "node_type": "script",
+                "auto_retry_count": 1,
                 "node_params": {
                     "script_source": "inline",
                     "script_type": "python",
@@ -340,7 +341,8 @@ def test_real_pool_reject_upstream_retries_inside_original_executor(
             binding = (task.executor_id, task.executor_epoch)
             producer = task.node_states["producer"]
             assert producer.attempt_count == 2
-            assert producer.reject_upstream_count == 1
+            assert producer.reject_upstream_count == 2
+            assert producer.automatic_retry_count == 1
             producer_pids = _read_pid_lines(
                 runtime.marker_dir / f"{task_id}-reject",
             )

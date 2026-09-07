@@ -86,31 +86,31 @@ export default function ExecutionSchemeDrawer({
   // 折叠状态：只显示展开按钮
   if (collapsed) {
     return (
-      <div className="w-10 h-full flex flex-col items-center pt-3 border-l border-white/5 bg-slate-950 shrink-0">
+      <div className="w-10 h-full flex flex-col items-center pt-3 border-l border-white/5 bg-background shrink-0">
         <button
           onClick={onToggleCollapse}
           aria-label="展开执行方案面板"
           title="执行方案"
-          className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
+          className="w-7 h-7 flex items-center justify-center rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           <Play size={14} />
         </button>
         {schemes.length > 0 && (
-          <span className="text-[10px] text-indigo-400 mt-1">{schemes.length}</span>
+          <span className="text-[10px] text-primary mt-1">{schemes.length}</span>
         )}
       </div>
     );
   }
 
   return (
-    <div className="w-64 flex flex-col border-l border-white/5 bg-slate-950 shrink-0 h-full">
+    <div className="w-64 flex flex-col border-l border-white/5 bg-background shrink-0 h-full">
       {/* 标题栏 */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/5">
-        <h3 className="text-xs font-medium text-slate-300">执行方案</h3>
+        <h3 className="text-xs font-medium text-foreground">执行方案</h3>
         <button
           onClick={onToggleCollapse}
           aria-label="折叠执行方案面板"
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           <X size={14} />
         </button>
@@ -126,20 +126,20 @@ export default function ExecutionSchemeDrawer({
               onKeyDown={e => { if (e.key === "Enter") handleSaveAsScheme(); if (e.key === "Escape") { setShowNewForm(false); setNewName(""); } }}
               placeholder="方案名称..."
               autoFocus
-              className="flex-1 h-7 px-2 text-xs bg-slate-800 border border-slate-700 rounded focus:outline-none focus:border-indigo-500 text-slate-100"
+              className="flex-1 h-7 px-2 text-xs bg-secondary border border-border rounded focus:outline-none focus:border-primary text-foreground"
             />
             <button
               onClick={handleSaveAsScheme}
               disabled={saving || !newName.trim() || !canSave}
               aria-label="确认保存"
-              className="w-7 h-7 flex items-center justify-center rounded bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white cursor-pointer"
+              className="w-7 h-7 flex items-center justify-center rounded bg-primary hover:bg-primary disabled:opacity-40 text-white cursor-pointer"
             >
               <Save size={12} />
             </button>
             <button
               onClick={() => { setShowNewForm(false); setNewName(""); }}
               aria-label="取消"
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 cursor-pointer"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-secondary text-muted-foreground cursor-pointer"
             >
               <X size={12} />
             </button>
@@ -148,7 +148,7 @@ export default function ExecutionSchemeDrawer({
           <button
             onClick={() => setShowNewForm(true)}
             disabled={!canSave}
-            className="flex items-center gap-1.5 w-full h-7 px-2 text-xs text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 rounded transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 w-full h-7 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus size={12} />
             将当前勾选保存为方案
@@ -159,7 +159,7 @@ export default function ExecutionSchemeDrawer({
       {/* 方案列表 */}
       <div className="flex-1 overflow-auto">
         {schemes.length === 0 ? (
-          <div className="px-3 py-6 text-xs text-slate-500 text-center">
+          <div className="px-3 py-6 text-xs text-muted-foreground text-center">
             暂无执行方案，勾选节点后可保存
           </div>
         ) : (
@@ -170,7 +170,7 @@ export default function ExecutionSchemeDrawer({
               <div
                 key={scheme.id}
                 className={`flex items-center gap-2 px-3 py-2 border-b border-white/[0.03] transition-colors ${
-                  isActive ? "bg-indigo-500/10" : "hover:bg-slate-800/30"
+                  isActive ? "bg-primary/10" : "hover:bg-secondary/30"
                 }`}
               >
                 <button
@@ -180,19 +180,19 @@ export default function ExecutionSchemeDrawer({
                   className="flex-1 flex items-center gap-2 min-w-0 text-left cursor-pointer"
                 >
                   {isActive ? (
-                    <Check size={14} className="text-indigo-400 shrink-0" />
+                    <Check size={14} className="text-primary shrink-0" />
                   ) : (
-                    <Play size={14} className="text-slate-500 shrink-0" />
+                    <Play size={14} className="text-muted-foreground shrink-0" />
                   )}
                   <div className="min-w-0">
-                    <div className="text-xs text-slate-200 truncate">{scheme.name}</div>
-                    <div className="text-[10px] text-slate-500">{schemeSelectedCount} 个节点</div>
+                    <div className="text-xs text-foreground truncate">{scheme.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{schemeSelectedCount} 个节点</div>
                   </div>
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(scheme.id); }}
                   aria-label={`删除方案: ${scheme.name}`}
-                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/10 text-slate-600 hover:text-red-400 transition-colors cursor-pointer"
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                 >
                   <Trash2 size={11} />
                 </button>
@@ -203,7 +203,7 @@ export default function ExecutionSchemeDrawer({
       </div>
 
       {/* 底部提示 */}
-      <div className="px-3 py-1.5 border-t border-white/5 text-[10px] text-slate-600">
+      <div className="px-3 py-1.5 border-t border-white/5 text-[10px] text-muted-foreground">
         选中 {selectedCount}/{allNodeIds.length} 个节点
       </div>
     </div>

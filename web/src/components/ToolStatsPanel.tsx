@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 import { Badge } from "@/components/ui/badge";
 import { toolGroupLabel, toolGroupColor } from "../lib/utils-helpers";
 import { Wrench, BarChart3 } from "lucide-react";
+import { BRAND_COLORS } from "../lib/brand-colors";
 
 interface ToolStatsPanelProps {
   tools: ToolInfo[];
@@ -18,7 +19,7 @@ export default function ToolStatsPanel({ tools, stats }: ToolStatsPanelProps) {
   return (
     <section aria-label="工具统计" className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Tool Call Frequency */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+      <div className="bg-secondary/50 border border-border/50 rounded-lg p-4">
         <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
           <BarChart3 className="w-4 h-4" aria-hidden="true" />
           工具调用频率
@@ -39,7 +40,7 @@ export default function ToolStatsPanel({ tools, stats }: ToolStatsPanelProps) {
                     boxShadow: "var(--chart-tooltip-shadow)",
                   }}
                 />
-                <Bar dataKey="count" fill="#F59E0B" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" fill={BRAND_COLORS.primary} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -51,7 +52,7 @@ export default function ToolStatsPanel({ tools, stats }: ToolStatsPanelProps) {
       </div>
 
       {/* Registered Tools List */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+      <div className="bg-secondary/50 border border-border/50 rounded-lg p-4">
         <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
           <Wrench className="w-4 h-4" aria-hidden="true" />
           已注册工具 ({tools.length})
@@ -61,7 +62,7 @@ export default function ToolStatsPanel({ tools, stats }: ToolStatsPanelProps) {
             <div
               key={tool.name}
               role="listitem"
-              className="flex items-start gap-2 p-2 rounded-lg bg-slate-900/40 hover:bg-slate-900/60 transition-colors duration-200"
+              className="flex items-start gap-2 p-2 rounded-lg bg-card/40 hover:bg-card/60 transition-colors duration-200"
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -78,7 +79,7 @@ export default function ToolStatsPanel({ tools, stats }: ToolStatsPanelProps) {
                 </p>
               </div>
               {stats.tool_call_counts[tool.name] && (
-                <span className="text-xs text-amber-400 font-medium">
+                <span className="text-xs text-warning font-medium">
                   ×{stats.tool_call_counts[tool.name]}
                 </span>
               )}

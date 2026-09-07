@@ -26,7 +26,9 @@ from src.plugin_system.integrity import plugin_content_sha256
 from src.plugin_system.registry import (
     _validate_zip_entry,
     extract_plugin_zip,
+    fetch_signed_manifest,
     parse_registry_config,
+    parse_registry_manifest,
 )
 from src.plugin_system import store as store_module
 from src.plugin_system.source_selection import GitSourceSelection
@@ -177,6 +179,8 @@ def _publish(
     package_sha256: str | None = None,
     content_sha256: str | None = None,
     signature: bytes | None = None,
+    registry_url: str = REGISTRY_URL,
+    package_locator: str = "url",
 ) -> tuple[bytes, str]:
     zip_payload = package_bytes if package_bytes is not None else _zip_tree(package)
     digest = (
@@ -184,7 +188,15 @@ def _publish(
         if content_sha256 is not None
         else plugin_content_sha256(package)
     )
-    package_url = f"{REGISTRY_URL}/packages/{plugin_id}/{commit}.zip"
+    package_path = f"packages/{plugin_id}/{commit}.zip"
+    package_url = f"{registry_url}/{package_path}"
+    package_info: dict[str, str] = {
+        "sha256": package_sha256 or hashlib.sha256(zip_payload).hexdigest(),
+    }
+    if package_locator == "path":
+        package_info["path"] = package_path
+    else:
+        package_info["url"] = package_url
     document = {
         "schema_version": 1,
         "source": source,
@@ -200,19 +212,15 @@ def _publish(
                 "ref": "main",
                 "commit": commit,
                 "content_sha256": digest,
-                "package": {
-                    "url": package_url,
-                    "sha256": package_sha256
-                    or hashlib.sha256(zip_payload).hexdigest(),
-                },
+                "package": package_info,
             }
         ],
     }
     manifest = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode(
         "utf-8"
     )
-    http.objects[f"{REGISTRY_URL}/manifest.json"] = manifest
-    http.objects[f"{REGISTRY_URL}/manifest.json.sig"] = (
+    http.objects[f"{registry_url}/manifest.json"] = manifest
+    http.objects[f"{registry_url}/manifest.json.sig"] = (
         signature if signature is not None else private_key.sign(manifest)
     )
     http.objects[package_url] = zip_payload
@@ -604,7 +612,23 @@ def test_custom_source_store_preserves_official_registry(tmp_path: Path) -> None
     assert sources[1].registry is None
 
 
-def test_custom_source_rejects_registry_config(tmp_path: Path) -> None:
+def test_custom_source_can_configure_registry_without_changing_trust(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo, _, commit = _create_repo(tmp_path)
+    package = tmp_path / "clean-package"
+    _write_plugin(package)
+    private = Ed25519PrivateKey.generate()
+    http = _FakeHttp()
+    _publish(
+        http,
+        private_key=private,
+        package=package,
+        commit=commit,
+        source=str(repo),
+        package_locator="path",
+    )
     source_file = tmp_path / "plugin-sources.json"
     source_file.write_text(
         json.dumps(
@@ -614,12 +638,12 @@ def test_custom_source_rejects_registry_config(tmp_path: Path) -> None:
                 "custom_sources": [
                     {
                         "name": "Team",
-                        "url": str(tmp_path / "custom"),
+                        "url": str(repo),
                         "registry": {
-                            "url": REGISTRY_URL,
-                            "public_key": base64.b64encode(b"\x00" * 32).decode(
-                                "ascii"
-                            ),
+                            "endpoints": [REGISTRY_URL],
+                            "public_key": base64.b64encode(
+                                private.public_key().public_bytes_raw()
+                            ).decode("ascii"),
                         },
                     }
                 ],
@@ -627,9 +651,243 @@ def test_custom_source_rejects_registry_config(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    sources = load_plugin_sources(source_file)
+    assert sources[0].kind == "custom"
+    assert sources[0].registry is not None
+    assert sources[0].registry.endpoints == (REGISTRY_URL,)
+    monkeypatch.setattr("src.plugin_system.registry.https_get", http)
+    catalog = fetch_plugin_catalog(sources)
+    assert catalog["sources"][0]["transport"] == "registry"
+    assert catalog["plugins"][0]["source_kind"] == "custom"
 
-    with pytest.raises(ValueError, match="自定义仓库不能配置官方 Registry"):
-        load_plugin_sources(source_file)
+    store = PluginStore(
+        tmp_path / "store",
+        source_registries={
+            str(repo): sources[0].registry,
+        },
+        registry_http_get=http,
+    )
+    with pytest.raises(SourceTrustError):
+        store.install("demo-plugin", str(repo))
+    monkeypatch.setattr(
+        store_module,
+        "select_git_source",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("custom Registry 命中后不得回退 Git")
+        ),
+    )
+    record = store.install("demo-plugin", str(repo), acknowledge_risk=True)
+
+    assert record.trust == "third_party"
+    assert record.active_revision.commit == commit
+    assert f"{REGISTRY_URL}/manifest.json" in http.calls
+    assert f"{REGISTRY_URL}/packages/demo-plugin/{commit}.zip" in http.calls
+
+
+def test_registry_config_accepts_legacy_url_and_endpoints() -> None:
+    public_key = base64.b64encode(b"\x11" * 32).decode("ascii")
+    legacy = parse_registry_config(
+        {"url": REGISTRY_URL, "public_key": public_key},
+        label="official_sources",
+    )
+    modern = parse_registry_config(
+        {
+            "endpoints": [REGISTRY_URL, "https://backup.example.invalid/v1"],
+            "url": REGISTRY_URL,
+            "public_key": public_key,
+        },
+        label="official_sources",
+    )
+
+    assert legacy.endpoints == (REGISTRY_URL,)
+    assert legacy.url == REGISTRY_URL
+    assert modern.endpoints == (REGISTRY_URL, "https://backup.example.invalid/v1")
+    with pytest.raises(ValueError, match="endpoints\\[0\\]"):
+        parse_registry_config(
+            {
+                "endpoints": [REGISTRY_URL],
+                "url": "https://other.example.invalid/v1",
+                "public_key": public_key,
+            },
+            label="official_sources",
+        )
+
+
+def test_manifest_accepts_relative_path_and_legacy_package_url() -> None:
+    commit = "a" * 40
+    digest = "b" * 64
+    sha = "c" * 64
+    path_manifest = parse_registry_manifest(
+        {
+            "schema_version": 1,
+            "source": CANONICAL_GIT,
+            "ref": "main",
+            "resolved_commit": commit,
+            "plugins": [
+                {
+                    "id": "demo-plugin",
+                    "name": "Demo Plugin",
+                    "version": "1.0.0",
+                    "subdirectory": "",
+                    "ref": "main",
+                    "commit": commit,
+                    "content_sha256": digest,
+                    "package": {
+                        "path": f"packages/demo-plugin/{commit}.zip",
+                        "sha256": sha,
+                    },
+                }
+            ],
+        }
+    )
+    url_manifest = parse_registry_manifest(
+        {
+            "schema_version": 1,
+            "source": CANONICAL_GIT,
+            "ref": "main",
+            "resolved_commit": commit,
+            "plugins": [
+                {
+                    "id": "demo-plugin",
+                    "name": "Demo Plugin",
+                    "version": "1.0.0",
+                    "subdirectory": "",
+                    "ref": "main",
+                    "commit": commit,
+                    "content_sha256": digest,
+                    "package": {
+                        "url": f"{REGISTRY_URL}/packages/demo-plugin/{commit}.zip",
+                        "sha256": sha,
+                    },
+                }
+            ],
+        },
+        registry_url=REGISTRY_URL,
+    )
+
+    assert path_manifest.plugins[0].package_path == f"packages/demo-plugin/{commit}.zip"
+    assert path_manifest.plugins[0].package_url == ""
+    assert url_manifest.plugins[0].package_path == f"packages/demo-plugin/{commit}.zip"
+    assert url_manifest.plugins[0].package_url == (
+        f"{REGISTRY_URL}/packages/demo-plugin/{commit}.zip"
+    )
+
+
+def test_signed_manifest_is_fetched_as_endpoint_pairs(tmp_path: Path) -> None:
+    package = tmp_path / "package"
+    _write_plugin(package)
+    commit = "a" * 40
+    private = Ed25519PrivateKey.generate()
+    primary = "https://primary.example.invalid/v1"
+    backup = "https://backup.example.invalid/v1"
+    http = _FakeHttp()
+    bad_manifest, _ = _publish(
+        http,
+        private_key=private,
+        package=package,
+        commit=commit,
+        source=CANONICAL_GIT,
+        version="0.0.1",
+        registry_url=primary,
+        package_locator="path",
+        signature=b"\x00" * 64,
+    )
+    good_manifest, _ = _publish(
+        http,
+        private_key=private,
+        package=package,
+        commit=commit,
+        source=CANONICAL_GIT,
+        version="1.2.3",
+        registry_url=backup,
+        package_locator="path",
+    )
+    http.objects[f"{primary}/manifest.json.sig"] = private.sign(good_manifest)
+    registry = parse_registry_config(
+        {
+            "endpoints": [primary, backup],
+            "public_key": base64.b64encode(
+                private.public_key().public_bytes_raw()
+            ).decode("ascii"),
+        },
+        label="official_sources",
+    )
+
+    fetched = fetch_signed_manifest(registry, http_get=http)
+
+    assert fetched.endpoint == backup
+    assert fetched.manifest_bytes == good_manifest
+    assert fetched.manifest.plugins[0].version == "1.2.3"
+    assert f"{primary}/manifest.json" in http.calls
+    assert f"{primary}/manifest.json.sig" in http.calls
+    assert f"{backup}/manifest.json" in http.calls
+    assert f"{backup}/manifest.json.sig" in http.calls
+    mixed_index = http.calls.index(f"{primary}/manifest.json.sig")
+    assert http.calls[mixed_index - 1] == f"{primary}/manifest.json"
+    assert bad_manifest != good_manifest
+
+
+def test_package_download_failsover_between_endpoints(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = tmp_path / "package"
+    _write_plugin(package)
+    commit = "a" * 40
+    private = Ed25519PrivateKey.generate()
+    primary = "https://primary.example.invalid/v1"
+    backup = "https://backup.example.invalid/v1"
+    http = _FakeHttp()
+    _publish(
+        http,
+        private_key=private,
+        package=package,
+        commit=commit,
+        source=CANONICAL_GIT,
+        subdirectory="plugins/demo-plugin",
+        registry_url=primary,
+        package_locator="path",
+    )
+    zip_payload = http.objects[f"{primary}/packages/demo-plugin/{commit}.zip"]
+    http.objects[f"{backup}/manifest.json"] = http.objects[f"{primary}/manifest.json"]
+    http.objects[f"{backup}/manifest.json.sig"] = http.objects[
+        f"{primary}/manifest.json.sig"
+    ]
+    http.objects[f"{backup}/packages/demo-plugin/{commit}.zip"] = zip_payload
+    http.offline.add(f"{primary}/packages/demo-plugin/{commit}.zip")
+    monkeypatch.setattr(
+        store_module,
+        "select_git_source",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("package failover 命中后不得回退 Git")
+        ),
+    )
+    registry = parse_registry_config(
+        {
+            "endpoints": [primary, backup],
+            "public_key": base64.b64encode(
+                private.public_key().public_bytes_raw()
+            ).decode("ascii"),
+        },
+        label="official_sources",
+    )
+    store = _store(
+        tmp_path,
+        official=CANONICAL_GIT,
+        registry=registry,
+        http=http,
+    )
+
+    record = store.install(
+        "demo-plugin",
+        CANONICAL_GIT,
+        ref="HEAD",
+        subdirectory="plugins/demo-plugin",
+    )
+
+    assert record.active_revision.commit == commit
+    assert f"{primary}/packages/demo-plugin/{commit}.zip" in http.calls
+    assert f"{backup}/packages/demo-plugin/{commit}.zip" in http.calls
 
 
 def test_zip_rejects_traversal_symlink_and_abnormal_size(

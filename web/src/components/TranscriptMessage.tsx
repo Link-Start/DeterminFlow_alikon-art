@@ -22,46 +22,46 @@ export default function TranscriptMessage({
     <div className="mb-4">
       {showRoundHeader && (
         <div className="flex items-center gap-3 my-4" aria-hidden="true">
-          <div className="flex-1 h-px bg-slate-700/60" />
-          <span className="text-xs text-slate-500 font-medium px-2">
+          <div className="flex-1 h-px bg-muted/60" />
+          <span className="text-xs text-muted-foreground font-medium px-2">
             第 {entry.round_number} 轮
           </span>
-          <div className="flex-1 h-px bg-slate-700/60" />
+          <div className="flex-1 h-px bg-muted/60" />
         </div>
       )}
 
-      <div className={`bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 ${
+      <div className={`bg-secondary/50 border border-border/50 rounded-lg p-4 ${
         isConclusion
-          ? "border-emerald-500/30 bg-emerald-500/5"
+          ? "border-success/30 bg-success/5"
           : isSummary
-          ? "border-amber-400/30 bg-amber-400/5"
-          : `${color.border} ${color.bg} hover:bg-slate-700/50`
+          ? "border-warning/30 bg-warning/5"
+          : `${color.border} ${color.bg} hover:bg-muted/50`
       } transition-colors`} role="article" aria-label={`${entry.speaker_name} 第${entry.round_number}轮发言`}>
         <div className="flex items-center gap-2 mb-2">
           <span className={`w-2 h-2 rounded-full ${
-            isConclusion ? "bg-emerald-500" : isSummary ? "bg-amber-400" : color.dot
+            isConclusion ? "bg-success" : isSummary ? "bg-warning" : color.dot
           }`} aria-hidden="true" />
           <span className={`text-sm font-semibold ${
-            isConclusion ? "text-emerald-400" : isSummary ? "text-amber-400" : color.text
+            isConclusion ? "text-success" : isSummary ? "text-warning" : color.text
           }`}>
             {entry.speaker_name}
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             R{entry.round_number}
           </span>
           {entry.entry_type === "moderator_note" && (
-            <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">
+            <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
               主持人
             </span>
           )}
           {isSummary && (
-            <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded flex items-center gap-1">
+            <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded flex items-center gap-1">
               <FileText size={12} aria-hidden="true" />
               阶段摘要
             </span>
           )}
           {isConclusion && (
-            <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded flex items-center gap-1">
+            <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
               <CircleCheck size={12} aria-hidden="true" />
               会议结论
             </span>
