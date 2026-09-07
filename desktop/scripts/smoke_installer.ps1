@@ -16,6 +16,7 @@ $BackendProcessId = $null
 $WorkflowExecutorPids = @()
 $SecondAppProcess = $null
 $OrphanBackendProcess = $null
+$LastReadinessError = "No backend listener was discovered"
 
 function Get-UninstallEntry {
     Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" |
@@ -201,6 +202,7 @@ try {
                     }
                 }
                 catch {
+                    $LastReadinessError = $_.Exception.Message
                     continue
                 }
             }
@@ -209,7 +211,7 @@ try {
         if (-not $Ready) { Start-Sleep -Milliseconds 500 }
     }
     if (-not $Ready) {
-        throw "Installed DeterminFlow backend did not become ready"
+        throw "Installed DeterminFlow backend did not become ready: $LastReadinessError"
     }
     if (-not (Test-Path (Join-Path $UserData "config\models_config.json"))) {
         throw "Installed application did not create isolated user configuration"
@@ -292,6 +294,13 @@ try {
     Write-Output "NSIS reinstall recovered from a stale backend process"
 }
 finally {
+    # Preserve diagnostics from the isolated CI account before uninstalling.
+    $LogDirectory = Join-Path $UserData "logs"
+    if (Test-Path $LogDirectory) {
+        $Diagnostics = Join-Path $PSScriptRoot "..\diagnostics\$Flavor"
+        New-Item -ItemType Directory -Force -Path $Diagnostics | Out-Null
+        Copy-Item -Path (Join-Path $LogDirectory "*") -Destination $Diagnostics -Recurse -Force
+    }
     if ($SecondAppProcess -and -not $SecondAppProcess.HasExited) {
         & taskkill.exe /PID $SecondAppProcess.Id /T /F | Out-Null
     }
