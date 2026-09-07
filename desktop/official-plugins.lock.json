@@ -9,12 +9,12 @@
     {
       "id": "public-api",
       "subdirectory": "plugins/public-api",
-      "version": "0.1.33"
+      "version": "0.1.35"
     }
   ],
   "schema_version": 1,
   "source": {
-    "commit": "7577b43084a06761d01a95e60a3167c5ea65b36b",
+    "commit": "e0d2e888ac64eb230bba47e022063c476b629742",
     "id": "determinflow-official",
     "ref": "main",
     "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git"

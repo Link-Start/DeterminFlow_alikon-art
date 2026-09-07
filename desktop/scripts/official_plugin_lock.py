@@ -144,7 +144,12 @@ def resolve_latest_official_plugin_lock(
     repo_root: Path,
     source_file: Path,
 ) -> dict[str, Any]:
-    sources = _official_sources(source_file)
+    # The release lock follows the canonical Git branch. A valid but stale
+    # distribution manifest or mirror must not pin a previous Plugin snapshot.
+    sources = tuple(
+        replace(source, registry=None, mirrors=())
+        for source in _official_sources(source_file)
+    )
     catalog = _catalog_or_raise(sources)
     source = sources[0]
     source_results = catalog.get("sources", [])

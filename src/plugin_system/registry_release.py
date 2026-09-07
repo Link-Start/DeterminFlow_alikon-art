@@ -30,6 +30,7 @@ from .models import (
     validate_plugin_subdirectory,
 )
 from .registry import (
+    REGISTRY_USER_AGENT,
     MAX_PACKAGE_FILES,
     MAX_UNCOMPRESSED_BYTES,
     canonicalize_registry_url,
@@ -410,7 +411,10 @@ class S3CompatibleRegistryPublisher:
     def _verify_public(self, path: Path, key: str, expected: str) -> None:
         request = Request(
             f"{_public_object_url(self.public_base_url or '', key)}?sha256={expected}",
-            headers={"Cache-Control": "no-cache"},
+            headers={
+                "Cache-Control": "no-cache",
+                "User-Agent": REGISTRY_USER_AGENT,
+            },
         )
         with self.fetcher(request, timeout=30) as response:
             payload = response.read()

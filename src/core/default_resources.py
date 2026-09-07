@@ -46,7 +46,7 @@ def provision_core_skills(skills_dir: Path) -> list[Path]:
             temporary = target.with_name(target.name + ".tmp")
             try:
                 shutil.copy2(source, temporary)
-                with temporary.open("rb") as target_file:
+                with temporary.open("r+b") as target_file:
                     os.fsync(target_file.fileno())
                 os.replace(temporary, target)
             finally:

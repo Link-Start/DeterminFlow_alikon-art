@@ -125,6 +125,11 @@ def test_full_plugin_lock_refresh_captures_latest_public_catalog(
                         "name": "DeterminFlow Official Plugins",
                         "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git",
                         "ref": "main",
+                        "mirrors": ["https://gitee.com/alikon/DeterminFlow-Plugins.git"],
+                        "registry": {
+                            "url": "https://downloads.determinflow.com/plugins/v1",
+                            "public_key": "C4oDxekhIr8Czlx0zpkRx46k26KK3d1T3HIZGsIxIr0=",
+                        },
                     }
                 ],
                 "custom_sources": [],
@@ -136,6 +141,8 @@ def test_full_plugin_lock_refresh_captures_latest_public_catalog(
 
     def fake_catalog(sources: tuple[PluginSourceConfig, ...]) -> dict:
         source = sources[0]
+        assert source.registry is None
+        assert source.mirrors == ()
         return {
             "sources": [
                 {

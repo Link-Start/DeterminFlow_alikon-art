@@ -13,6 +13,7 @@ UNTRACKED_SECRET_PATHS = (
 FORBIDDEN_PATHS = (
     "deploy/production",
     "scripts/production",
+    "src/development_config.py",
 )
 FORBIDDEN_FRAGMENTS = (
     "deploy/production",

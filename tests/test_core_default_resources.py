@@ -35,6 +35,23 @@ def test_provision_core_skills_copies_bundled_skill(tmp_path: Path) -> None:
     assert target.read_bytes() == source.read_bytes()
 
 
+def test_provision_flushes_through_a_writable_descriptor(tmp_path, monkeypatch):
+    original_fsync = os.fsync
+    flushed = []
+
+    def require_writable_descriptor(fd):
+        # Windows FlushFileBuffers requires write access. A zero-byte write
+        # checks that property on every platform without changing the file.
+        os.write(fd, b"")
+        original_fsync(fd)
+        flushed.append(fd)
+
+    monkeypatch.setattr(default_resources.os, "fsync", require_writable_descriptor)
+    created = provision_core_skills(tmp_path / "skills")
+    assert created
+    assert len(flushed) == len(created)
+
+
 def test_provision_core_skills_overwrites_managed_runtime_copy(tmp_path: Path) -> None:
     target = tmp_path / "skills" / "workflow-guide" / "SKILL.md"
     target.parent.mkdir(parents=True)
