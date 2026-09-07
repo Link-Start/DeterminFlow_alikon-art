@@ -123,7 +123,9 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
         plugin_store: PluginStore | None = None,
         process_manager: ProcessManager | None = None,
         plugin_logs_dir: Path | None = None,
+        reuse_prepared_resources: bool = False,
     ):
+        self._reuse_prepared_resources = reuse_prepared_resources
         self.base_dir = Path(base_dir).resolve()
         self.extensions_dir = self.base_dir / "extensions"
         self.config_file = Path(
@@ -162,7 +164,10 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
                     if source.registry is not None
                 },
             )
-        self._applied_plugin_records = self.plugin_store.apply_pending()
+        self._applied_plugin_records = (
+            self.plugin_store.read_lock()
+            if reuse_prepared_resources else self.plugin_store.apply_pending()
+        )
         self.plugin_config_store = PluginConfigStore(self.plugins_dir / "config")
         self.plugin_data_dir = self.plugins_dir / "data"
         self.plugin_runtime_resources_dir = self.plugins_dir / "runtime-resources"
@@ -508,6 +513,7 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
                         runtime_root=self.plugin_runtime_resources_dir,
                         resolver=self.resource_resolver,
                         revision=revision,
+                        read_only=self._reuse_prepared_resources,
                     )
                     pending.resource_paths = prepared.paths
                 else:
