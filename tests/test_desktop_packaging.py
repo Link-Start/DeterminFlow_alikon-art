@@ -723,7 +723,11 @@ def test_macos_overlay_keeps_windows_nsis_and_updater_contract() -> None:
         REPO_ROOT / ".github" / "workflows" / "desktop-macos.yml"
     ).read_text(encoding="utf-8")
     assert "macos-15" in workflow
-    assert "--flavor core" in workflow
+    assert "flavor: [core, full]" in workflow
+    assert "--flavor ${{ matrix.flavor }}" in workflow
+    assert "--expected-flavor ${{ matrix.flavor }}" in workflow
+    assert "refresh_official_plugin_lock.py --check" in workflow
+    assert "DeterminFlow-macOS-arm64-${{ matrix.flavor }}-unsigned-candidate" in workflow
     assert "--verify-macos-load-commands" in workflow
     assert "--forbid-updater-artifacts" in workflow
     assert "contents: write" not in workflow

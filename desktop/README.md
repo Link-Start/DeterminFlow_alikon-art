@@ -119,7 +119,7 @@ desktop/.build/macos-venv/bin/python desktop/scripts/verify_bundle.py \
 
 两个仓库必须保持 `R2_DISTRIBUTION_ENABLED=true`。任何一个同步步骤失败，都作为本次正式发版的未完成项处理。普通 PR 和 macOS 候选构建只上传 Actions 产物，不更新 R2 稳定入口。
 
-macOS 候选由 `Desktop macOS candidate` 工作流生成，仅面向 Apple Silicon Core；包含 DMG、SHA-256、冻结后端与包内后端验证。候选未经 Developer ID 签名、公证和用户侧安装验收，不进入官网正式下载或自动更新清单。
+macOS 候选由 `Desktop macOS candidate` 工作流生成，分别生成 Apple Silicon Core 与 Full；Full 捆绑锁定的公开官方插件快照。两种候选均包含 DMG、SHA-256、冻结后端、包内及 DMG 安装副本后端验证。候选未经 Developer ID 签名、公证和用户侧安装验收，不进入官网正式下载或自动更新清单。
 
 桌面端并行检查 R2、GitHub 与 Gitee 的最新发布。相同版本与签名下优先使用 R2；R2 不可用或签名与 GitHub/Gitee 权威发布不一致时，回退原有 GitHub/Gitee 选择规则。所有来源最终都必须通过同一 Tauri 公钥验签，R2 只承载分发流量，不改变 GitHub Tag 和 Release 的版本权威。
 
