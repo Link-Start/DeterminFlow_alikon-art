@@ -218,7 +218,7 @@ Node.js, and Git are not required to start the desktop app.
 | Windows x64 | `DeterminFlow_1.1.0_x64-setup.exe` | `DeterminFlow_1.1.0_x64-full-setup.exe` |
 | macOS Apple Silicon | `DeterminFlow_1.1.0_aarch64.dmg` | `DeterminFlow_1.1.0_aarch64-full.dmg` |
 
-Core bundles no plugins. Full includes `bishu-novel 0.2.2` and `public-api 0.1.36`.
+Core bundles no plugins. Full includes `bishu-novel 0.2.2` and `public-api 0.1.37`.
 Use the first-run guide to configure your own model API or try the public model service.
 
 The macOS app is ad-hoc signed and has not been notarized by Apple. Drag it into Applications.

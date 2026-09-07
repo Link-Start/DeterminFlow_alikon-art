@@ -209,7 +209,7 @@ Core 不加载公益模型服务逻辑。
 | Windows x64 | `DeterminFlow_1.1.0_x64-setup.exe` | `DeterminFlow_1.1.0_x64-full-setup.exe` |
 | macOS Apple Silicon（M 系列芯片） | `DeterminFlow_1.1.0_aarch64.dmg` | `DeterminFlow_1.1.0_aarch64-full.dmg` |
 
-Core 不捆绑插件；Full 预装 `bishu-novel 0.2.2` 和 `public-api 0.1.36`。
+Core 不捆绑插件；Full 预装 `bishu-novel 0.2.2` 和 `public-api 0.1.37`。
 首次启动按引导配置自有模型 API，或选择公益模型体验。
 
 macOS 包采用 ad-hoc 签名，尚未经过 Apple 公证。将应用拖入“应用程序”后，若系统阻止打开，
