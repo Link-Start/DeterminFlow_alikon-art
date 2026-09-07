@@ -38,7 +38,7 @@ jobs:
       - name: Install compatible frozen backend dependencies
         run: python desktop/scripts/install_macos_build_dependencies.py
       - name: Test packaging contracts
-        run: python -m pytest tests/test_desktop_packaging.py tests/test_desktop_plugin_lock.py -q
+        run: python -m pytest tests/test_desktop_packaging.py tests/test_desktop_plugin_lock.py tests/test_desktop_macos_signing.py -q
       - name: Verify latest official Plugin lock for Full candidate
         if: matrix.flavor == 'full'
         run: python desktop/scripts/refresh_official_plugin_lock.py --check
