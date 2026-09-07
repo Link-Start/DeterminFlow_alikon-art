@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from src.plugin_system import registry
+from desktop.scripts.publish_r2_release import R2Publisher
 from src.plugin_system.registry_release import (
     PluginRegistryReleaseError,
     S3CompatibleRegistryPublisher,
@@ -43,3 +44,22 @@ def test_published_download_has_client_identity_and_checks_actual_bytes(tmp_path
     payload = b"stale-or-corrupt-package"
     with pytest.raises(PluginRegistryReleaseError, match="checksum mismatch"):
         publisher._verify(package, "plugins/v1/package.zip")
+
+
+def test_desktop_distribution_verifies_bytes_with_client_identity(tmp_path):
+    package = tmp_path / "installer.exe"
+    package.write_bytes(b"installer")
+    payload = b"installer"
+
+    def fetch(request, **options):
+        assert request.get_header("User-agent") == "DeterminFlow-Desktop-Release/1.0"
+        return io.BytesIO(payload)
+
+    publisher = R2Publisher(
+        bucket="test", endpoint_url="https://storage.example.invalid",
+        public_base_url="https://downloads.example.invalid", fetcher=fetch,
+    )
+    publisher._verify_public(package, "desktop/installer.exe")
+    payload = b"corrupt"
+    with pytest.raises(RuntimeError, match="checksum mismatch"):
+        publisher._verify_public(package, "desktop/installer.exe")

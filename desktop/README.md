@@ -112,6 +112,15 @@ desktop/.build/macos-venv/bin/python desktop/scripts/verify_bundle.py \
 
 ## 桌面更新发布
 
+每次社区版正式发版都必须完成以下两项加速分发收尾，候选构建不执行：
+
+1. **同步最新桌面安装包**：GitHub 正式 Release 验证通过后，Windows 发布流水线把该版本的 Core/Full 安装包、签名及校验文件同步到 R2，公网内容校验通过后才更新稳定 `latest.json`。发行完成前必须确认稳定清单的版本与签名对应本次 GitHub Release；同步失败不得把发行标记为完成。
+2. **同步最新官方插件**：在 `DeterminFlow-Plugins` 仓库手动运行 `CI`，使用当前公开 `main`，将 `core_ref` 设置为本次 Core Tag 或精确 Commit，并明确勾选 `publish_registry`。插件测试通过后同步不可变包和签名目录，最后更新稳定 Manifest。核对公网目录的 Commit 与本次选定的官方插件提交一致，并通过签名、归档摘要及内容摘要验证；不能只检查 URL 返回 200。Full 的内置快照仍以本次构建锁为准，不改写旧安装包。
+
+两个仓库必须保持 `R2_DISTRIBUTION_ENABLED=true`。任何一个同步步骤失败，都作为本次正式发版的未完成项处理。普通 PR 和 macOS 候选构建只上传 Actions 产物，不更新 R2 稳定入口。
+
+macOS 候选由 `Desktop macOS candidate` 工作流生成，仅面向 Apple Silicon Core；包含 DMG、SHA-256、冻结后端与包内后端验证。候选未经 Developer ID 签名、公证和用户侧安装验收，不进入官网正式下载或自动更新清单。
+
 桌面端并行检查 R2、GitHub 与 Gitee 的最新发布。相同版本与签名下优先使用 R2；R2 不可用或签名与 GitHub/Gitee 权威发布不一致时，回退原有 GitHub/Gitee 选择规则。所有来源最终都必须通过同一 Tauri 公钥验签，R2 只承载分发流量，不改变 GitHub Tag 和 Release 的版本权威。
 
 正式发布仍先创建 GitHub Release，并同时上传 Core/Full NSIS 安装包、各自同名 `.sig`、SHA-256 文件和 `latest.json`。当仓库变量 `R2_DISTRIBUTION_ENABLED=true` 时，发布任务再调用 `desktop/scripts/publish_r2_release.py`：先上传并公开校验 `desktop/releases/vX/` 下的不可变资产，最后更新 `desktop/stable/latest.json`。同名不可变对象内容不一致时任务会失败，不会覆盖历史版本。R2 凭据只通过 `R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY` Secret 和 `R2_BUCKET`、`R2_ENDPOINT_URL` Variable 注入。更新签名私钥不得进入 Git，只通过 `TAURI_SIGNING_PRIVATE_KEY` Secret 注入构建。macOS 候选包不进入该更新通道。

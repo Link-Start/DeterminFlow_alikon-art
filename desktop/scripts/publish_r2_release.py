@@ -114,7 +114,10 @@ class R2Publisher:
     def _verify_public(self, path: Path, key: str) -> None:
         expected_hash = sha256_file(path)
         url = f"{public_object_url(self.public_base_url, key)}?sha256={expected_hash}"
-        request = Request(url, headers={"Cache-Control": "no-cache"})
+        request = Request(url, headers={
+            "Cache-Control": "no-cache",
+            "User-Agent": "DeterminFlow-Desktop-Release/1.0",
+        })
         with self.fetcher(request, timeout=30) as response:
             published = response.read()
         if hashlib.sha256(published).hexdigest() != expected_hash:

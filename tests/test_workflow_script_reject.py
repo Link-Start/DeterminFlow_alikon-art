@@ -22,6 +22,7 @@ from src.workflow.definition import (
 from src.workflow.engine import WorkflowEngine
 from src.workflow.execution_flow import _retract_rejected_node_outputs
 from src.workflow.failure_policy import activate_scheduled_retry
+from src.workflow.executor_process import process_is_alive
 from src.workflow.nodes.base import NodeContext
 from src.workflow.nodes.script import (
     ScriptNode,
@@ -88,8 +89,13 @@ def test_script_process_tree_is_terminated_on_task_cancel(tmp_path):
         await _terminate_process_tree(process, grace_seconds=0.1)
 
         assert process.returncode is not None
-        with pytest.raises(ProcessLookupError):
-            os.kill(child_pid, 0)
+        # An orphan can briefly remain as a reaped-by-init zombie on Linux.
+        # Verify execution has stopped, rather than requiring immediate PID removal.
+        for _ in range(100):
+            if not process_is_alive(child_pid):
+                break
+            await asyncio.sleep(0.01)
+        assert not process_is_alive(child_pid)
 
     asyncio.run(scenario())
 
