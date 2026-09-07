@@ -41,7 +41,7 @@ jobs:
       - name: Test packaging contracts
         run: python -m pytest tests/test_desktop_packaging.py tests/test_desktop_public_model_smoke.py tests/test_desktop_plugin_lock.py tests/test_desktop_macos_signing.py -q
       - name: Verify latest official Plugin lock for Full candidate
-        if: matrix.flavor == 'full'
+        if: matrix.flavor == 'full' && github.ref_type != 'tag'
         run: python desktop/scripts/refresh_official_plugin_lock.py --check
       - name: Build web application
         working-directory: web
