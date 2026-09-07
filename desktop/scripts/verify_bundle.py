@@ -165,7 +165,7 @@ def _macho_deployment_target(executable: Path) -> str:
 
 
 def verify_macos_app_bundle(
-    app_bundle: Path, *, verify_load_commands: bool = False
+    app_bundle: Path, *, verify_load_commands: bool = False, verify_signatures: bool = False
 ) -> None:
     if not app_bundle.is_dir() or app_bundle.suffix != ".app":
         raise RuntimeError(f"macOS .app bundle 不存在: {app_bundle}")
@@ -213,6 +213,12 @@ def verify_macos_app_bundle(
                     f"Mach-O deployment target {target} 超过应用声明的 "
                     f"{MINIMUM_MACOS_VERSION}: {path}"
                 )
+    if verify_signatures:
+        for path in [*macho_files, app_bundle]:
+            subprocess.run(
+                ["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(path)],
+                check=True,
+            )
     LOGGER.info("macOS .app bundle 验证通过: %s", app_bundle)
 
 
@@ -307,6 +313,7 @@ def main() -> int:
     parser.add_argument("--updater-signature", type=Path)
     parser.add_argument("--forbid-updater-artifacts", type=Path)
     parser.add_argument("--verify-macos-load-commands", action="store_true")
+    parser.add_argument("--verify-macos-signatures", action="store_true")
     parser.add_argument("--verify-dmg-container", action="store_true")
     parser.add_argument("--desktop-executable", type=Path)
     parser.add_argument("--expected-flavor", choices=("core", "full"))
@@ -349,6 +356,7 @@ def main() -> int:
         verify_macos_app_bundle(
             options.app_bundle.resolve(),
             verify_load_commands=options.verify_macos_load_commands,
+            verify_signatures=options.verify_macos_signatures,
         )
 
     if options.dmg:

@@ -119,7 +119,7 @@ desktop/.build/macos-venv/bin/python desktop/scripts/verify_bundle.py \
 
 两个仓库必须保持 `R2_DISTRIBUTION_ENABLED=true`。任何一个同步步骤失败，都作为本次正式发版的未完成项处理。普通 PR 和 macOS 候选构建只上传 Actions 产物，不更新 R2 稳定入口。
 
-macOS 候选由 `Desktop macOS candidate` 工作流生成，分别生成 Apple Silicon Core 与 Full；Full 捆绑锁定的公开官方插件快照。两种候选均包含 DMG、SHA-256、冻结后端、包内及 DMG 安装副本后端验证。候选未经 Developer ID 签名、公证和用户侧安装验收，不进入官网正式下载或自动更新清单。
+macOS 候选由 `Desktop macOS candidate` 工作流生成，分别生成 Apple Silicon Core 与 Full；Full 捆绑锁定的公开官方插件快照。两种候选均包含 DMG、SHA-256、冻结后端、包内及 DMG 安装副本后端验证。候选使用 ad-hoc 本地签名，CI 严格校验应用和内置二进制签名；尚未经 Developer ID 签名、公证和用户侧安装验收，不进入官网正式下载或自动更新清单。
 
 桌面端并行检查 R2、GitHub 与 Gitee 的最新发布。相同版本与签名下优先使用 R2；R2 不可用或签名与 GitHub/Gitee 权威发布不一致时，回退原有 GitHub/Gitee 选择规则。所有来源最终都必须通过同一 Tauri 公钥验签，R2 只承载分发流量，不改变 GitHub Tag 和 Release 的版本权威。
 
@@ -138,6 +138,6 @@ R2 不可用、签名或内容校验失败时回退 GitHub/Gitee Git 源。自�
 - Windows 安装包尚未做 Authenticode（Windows 代码签名），因此不同 Windows 设备上的 SmartScreen 表现可能不同。
 - 正式 Windows 发布前必须在 Windows Runner 验证正常关窗、重复启动、Updater 安装、覆盖安装与卸载
   都不会遗留 `determinflow-backend.exe`，并完成一次真实跨版本升级验收。
-- macOS 候选包未做 Apple 代码签名和公证，不进入 GitHub Release，也不提供自动更新。
+- macOS 候选包采用 ad-hoc 本地签名，未做 Developer ID 签名和 Apple 公证，不进入 GitHub Release，也不提供自动更新。
 - 不内置 Node.js、npm、Git 或 Git Bash。Windows 上 `execute_command` 使用 `cmd.exe`；Python Workflow 由冻结后端兼容执行；Shell Workflow 需要用户另行安装 Git Bash。
 - Windows `downloadBootstrapper` 保持安装包较小。Windows 10/11 通常已有 WebView2；缺失时安装器需要联网下载。
