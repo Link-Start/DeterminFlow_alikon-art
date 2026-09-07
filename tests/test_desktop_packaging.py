@@ -719,9 +719,15 @@ def test_macos_overlay_keeps_windows_nsis_and_updater_contract() -> None:
     assert "--config" not in package["scripts"]["build:macos"]
     assert "--bundles app,dmg" in package["scripts"]["build:macos"]
     assert "--no-sign" in package["scripts"]["build:macos"]
-    assert not (
+    workflow = (
         REPO_ROOT / ".github" / "workflows" / "desktop-macos.yml"
-    ).exists()
+    ).read_text(encoding="utf-8")
+    assert "macos-15" in workflow
+    assert "--flavor core" in workflow
+    assert "--verify-macos-load-commands" in workflow
+    assert "--forbid-updater-artifacts" in workflow
+    assert "contents: write" not in workflow
+    assert "gh release" not in workflow
 
 
 def test_macos_build_dependencies_are_resolved_for_macos_11_arm64(

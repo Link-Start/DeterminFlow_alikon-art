@@ -1,0 +1,67 @@
+name: Desktop macOS candidate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - desktop/**
+      - .github/workflows/desktop-macos.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Apple Silicon Core candidate
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: arm64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install compatible frozen backend dependencies
+        run: python desktop/scripts/install_macos_build_dependencies.py
+      - name: Test packaging contracts
+        run: python -m pytest tests/test_desktop_packaging.py tests/test_desktop_plugin_lock.py -q
+      - name: Build web application
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Build and test frozen Core backend
+        run: |
+          python desktop/scripts/build_backend.py --flavor core
+          python desktop/scripts/smoke_backend.py --timeout 180
+      - name: Build unsigned app and DMG
+        run: |
+          python desktop/scripts/generate_macos_icon.py
+          cd desktop
+          npm ci
+          npm run build:macos
+      - name: Verify app, DMG and bundled backend
+        run: |
+          python desktop/scripts/verify_bundle.py --expected-flavor core \
+            --app-bundle desktop/src-tauri/target/release/bundle/macos/DeterminFlow.app \
+            --dmg desktop/src-tauri/target/release/bundle/dmg/*.dmg \
+            --verify-macos-load-commands --verify-dmg-container \
+            --forbid-updater-artifacts desktop/src-tauri/target/release/bundle
+          python desktop/scripts/smoke_backend.py --timeout 180 \
+            desktop/src-tauri/target/release/bundle/macos/DeterminFlow.app/Contents/Resources/runtime/backend/determinflow-backend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeterminFlow-macOS-arm64-Core-unsigned-candidate
+          path: |
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/release/bundle/dmg/*.sha256
+          if-no-files-found: error
+          retention-days: 14
