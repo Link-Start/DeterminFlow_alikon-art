@@ -129,3 +129,14 @@ test("rejects unsafe action links and malformed payloads", () => {
     },
   }), null);
 });
+
+
+test("enabled degraded status keeps a safe GET retry entry", async () => {
+  const { isActiveHeaderStatusSource, unavailableHeaderStatus } = await import("./header-status-model");
+  const source = { id: "demo", name: "Demo", enabled: true, status: "degraded", header_status: { endpoint: "/api/demo/status" } } as import("./types").ExtensionStatus;
+  assert.equal(isActiveHeaderStatusSource(source), true);
+  assert.equal(isActiveHeaderStatusSource({ ...source, enabled: false }), false);
+  const fallback = unavailableHeaderStatus(source);
+  assert.equal(fallback.value, "状态异常");
+  assert.equal(parseHeaderStatusResponse({ header_status: fallback })?.actions[0]?.method, "GET");
+});

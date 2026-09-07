@@ -71,7 +71,7 @@ export function getPluginCatalogUpdate(
         && entry.version
         && installedVersion !== entry.version,
   );
-  const available = revisionChanged && (versionComparison === null || versionComparison >= 0);
+  const available = revisionChanged && versionComparison !== null && versionComparison > 0;
   return { entry, available };
 }
 

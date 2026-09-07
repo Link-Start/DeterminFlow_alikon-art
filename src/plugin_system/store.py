@@ -415,6 +415,7 @@ class PluginStore:
     ) -> PluginRevision:
         requested_ref = self._validate_ref(ref)
         stage_root: Path | None = None
+        registry_error = ""
         try:
             registry = self._source_registries.get(canonical_source)
             if registry is not None:
@@ -431,7 +432,8 @@ class PluginStore:
                         stage_root,
                         preflight=preflight,
                     )
-                except (PluginRegistryError, InvalidPluginPackageError):
+                except (PluginRegistryError, InvalidPluginPackageError) as exc:
+                    registry_error = str(exc)
                     shutil.rmtree(stage_root, ignore_errors=True)
                     stage_root = None
             stage_root = Path(
@@ -446,11 +448,13 @@ class PluginStore:
                 stage_root,
                 preflight=preflight,
             )
-        except PluginStoreError:
-            raise
         except Exception as exc:
+            if isinstance(exc, PluginStoreError) and not registry_error:
+                raise
             raise PluginStoreError(
-                f"failed to install plugin {plugin_id}: {exc}"
+                f"failed to install plugin {plugin_id}: "
+                + (f"加速下载失败: {registry_error}; Git 回退失败: " if registry_error else "")
+                + str(exc)
             ) from exc
         finally:
             if stage_root is not None:

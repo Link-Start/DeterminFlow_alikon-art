@@ -22,6 +22,9 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { useAccountLogin } from "@/components/ui/use-account-login";
+import { ACCOUNT_STATUS_EVENT } from "@/lib/account";
+
 import type { ExtensionStatus } from "@/extensions/types";
 import {
   addModelProvider,
@@ -35,6 +38,7 @@ import {
   buildProviderChoices,
   chooseInitialProviderId,
   findManagedModelExtension,
+  managedModelChoices,
   type ManagedModelStatus,
   normalizeApiError,
   parseManagedModelStatus,
@@ -59,7 +63,7 @@ interface FirstRunModelScreenProps {
   onManagedProviderChange: (pluginId: string | null) => void;
 }
 
-const ANONYMOUS_PUBLIC_MODEL = "deepseek-v4-flash";
+const ANONYMOUS_PUBLIC_MODEL = "auto";
 
 async function requestManagedModelStatus(
   endpoint: string,
@@ -130,6 +134,7 @@ export function FirstRunModelScreen({
   onNext,
   onManagedProviderChange,
 }: FirstRunModelScreenProps) {
+  const login = useAccountLogin();
   const choices = useMemo(() => buildProviderChoices(providers, schemas), [providers, schemas]);
   const managedExtension = useMemo(
     () => findManagedModelExtension(extensions),
@@ -179,9 +184,7 @@ export function FirstRunModelScreen({
   );
   const ownedValidated = validationState === "success"
     && validatedSignature === credentialSignature;
-  const publicModels = managedStatus?.signedIn
-    ? managedStatus.models
-    : [ANONYMOUS_PUBLIC_MODEL];
+  const publicModels = managedModelChoices(managedStatus);
   const publicReady = Boolean(
     managedStatus?.serviceEnabled
       && (!managedStatus.signedIn || (
@@ -211,6 +214,13 @@ export function FirstRunModelScreen({
   }, [active, loadManagedStatus, managedExtension]);
 
   useEffect(() => {
+    if (!active) return;
+    const refresh = () => { void loadManagedStatus(false); };
+    window.addEventListener(ACCOUNT_STATUS_EVENT, refresh);
+    return () => window.removeEventListener(ACCOUNT_STATUS_EVENT, refresh);
+  }, [active, loadManagedStatus]);
+
+  useEffect(() => {
     if (!active || !managedStatus?.loginPending) return;
     const interval = window.setInterval(() => {
       void loadManagedStatus(false);
@@ -219,13 +229,11 @@ export function FirstRunModelScreen({
   }, [active, loadManagedStatus, managedStatus?.loginPending]);
 
   useEffect(() => {
-    const nextModels = managedStatus?.signedIn
-      ? managedStatus.models
-      : [ANONYMOUS_PUBLIC_MODEL];
+    const nextModels = managedModelChoices(managedStatus);
     setSelectedPublicModel((current) => (
       nextModels.includes(current) ? current : nextModels[0] || ""
     ));
-  }, [managedStatus?.models, managedStatus?.signedIn]);
+  }, [managedStatus]);
 
   useEffect(() => {
     if (!active) return;
@@ -254,14 +262,12 @@ export function FirstRunModelScreen({
   };
 
   const startLogin = async () => {
-    if (!managedStatus?.loginEnabled || managedStatus.loginPending) return;
+    if (loginLoading) return;
     setLoginLoading(true);
     setError("");
     try {
-      setManagedStatus(await requestManagedModelStatus(
-        managedStatus.loginEndpoint,
-        "POST",
-      ));
+      await login();
+      await loadManagedStatus();
     } catch (reason) {
       setError(normalizeApiError(reason, "无法开始登录"));
     } finally {
@@ -422,17 +428,15 @@ export function FirstRunModelScreen({
                     : managedStatus?.serviceNotice || "公益模型服务说明暂时无法获取。"}
                 </p>
               </div>
-              {managedStatus?.loginEnabled ? (
-                <button
-                  type="button"
-                  className={`first-run-public-login ${managedStatus.signedIn ? "is-authenticated" : ""}`}
-                  onClick={() => void startLogin()}
-                  disabled={loginBusy || managedStatus.signedIn}
-                >
-                  {loginBusy ? <Loader2 className="first-run-spinner" size={15} /> : <LogIn size={15} />}
-                  {managedStatus.signedIn ? "已登录" : loginBusy ? "等待登录" : "登录"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className={`first-run-public-login ${managedStatus?.signedIn ? "is-authenticated" : ""}`}
+                onClick={() => void startLogin()}
+                disabled={loginBusy || managedStatus?.signedIn}
+              >
+                {loginBusy ? <Loader2 className="first-run-spinner" size={15} /> : <LogIn size={15} />}
+                {managedStatus?.signedIn ? "已登录" : loginBusy ? "等待登录" : "登录"}
+              </button>
             </div>
 
             <div className="first-run-public-model-grid">
@@ -459,7 +463,7 @@ export function FirstRunModelScreen({
                 ) : (
                   <>
                     <strong>匿名用户</strong>
-                    <small>为避免滥用，仅提供 DeepSeek V4 Flash</small>
+                    <small>匿名体验使用 auto 自动选择模型</small>
                   </>
                 )}
               </div>

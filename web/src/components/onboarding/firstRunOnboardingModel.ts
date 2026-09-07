@@ -230,3 +230,9 @@ export function normalizeApiError(reason: unknown, fallback: string): string {
   if (detailMatch?.[1]) return detailMatch[1];
   return reason.message.replace(/^API Error \d+:\s*/, "").trim() || fallback;
 }
+
+// Before anonymous credentials exist the service exposes no model catalog yet.
+export function managedModelChoices(status: ManagedModelStatus | null): string[] {
+  if (status?.models.length) return status.models;
+  return status?.signedIn ? [] : ["auto"];
+}

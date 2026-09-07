@@ -614,3 +614,35 @@ def test_git_commands_never_enable_shell(
 
     assert observed
     assert all(call.get("shell") is not True for call in observed)
+
+
+def test_install_historical_commit_after_main_advances(tmp_path):
+    repo, package, original = _create_repo(tmp_path)
+    (package / "payload.txt").write_text("two\n")
+    _commit(repo, "advance main")
+    store = PluginStore(tmp_path / "store", official_sources=[str(repo)])
+    record = store.install("demo-plugin", str(repo), ref=original)
+    assert record.active_revision.commit == original
+    with pytest.raises(PluginStoreError):
+        store.install("missing-plugin", str(repo), ref="f" * 40)
+
+
+def test_install_reports_registry_and_git_errors(tmp_path, monkeypatch):
+    from src.plugin_system.registry import PluginRegistryConfig, PluginRegistryError
+    source = "https://example.invalid/plugins.git"
+    registry = PluginRegistryConfig(("https://example.invalid/registry",), b"x" * 32, "")
+    store = PluginStore(tmp_path / "store", official_sources=[source], source_registries={source: registry})
+
+    def fail_registry(*args, **kwargs):
+        raise PluginRegistryError("package download unavailable")
+
+    def fail_git(*args, **kwargs):
+        raise PluginStoreError("git unavailable")
+
+    monkeypatch.setattr(store, "_materialize_from_registry", fail_registry)
+    monkeypatch.setattr(store, "_materialize_from_git", fail_git)
+    with pytest.raises(PluginStoreError) as exc:
+        store.install("demo-plugin", source)
+    assert "package download unavailable" in str(exc.value)
+    assert "git unavailable" in str(exc.value)
+    assert not list(store.staging_dir.iterdir())

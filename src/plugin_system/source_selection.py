@@ -133,6 +133,10 @@ def _probe_git_source(
             timeout=timeout_seconds,
         )
         commit = _resolve_remote_commit(completed.stdout, ref)
+        # ls-remote only advertises ref tips, not historical commits. A reachable
+        # repository remains a candidate; checkout later verifies the exact SHA.
+        if not commit and _COMMIT_RE.fullmatch(ref) and completed.stdout.strip():
+            commit = ref.lower()
         if not commit:
             raise ValueError(f"ref does not resolve: {ref}")
         return _GitSourceProbe(
@@ -181,16 +185,17 @@ def select_git_source(
 
     available = [probe for probe in probes.values() if probe.commit]
     if not available:
-        raise ValueError("Plugin 仓库所有拉取地址均不可用")
+        raise ValueError("Plugin 仓库所有拉取地址均不可用: " + "; ".join(
+            f"{url}: {probes[url].error}" for url in candidates
+        ))
 
     primary = probes.get(candidates[0])
     if primary is not None and primary.commit:
         available = [
             probe for probe in available if probe.commit == primary.commit
         ]
-    transport_priority = {
-        url: index for index, url in enumerate((*candidates[1:], candidates[0]))
-    }
+    ordered = candidates if _COMMIT_RE.fullmatch(ref) else (*candidates[1:], candidates[0])
+    transport_priority = {url: index for index, url in enumerate(ordered)}
     selected = min(available, key=lambda probe: transport_priority[probe.url])
     return GitSourceSelection(
         url=selected.url,

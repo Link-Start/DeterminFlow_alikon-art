@@ -116,6 +116,7 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
         base_dir: Path,
         *,
         config_file: Path | None = None,
+        data_dir: Path | None = None,
         workflows_dir: Path | None = None,
         enabled: Iterable[str] | None = None,
         discover_entry_points: bool = True,
@@ -127,6 +128,7 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
     ):
         self._reuse_prepared_resources = reuse_prepared_resources
         self.base_dir = Path(base_dir).resolve()
+        self.data_dir = Path(data_dir or self.base_dir / "data").resolve()
         self.extensions_dir = self.base_dir / "extensions"
         self.config_file = Path(
             config_file or self.base_dir / "config" / "extensions.json"
@@ -621,7 +623,7 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
             store.validate_sources()
 
         self._validate_workflow_resources(pending)
-        validate_file_resources(self.base_dir, self.contributions, pending)
+        validate_file_resources(self.data_dir, self.contributions, pending)
 
     def _validate_workflow_resources(
         self,
