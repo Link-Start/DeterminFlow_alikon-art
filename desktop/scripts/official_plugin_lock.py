@@ -225,7 +225,9 @@ def pin_official_sources(
         or source.ref != expected["ref"]
     ):
         raise RuntimeError("桌面官方 Plugin 来源与构建锁不一致")
-    return (replace(source, ref=expected["commit"]),)
+    # A latest-manifest registry may describe a different commit. Build inputs
+    # must resolve the locked Git object even while distribution is catching up.
+    return (replace(source, ref=expected["commit"], registry=None, mirrors=()),)
 
 
 def validate_locked_catalog(

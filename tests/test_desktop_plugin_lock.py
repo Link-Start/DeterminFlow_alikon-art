@@ -69,11 +69,17 @@ def test_full_plugin_catalog_must_match_the_exact_build_lock(
         url=lock["source"]["url"],
         ref="main",
         mirrors=("https://gitee.com/alikon/DeterminFlow-Plugins.git",),
+        registry=plugin_lock_module._official_sources(
+            REPO_ROOT / "config" / "plugin-sources.json"
+        )[0].registry,
     )
     pinned = plugin_lock_module.pin_official_sources((source,), lock)
 
     assert pinned[0].ref == "a" * 40
     assert pinned[0].url == source.url
+    assert source.registry is not None
+    assert pinned[0].registry is None
+    assert pinned[0].mirrors == ()
     catalog = {
         "sources": [
             {
