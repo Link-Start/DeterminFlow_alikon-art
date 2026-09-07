@@ -128,6 +128,12 @@ Codex、Claude 等单智能体框架很适合探索未知问题。但流程已�
 - MCP、Agent/Prompt 模板、Skill 和 Rule 都可以成为 Workflow 的可复用资产
 - Core 可以独立运行，不依赖任何业务 Plugin
 
+### 资源广场与统一账号
+
+- 浏览、搜索、安装和投稿社区 Skill，首期只分发 Skill
+- 从 Skills 页面查看更新并定位资源详情，安装和更新校验版本、来源与内容摘要
+- 使用统一账号登录资源广场和公益模型，支持浏览器授权与返回桌面客户端
+
 ### 围绕 Workflow 的统一工作区
 
 对话、Workflow、Cron、Skills、Rules 和 Plugins 都在同一个控制台中。
@@ -177,12 +183,12 @@ DeterminFlow 解决流程怎么执行，Plugin 则把它和运行所需的能力
 |---:|---:|---:|---:|
 | 7 | 84 | 33 | 15 |
 
-它覆盖建书、角色、故事规划、卷纲与近纲、正文生产、章节后验和润色，并带有配套 API、
-SSE Job、PostgreSQL 迁移和断点恢复。Plugin 是你打包交付一套完整 AI 业务引擎的最佳选择。
+它覆盖世界观、角色、故事规划、卷纲与近纲、正文生产、章节后验和润色。公开插件是纯本地文件
+工作流，小说资料与检查点保存在用户工作区，不需要数据库、独立 API 服务或迁移。
 
 同仓库还提供可选的
 [`public-api`](https://github.com/alikon-art/DeterminFlow-Plugins/tree/main/plugins/public-api)
-公益模型 Plugin。Windows 桌面版可在首次引导或 Plugin 页面安装；未安装或未启用时，
+公益模型 Plugin。Windows 和 macOS 桌面版可在首次引导或 Plugin 页面安装；未安装或未启用时，
 Core 不加载公益模型服务逻辑。
 
 > [!NOTE]
@@ -191,7 +197,28 @@ Core 不加载公益模型服务逻辑。
 
 <a id="quick-start"></a>
 
-## 快速开始 🚀
+## 快速开始
+
+### 桌面安装包
+
+从 [GitHub Releases](https://github.com/alikon-art/DeterminFlow/releases/latest) 下载，或使用
+[官网加速下载](https://determinflow.com/download)。桌面版自带运行环境，无需安装 Python、Node.js 或 Git。
+
+| 平台 | Core | Full |
+|---|---|---|
+| Windows x64 | `DeterminFlow_1.1.0_x64-setup.exe` | `DeterminFlow_1.1.0_x64-full-setup.exe` |
+| macOS Apple Silicon（M 系列芯片） | `DeterminFlow_1.1.0_aarch64.dmg` | `DeterminFlow_1.1.0_aarch64-full.dmg` |
+
+Core 不捆绑插件；Full 预装 `bishu-novel 0.2.2` 和 `public-api 0.1.36`。
+首次启动按引导配置自有模型 API，或选择公益模型体验。
+
+macOS 包采用 ad-hoc 签名，尚未经过 Apple 公证。将应用拖入“应用程序”后，若系统阻止打开，
+在“系统设置 → 隐私与安全性”中选择“仍要打开”，再确认。macOS 当前通过下载安装包手动更新。
+
+升级安装包保留用户数据、模型配置和已安装插件。**已有插件不会被 Full 快照覆盖**；请到插件页
+检查更新，更新后重启应用。官方插件支持签名 HTTPS 加速下载，Git 是回退途径。
+
+### 从源码运行
 
 要求 Python 3.11+、Node.js 22.12+ 和 npm。根据你的系统选择一组命令。
 
@@ -227,7 +254,7 @@ Copy-Item config\models_config.example.json config\models_config.json
 
 - Web UI：`http://localhost:8020`
 - API 文档：`http://localhost:8020/docs`
-- Plugin 状态：`GET /api/extensions`
+- Plugin 状态：`GET /api/plugins`
 
 也可以使用 Docker：
 
@@ -317,7 +344,6 @@ docker compose -f docker-compose.yml config -q
 - 为每个 Agent Node 提供更强的 Workspace 与 LLM 执行沙箱
 - 完善 Workflow 到独立 API / Service 的发布模板
 - 增加更多可复现的生产级 Workflow 案例
-- 确定 `v0.1.0` 之后的兼容与版本策略
 
 ## License
 

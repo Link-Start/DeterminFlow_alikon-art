@@ -754,9 +754,13 @@ def create_app(extension_manager: ExtensionManager | None = None) -> FastAPI:
     manager = extension_manager or ExtensionManager(
         BASE_DIR,
         config_file=CONFIG_DIR / "extensions.json",
+        data_dir=DATA_DIR,
         workflows_dir=WORKFLOWS_DIR,
         plugins_dir=PLUGINS_DIR,
         plugin_logs_dir=LOGS_DIR / "plugins",
+        reuse_prepared_resources=(
+            os.getenv("DETERMINFLOW_RUNTIME_ROLE") == "workflow-executor"
+        ),
     )
     application = FastAPI(
         title="DeterminFlow",

@@ -69,11 +69,17 @@ def test_full_plugin_catalog_must_match_the_exact_build_lock(
         url=lock["source"]["url"],
         ref="main",
         mirrors=("https://gitee.com/alikon/DeterminFlow-Plugins.git",),
+        registry=plugin_lock_module._official_sources(
+            REPO_ROOT / "config" / "plugin-sources.json"
+        )[0].registry,
     )
     pinned = plugin_lock_module.pin_official_sources((source,), lock)
 
     assert pinned[0].ref == "a" * 40
     assert pinned[0].url == source.url
+    assert source.registry is not None
+    assert pinned[0].registry is None
+    assert pinned[0].mirrors == ()
     catalog = {
         "sources": [
             {
@@ -125,6 +131,11 @@ def test_full_plugin_lock_refresh_captures_latest_public_catalog(
                         "name": "DeterminFlow Official Plugins",
                         "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git",
                         "ref": "main",
+                        "mirrors": ["https://gitee.com/alikon/DeterminFlow-Plugins.git"],
+                        "registry": {
+                            "url": "https://downloads.determinflow.com/plugins/v1",
+                            "public_key": "C4oDxekhIr8Czlx0zpkRx46k26KK3d1T3HIZGsIxIr0=",
+                        },
                     }
                 ],
                 "custom_sources": [],
@@ -136,6 +147,8 @@ def test_full_plugin_lock_refresh_captures_latest_public_catalog(
 
     def fake_catalog(sources: tuple[PluginSourceConfig, ...]) -> dict:
         source = sources[0]
+        assert source.registry is None
+        assert source.mirrors == ()
         return {
             "sources": [
                 {

@@ -17,7 +17,7 @@ use std::os::unix::process::CommandExt;
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
 #[cfg(target_os = "macos")]
 const PROCESS_GROUP_STOP_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -205,7 +205,10 @@ pub fn wait_until_ready(base_url: &str) -> Result<(), String> {
         thread::sleep(Duration::from_millis(250));
     }
 
-    Err(format!("本地服务未在 60 秒内就绪: {last_error}"))
+    Err(format!(
+        "本地服务未在 {} 秒内就绪: {last_error}",
+        STARTUP_TIMEOUT.as_secs()
+    ))
 }
 
 fn request_status(address: &str) -> Result<u16, String> {

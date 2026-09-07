@@ -11,7 +11,7 @@ from src.workflow.script_library import ScriptLibraryCatalog
 
 
 def validate_file_resources(
-    base_dir: Path,
+    data_dir: Path,
     existing: ExtensionContributions,
     pending: ExtensionContributions,
 ) -> None:
@@ -26,7 +26,7 @@ def validate_file_resources(
     ]
     if skill_roots:
         SkillLoader(
-            base_dir / "data" / "skills",
+            data_dir / "skills",
             resource_roots=skill_roots,
             owner_enabled=owner_enabled,
         ).validate_sources()
@@ -37,7 +37,7 @@ def validate_file_resources(
     ]
     if rule_roots:
         RuleLoader(
-            base_dir / "data" / "rules",
+            data_dir / "rules",
             resource_roots=rule_roots,
             owner_enabled=owner_enabled,
         ).validate_sources()
@@ -48,7 +48,7 @@ def validate_file_resources(
     ]
     if script_roots:
         ScriptLibraryCatalog(
-            base_dir / "data" / "script-library",
+            data_dir / "script-library",
             extension_roots=script_roots,
             owner_enabled=owner_enabled,
         ).validate_sources()

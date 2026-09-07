@@ -29,6 +29,7 @@ from .source_selection import canonicalize_plugin_source
 
 
 REGISTRY_SCHEMA_VERSION = 1
+REGISTRY_USER_AGENT = "DeterminFlow-Plugin-Registry/1.0"
 MANIFEST_NAME = "manifest.json"
 SIGNATURE_NAME = "manifest.json.sig"
 MAX_MANIFEST_BYTES = 1_048_576
@@ -239,7 +240,11 @@ def https_get(
 ) -> bytes:
     canonical = canonicalize_registry_url(url)
     try:
-        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+        with httpx.Client(
+            timeout=timeout,
+            follow_redirects=True,
+            headers={"User-Agent": REGISTRY_USER_AGENT},
+        ) as client:
             with client.stream("GET", canonical) as response:
                 final_url = str(response.url)
                 canonicalize_registry_url(final_url)

@@ -13,7 +13,7 @@ export interface HeaderStatusAction {
   kind: "manage" | "link" | "page" | "request";
   href?: string;
   endpoint?: string;
-  method?: "POST" | "DELETE";
+  method?: "GET" | "POST" | "DELETE";
 }
 
 export type ExtensionAnnouncementLevel = "info" | "maintenance" | "warning";
@@ -156,7 +156,7 @@ function parseActions(value: unknown): HeaderStatusAction[] | null {
       result.push({ id, label, kind: "page" });
     } else if (item.kind === "request") {
       const endpoint = safeApiEndpoint(item.endpoint);
-      const method = item.method === "POST" || item.method === "DELETE"
+      const method = item.method === "GET" || item.method === "POST" || item.method === "DELETE"
         ? item.method
         : null;
       if (!endpoint || !method) return null;
@@ -175,7 +175,7 @@ function parseActions(value: unknown): HeaderStatusAction[] | null {
 export function isActiveHeaderStatusSource(status: ExtensionStatus): boolean {
   return Boolean(
     status.enabled
-      && status.status === "running"
+      && (status.status === "running" || status.status === "degraded")
       && status.header_status?.endpoint,
   );
 }
@@ -239,5 +239,16 @@ export function parseHeaderStatusResponse(value: unknown): HeaderStatusPayload |
     announcements,
     refresh_after_ms: refreshAfterMs,
     updated_at: updatedAt,
+  };
+}
+
+export function unavailableHeaderStatus(source: ExtensionStatus): HeaderStatusPayload {
+  return {
+    visible: true, label: source.name, value: "状态异常",
+    title: `${source.name}状态暂时不可用`,
+    summary: "暂时无法读取状态，请重试。", tone: "attention",
+    metrics: [], metadata: [], announcements: [],
+    actions: [{ id: "status-retry", label: "重试", kind: "request", method: "GET", endpoint: source.header_status?.endpoint }],
+    updated_at: new Date().toISOString(),
   };
 }

@@ -739,7 +739,7 @@ dependencies = [
 
 [[package]]
 name = "determinflow-desktop"
-version = "1.0.10"
+version = "1.1.0"
 dependencies = [
  "futures-util",
  "libc",

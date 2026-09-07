@@ -195,7 +195,7 @@ test("does not present an older catalog revision as an update", () => {
       ...catalogEntry,
       version: "1.2.0",
     }])?.available,
-    true,
+    false,
   );
 });
 

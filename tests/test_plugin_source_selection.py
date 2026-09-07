@@ -145,3 +145,11 @@ def test_fails_when_all_sources_are_unavailable(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="所有拉取地址均不可用"):
         source_selection.select_git_source(urls, "main")
+
+
+def test_probe_historical_commit_remains_a_checkout_candidate(monkeypatch):
+    monkeypatch.setattr(source_selection.subprocess, "run", lambda args, **kw:
+        source_selection.subprocess.CompletedProcess(args, 0, stdout=f"{'b' * 40}\tHEAD\n", stderr=""))
+    result = source_selection._probe_git_source("https://example.invalid/plugins.git", "a" * 40,
+        git_binary="git", timeout_seconds=1)
+    assert result.commit == "a" * 40

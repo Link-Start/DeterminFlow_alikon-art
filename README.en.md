@@ -133,6 +133,12 @@ roughly **70%–89%**.
 - MCP tools, Prompt and Agent templates, Skills, and Rules as reusable Workflow building blocks
 - A standalone Core that does not require any product plugin
 
+### Resource marketplace and shared account
+
+- Discover, install, update, and publish community Skills; this release distributes Skills only
+- Check updates from the Skills page with source, version, and content verification
+- Use one account for the marketplace and public model service, with browser authorization and desktop return
+
 ### One workspace around the Workflow
 
 Conversation, Workflow authoring, Cron, Skills, Rules, and Plugins live in one control plane.
@@ -184,8 +190,11 @@ current public release contains:
 | 7 | 84 | 33 | 15 |
 
 It covers book setup, characters, story planning, volume and near-term outlines, chapter production,
-post-hoc state updates, and polishing, together with APIs, SSE jobs, PostgreSQL migrations, and
-checkpoint recovery. Plugins are the best way to package and deliver a complete AI business engine.
+post-hoc state updates, and polishing. The public plugin uses local files and checkpoints in the
+user workspace; it does not require a database, separate API service, or migrations.
+
+The optional [`public-api`](https://github.com/alikon-art/DeterminFlow-Plugins/tree/main/plugins/public-api)
+plugin provides the public model service on Windows and macOS and shares the Core account session.
 
 > [!NOTE]
 > Plugins compose Workflows from existing Core Nodes. Developers who need a new node type can fork
@@ -196,7 +205,31 @@ checkpoint recovery. Plugins are the best way to package and deliver a complete 
 
 <a id="quick-start"></a>
 
-## Quick start 🚀
+## Quick start
+
+### Desktop installers
+
+Download from [GitHub Releases](https://github.com/alikon-art/DeterminFlow/releases/latest) or the
+[website download page](https://determinflow.com/download). Installers include the runtime; Python,
+Node.js, and Git are not required to start the desktop app.
+
+| Platform | Core | Full |
+|---|---|---|
+| Windows x64 | `DeterminFlow_1.1.0_x64-setup.exe` | `DeterminFlow_1.1.0_x64-full-setup.exe` |
+| macOS Apple Silicon | `DeterminFlow_1.1.0_aarch64.dmg` | `DeterminFlow_1.1.0_aarch64-full.dmg` |
+
+Core bundles no plugins. Full includes `bishu-novel 0.2.2` and `public-api 0.1.36`.
+Use the first-run guide to configure your own model API or try the public model service.
+
+The macOS app is ad-hoc signed and has not been notarized by Apple. Drag it into Applications.
+If macOS blocks opening it, use **System Settings → Privacy & Security → Open Anyway** and confirm.
+macOS updates currently require downloading and installing the new package manually.
+
+Upgrades preserve user data, model configuration, and installed plugins. **Full does not overwrite
+existing plugins.** Check for plugin updates in the app and restart after updating. Official plugins
+support signed HTTPS downloads, with Git as a fallback.
+
+### Run from source
 
 Python 3.11+, Node.js 22.12+, and npm are required. Choose the commands for your system.
 
@@ -233,7 +266,7 @@ Then open:
 
 - Web UI: `http://localhost:8020`
 - API docs: `http://localhost:8020/docs`
-- Plugin status: `GET /api/extensions`
+- Plugin status: `GET /api/plugins`
 
 Or start with Docker:
 
@@ -295,7 +328,6 @@ docker compose -f docker-compose.yml config -q
 - Add stronger per-node workspace and LLM execution sandboxes
 - Provide reusable templates for publishing a Workflow as an independent API or service
 - Add more reproducible production Workflow examples
-- Define the compatibility and versioning policy beyond `v0.1.0`
 
 ## License
 

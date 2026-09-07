@@ -144,7 +144,12 @@ def resolve_latest_official_plugin_lock(
     repo_root: Path,
     source_file: Path,
 ) -> dict[str, Any]:
-    sources = _official_sources(source_file)
+    # The release lock follows the canonical Git branch. A valid but stale
+    # distribution manifest or mirror must not pin a previous Plugin snapshot.
+    sources = tuple(
+        replace(source, registry=None, mirrors=())
+        for source in _official_sources(source_file)
+    )
     catalog = _catalog_or_raise(sources)
     source = sources[0]
     source_results = catalog.get("sources", [])
@@ -220,7 +225,9 @@ def pin_official_sources(
         or source.ref != expected["ref"]
     ):
         raise RuntimeError("桌面官方 Plugin 来源与构建锁不一致")
-    return (replace(source, ref=expected["commit"]),)
+    # A latest-manifest registry may describe a different commit. Build inputs
+    # must resolve the locked Git object even while distribution is catching up.
+    return (replace(source, ref=expected["commit"], registry=None, mirrors=()),)
 
 
 def validate_locked_catalog(

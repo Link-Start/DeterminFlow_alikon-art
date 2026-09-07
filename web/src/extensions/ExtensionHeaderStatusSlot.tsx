@@ -6,6 +6,7 @@ import { useExtensionStatuses } from "./context-value";
 import {
   isActiveHeaderStatusSource,
   parseHeaderStatusResponse,
+  unavailableHeaderStatus,
   type HeaderStatusAction,
   type HeaderStatusPayload,
 } from "./header-status-model";
@@ -62,7 +63,11 @@ async function fetchHeaderStatus(
     headers: { Accept: "application/json" },
   });
   if (!response.ok) throw new Error(`Header status request failed: ${response.status}`);
-  return parseHeaderStatusResponse(await response.json());
+  const body = await response.json();
+  if (body?.header_status?.visible === false) return null;
+  const payload = parseHeaderStatusResponse(body);
+  if (!payload) throw new Error("插件状态响应无效");
+  return payload;
 }
 
 export function ExtensionHeaderStatusSlot({ onManage }: ExtensionHeaderStatusSlotProps) {
@@ -103,6 +108,7 @@ export function ExtensionHeaderStatusSlot({ onManage }: ExtensionHeaderStatusSlo
       });
       return Boolean(payload);
     } catch {
+      setEntries((current) => ({ ...current, [source.id]: { source, payload: unavailableHeaderStatus(source) } }));
       return false;
     }
   }, []);

@@ -41,7 +41,7 @@ GitHub 临时分支 `codex/desktop-tauri-poc` 会运行 `.github/workflows/deskt
 
 ## macOS Apple Silicon 候选包
 
-macOS 打包与 Windows 正式发行链路独立，不改变 NSIS、Updater、Tag 或 GitHub Release 行为。当前只提供 **Apple Silicon（arm64）Core 候选**，不是已签名、已公证的正式桌面版。私有仓库不新增 `.github` 公开发行工作流。
+macOS 打包与 Windows 正式发行链路独立，不改变 NSIS、Updater、Tag 或 GitHub Release 行为。当前提供 **Apple Silicon（arm64）Core / Full 候选**，采用 ad-hoc 签名，尚未经过 Developer ID 签名与 Apple 公证。私有仓库不新增 `.github` 公开发行工作流。
 
 | 部分 | 实现 |
 |---|---|
@@ -53,7 +53,7 @@ macOS 打包与 Windows 正式发行链路独立，不改变 NSIS、Updater、Ta
 | 范围 | 只构建 Core，不构建 Full |
 | 发布 | 本地候选验证，不创建 Tag 或 Release |
 
-图标由 `desktop/scripts/generate_macos_icon.py` 从 `web/public/brand/determinflow-mark.svg` 生成 `desktop/src-tauri/icons/icon.icns`。Tauri 会自动合并 `tauri.macos.conf.json`；macOS 必须使用 `npm run build:macos`，不要直接运行 Windows 使用的 `npm run build`。
+图标由 `desktop/scripts/generate_macos_icon.py` 从 `web/public/brand/determinflow-mark.svg` 生成 `desktop/src-tauri/icons/icon.icns`。Tauri 会自动合并 `tauri.macos.conf.json`；macOS 必须使用 `npm run build:macos`，不要直接运行 Windows 使用的 `npm run build`。该命令先由 Tauri 生成应用，再对最终路径中的冻结后端二进制及完整应用签名、严格验证，最后生成 DMG，避免 Python 框架别名在资源复制后签名失效。
 
 未签名候选包在本机打开时，可能需要在 Finder 中右键打开，或先清除隔离属性。这不表示已经完成 Apple 代码签名或公证。
 
@@ -112,6 +112,15 @@ desktop/.build/macos-venv/bin/python desktop/scripts/verify_bundle.py \
 
 ## 桌面更新发布
 
+每次社区版正式发版都必须完成以下两项加速分发收尾，候选构建不执行：
+
+1. **同步最新桌面安装包**：GitHub 正式 Release 验证通过后，Windows 发布流水线把该版本的 Core/Full 安装包、签名及校验文件同步到 R2，公网内容校验通过后才更新稳定 `latest.json`。发行完成前必须确认稳定清单的版本与签名对应本次 GitHub Release；同步失败不得把发行标记为完成。
+2. **同步最新官方插件**：在 `DeterminFlow-Plugins` 仓库手动运行 `CI`，使用当前公开 `main`，将 `core_ref` 设置为本次 Core Tag 或精确 Commit，并明确勾选 `publish_registry`。插件测试通过后同步不可变包和签名目录，最后更新稳定 Manifest。核对公网目录的 Commit 与本次选定的官方插件提交一致，并通过签名、归档摘要及内容摘要验证；不能只检查 URL 返回 200。Full 的内置快照仍以本次构建锁为准，不改写旧安装包。
+
+两个仓库必须保持 `R2_DISTRIBUTION_ENABLED=true`。任何一个同步步骤失败，都作为本次正式发版的未完成项处理。普通 PR 和 macOS 候选构建只上传 Actions 产物，不更新 R2 稳定入口。
+
+macOS 候选由 `Desktop macOS candidate` 工作流生成，分别生成 Apple Silicon Core 与 Full；Full 捆绑锁定的公开官方插件快照。两种候选均包含 DMG、SHA-256、冻结后端、包内及 DMG 安装副本后端验证。候选使用 ad-hoc 本地签名，CI 严格校验应用和内置二进制签名；尚未经 Developer ID 签名、公证和用户侧安装验收，不进入官网正式下载或自动更新清单。
+
 桌面端并行检查 R2、GitHub 与 Gitee 的最新发布。相同版本与签名下优先使用 R2；R2 不可用或签名与 GitHub/Gitee 权威发布不一致时，回退原有 GitHub/Gitee 选择规则。所有来源最终都必须通过同一 Tauri 公钥验签，R2 只承载分发流量，不改变 GitHub Tag 和 Release 的版本权威。
 
 正式发布仍先创建 GitHub Release，并同时上传 Core/Full NSIS 安装包、各自同名 `.sig`、SHA-256 文件和 `latest.json`。当仓库变量 `R2_DISTRIBUTION_ENABLED=true` 时，发布任务再调用 `desktop/scripts/publish_r2_release.py`：先上传并公开校验 `desktop/releases/vX/` 下的不可变资产，最后更新 `desktop/stable/latest.json`。同名不可变对象内容不一致时任务会失败，不会覆盖历史版本。R2 凭据只通过 `R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY` Secret 和 `R2_BUCKET`、`R2_ENDPOINT_URL` Variable 注入。更新签名私钥不得进入 Git，只通过 `TAURI_SIGNING_PRIVATE_KEY` Secret 注入构建。macOS 候选包不进入该更新通道。
@@ -129,6 +138,6 @@ R2 不可用、签名或内容校验失败时回退 GitHub/Gitee Git 源。自�
 - Windows 安装包尚未做 Authenticode（Windows 代码签名），因此不同 Windows 设备上的 SmartScreen 表现可能不同。
 - 正式 Windows 发布前必须在 Windows Runner 验证正常关窗、重复启动、Updater 安装、覆盖安装与卸载
   都不会遗留 `determinflow-backend.exe`，并完成一次真实跨版本升级验收。
-- macOS 候选包未做 Apple 代码签名和公证，不进入 GitHub Release，也不提供自动更新。
+- macOS 候选包采用 ad-hoc 本地签名，未做 Developer ID 签名和 Apple 公证，不进入 GitHub Release，也不提供自动更新。
 - 不内置 Node.js、npm、Git 或 Git Bash。Windows 上 `execute_command` 使用 `cmd.exe`；Python Workflow 由冻结后端兼容执行；Shell Workflow 需要用户另行安装 Git Bash。
 - Windows `downloadBootstrapper` 保持安装包较小。Windows 10/11 通常已有 WebView2；缺失时安装器需要联网下载。

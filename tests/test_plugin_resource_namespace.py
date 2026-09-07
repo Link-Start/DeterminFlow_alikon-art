@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,46 @@ from src.extension_host.workflow_provisioning import (
 from src.plugin_system import PluginStore
 from src.skills.config_manager import SkillConfigManager
 from src.skills.manager import SkillManager
+
+
+def test_executor_readers_reuse_controller_projection_without_replacing_it(tmp_path, monkeypatch):
+    source = tmp_path / "agents.json"
+    source.write_text('{"agents": {"writer": {"name": "Writer"}}}', encoding="utf-8")
+    manifest = ExtensionManifest(
+        extension_id="demo-plugin", name="Demo", version="1.0.0", resource_prefix="demo",
+    )
+    paths = {"agents": [OwnedPath("demo-plugin", source)]}
+    root = tmp_path / "runtime"
+    prepared = prepare_plugin_resources(
+        manifest, paths, runtime_root=root, resolver=ResourceIdResolver(), revision="rev1",
+    )
+    expected = prepared.paths["agents"][0].path
+    contents = expected.read_bytes()
+
+    def forbid_replacement(*args):
+        raise AssertionError("an executor must not replace the shared resource directory")
+
+    monkeypatch.setattr(
+        "src.extension_host.resource_preparation._atomic_replace_directory", forbid_replacement,
+    )
+
+    def read(_):
+        return prepare_plugin_resources(
+            manifest, paths, runtime_root=root, resolver=ResourceIdResolver(),
+            revision="rev1", read_only=True,
+        ).paths["agents"][0].path.read_bytes()
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        assert list(pool.map(read, range(20))) == [contents] * 20
+    assert expected.read_bytes() == contents
+    with pytest.raises(ValueError, match="revision mismatch"):
+        prepare_plugin_resources(
+            manifest, paths, runtime_root=root, resolver=ResourceIdResolver(),
+            revision="rev2", read_only=True,
+        )
+    expected.unlink()
+    with pytest.raises(ValueError, match="unavailable"):
+        read(0)
 
 
 def _write_json(path: Path, value: dict) -> None:

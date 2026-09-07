@@ -1,0 +1,86 @@
+name: Desktop macOS
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths:
+      - desktop/**
+      - .github/workflows/desktop-macos.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Apple Silicon ${{ matrix.flavor }} candidate
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [core, full]
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: arm64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install compatible frozen backend dependencies
+        run: python desktop/scripts/install_macos_build_dependencies.py
+      - name: Test packaging contracts
+        run: python -m pytest tests/test_desktop_packaging.py tests/test_desktop_public_model_smoke.py tests/test_desktop_plugin_lock.py tests/test_desktop_macos_signing.py -q
+      - name: Verify latest official Plugin lock for Full candidate
+        if: matrix.flavor == 'full' && github.ref_type != 'tag'
+        run: python desktop/scripts/refresh_official_plugin_lock.py --check
+      - name: Build web application
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Build and test frozen backend
+        run: |
+          python desktop/scripts/build_backend.py --flavor ${{ matrix.flavor }}
+          python desktop/scripts/smoke_backend.py --timeout 180
+      - name: Build ad-hoc signed app and DMG
+        run: |
+          python desktop/scripts/generate_macos_icon.py
+          cd desktop
+          npm ci
+          npm run build:macos -- --flavor ${{ matrix.flavor }}
+      - name: Verify app, DMG and bundled backend
+        run: |
+          python desktop/scripts/verify_bundle.py --expected-flavor ${{ matrix.flavor }} \
+            --app-bundle desktop/src-tauri/target/release/bundle/macos/DeterminFlow.app \
+            --dmg desktop/src-tauri/target/release/bundle/dmg/*.dmg \
+            --verify-macos-load-commands --verify-macos-signatures --verify-dmg-container \
+            --forbid-updater-artifacts desktop/src-tauri/target/release/bundle
+          python desktop/scripts/smoke_backend.py --timeout 180 \
+            desktop/src-tauri/target/release/bundle/macos/DeterminFlow.app/Contents/Resources/runtime/backend/determinflow-backend
+      - name: Verify backend from installed DMG copy
+        run: |
+          mount_dir=$(mktemp -d)
+          install_dir=$(mktemp -d)
+          trap 'hdiutil detach "$mount_dir" >/dev/null 2>&1 || true; rm -rf "$mount_dir" "$install_dir"' EXIT
+          hdiutil attach desktop/src-tauri/target/release/bundle/dmg/*.dmg -nobrowse -mountpoint "$mount_dir"
+          ditto "$mount_dir/DeterminFlow.app" "$install_dir/DeterminFlow.app"
+          hdiutil detach "$mount_dir"
+          codesign --verify --deep --strict --verbose=2 "$install_dir/DeterminFlow.app"
+          python desktop/scripts/smoke_backend.py --timeout 180 \
+            "$install_dir/DeterminFlow.app/Contents/Resources/runtime/backend/determinflow-backend"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeterminFlow-macOS-arm64-${{ matrix.flavor }}-adhoc-candidate
+          path: |
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/release/bundle/dmg/*.sha256
+          if-no-files-found: error
+          retention-days: 14

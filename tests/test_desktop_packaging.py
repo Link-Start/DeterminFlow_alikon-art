@@ -286,6 +286,9 @@ def test_desktop_workflow_builds_candidates_and_publishes_tags() -> None:
     assert "softprops/action-gh-release" not in workflow
     assert "gh release create" in workflow.lower()
     assert "contents: write" in workflow
+    assert "needs: [build, build-macos]" in workflow
+    assert "uses: ./.github/workflows/desktop-macos.yml" in workflow
+    assert "pattern: DeterminFlow-*" in workflow
     assert "release-assets/latest.json" in workflow
     assert "desktop/scripts/publish_r2_release.py" in workflow
     assert "R2_DISTRIBUTION_ENABLED" in workflow
@@ -516,7 +519,7 @@ def test_desktop_versions_are_consistent() -> None:
         encoding="utf-8"
     )
 
-    assert tauri["version"] == "1.0.10"
+    assert tauri["version"] == "1.1.0"
     assert package["version"] == tauri["version"]
     assert f'version = "{tauri["version"]}"' in cargo
 
@@ -631,6 +634,8 @@ def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path) 
     installer.write_bytes(b"installer")
     installer.with_suffix(".exe.sig").write_text("signed", encoding="utf-8")
     (assets / "DeterminFlow_1.2.3_x64-full-setup.exe").write_bytes(b"full")
+    (assets / "DeterminFlow_1.2.3_aarch64.dmg").write_bytes(b"mac core")
+    (assets / "DeterminFlow_1.2.3_aarch64-full.dmg").write_bytes(b"mac full")
     notes = tmp_path / "notes.md"
     notes.write_text("R2 release", encoding="utf-8")
     calls: list[tuple[str, str, str]] = []
@@ -652,6 +657,10 @@ def test_r2_release_publishes_latest_only_after_verified_assets(tmp_path: Path) 
         publisher=RecordingPublisher(),  # type: ignore[arg-type]
     )
 
+    assert {key.rsplit("/", 1)[-1] for _, key, _ in calls} >= {
+        "DeterminFlow_1.2.3_aarch64.dmg", "DeterminFlow_1.2.3_aarch64-full.dmg"
+    }
+    assert set(json.loads(calls[-1][2])["platforms"]) == {"windows-x86_64"}
     assert calls[-1][0:2] == ("latest", "desktop/stable/latest.json")
     assert all(call[0] == "immutable" for call in calls[:-1])
     assert json.loads(calls[-1][2])["platforms"]["windows-x86_64"][
@@ -717,11 +726,25 @@ def test_macos_overlay_keeps_windows_nsis_and_updater_contract() -> None:
     assert macos["bundle"]["macOS"]["minimumSystemVersion"] == "11.0"
     assert package["scripts"]["build"] == "tauri build"
     assert "--config" not in package["scripts"]["build:macos"]
-    assert "--bundles app,dmg" in package["scripts"]["build:macos"]
-    assert "--no-sign" in package["scripts"]["build:macos"]
-    assert not (
+    assert package["scripts"]["build:macos"] == "python3 scripts/build_macos.py"
+    assert "--no-sign" not in package["scripts"]["build:macos"]
+    assert macos["bundle"]["macOS"]["signingIdentity"] == "-"
+    assert macos["bundle"]["macOS"]["hardenedRuntime"] is False
+    workflow = (
         REPO_ROOT / ".github" / "workflows" / "desktop-macos.yml"
-    ).exists()
+    ).read_text(encoding="utf-8")
+    assert "macos-15" in workflow
+    assert "flavor: [core, full]" in workflow
+    assert "--flavor ${{ matrix.flavor }}" in workflow
+    assert "--expected-flavor ${{ matrix.flavor }}" in workflow
+    assert "refresh_official_plugin_lock.py --check" in workflow
+    assert "DeterminFlow-macOS-arm64-${{ matrix.flavor }}-adhoc-candidate" in workflow
+    assert "--verify-macos-load-commands" in workflow
+    assert "--verify-macos-signatures" in workflow
+    assert "codesign --verify --deep --strict" in workflow
+    assert "--forbid-updater-artifacts" in workflow
+    assert "contents: write" not in workflow
+    assert "gh release" not in workflow
 
 
 def test_macos_build_dependencies_are_resolved_for_macos_11_arm64(
@@ -803,7 +826,7 @@ def test_macos_arm64_executable_rejects_universal_and_intel(
         verify_macos_arm64_executable(executable)
 
 
-def test_macos_app_and_dmg_verification(tmp_path: Path) -> None:
+def test_macos_app_and_dmg_verification(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     app = tmp_path / "DeterminFlow.app"
     executable = app / "Contents" / "MacOS" / "determinflow-desktop"
     backend = (
@@ -818,6 +841,19 @@ def test_macos_app_and_dmg_verification(tmp_path: Path) -> None:
     }
     (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps(plist))
     verify_macos_app_bundle(app)
+    calls = []
+    def checked_run(command, **kwargs):
+        assert kwargs["check"] is True
+        calls.append(command)
+    monkeypatch.setattr("desktop.scripts.verify_bundle.subprocess.run", checked_run)
+    verify_macos_app_bundle(app, verify_signatures=True)
+    assert {command[-1] for command in calls} == {str(executable), str(backend), str(app)}
+    assert all(command[:5] == ["codesign", "--verify", "--deep", "--strict", "--verbose=2"] for command in calls)
+    def invalid_signature(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command)
+    monkeypatch.setattr("desktop.scripts.verify_bundle.subprocess.run", invalid_signature)
+    with pytest.raises(subprocess.CalledProcessError):
+        verify_macos_app_bundle(app, verify_signatures=True)
 
     dmg = tmp_path / "DeterminFlow_1.0.2_aarch64.dmg"
     dmg.write_bytes(b"dmg" * 400)

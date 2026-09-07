@@ -116,6 +116,7 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
         base_dir: Path,
         *,
         config_file: Path | None = None,
+        data_dir: Path | None = None,
         workflows_dir: Path | None = None,
         enabled: Iterable[str] | None = None,
         discover_entry_points: bool = True,
@@ -123,8 +124,11 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
         plugin_store: PluginStore | None = None,
         process_manager: ProcessManager | None = None,
         plugin_logs_dir: Path | None = None,
+        reuse_prepared_resources: bool = False,
     ):
+        self._reuse_prepared_resources = reuse_prepared_resources
         self.base_dir = Path(base_dir).resolve()
+        self.data_dir = Path(data_dir or self.base_dir / "data").resolve()
         self.extensions_dir = self.base_dir / "extensions"
         self.config_file = Path(
             config_file or self.base_dir / "config" / "extensions.json"
@@ -162,7 +166,10 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
                     if source.registry is not None
                 },
             )
-        self._applied_plugin_records = self.plugin_store.apply_pending()
+        self._applied_plugin_records = (
+            self.plugin_store.read_lock()
+            if reuse_prepared_resources else self.plugin_store.apply_pending()
+        )
         self.plugin_config_store = PluginConfigStore(self.plugins_dir / "config")
         self.plugin_data_dir = self.plugins_dir / "data"
         self.plugin_runtime_resources_dir = self.plugins_dir / "runtime-resources"
@@ -508,6 +515,7 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
                         runtime_root=self.plugin_runtime_resources_dir,
                         resolver=self.resource_resolver,
                         revision=revision,
+                        read_only=self._reuse_prepared_resources,
                     )
                     pending.resource_paths = prepared.paths
                 else:
@@ -615,7 +623,7 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
             store.validate_sources()
 
         self._validate_workflow_resources(pending)
-        validate_file_resources(self.base_dir, self.contributions, pending)
+        validate_file_resources(self.data_dir, self.contributions, pending)
 
     def _validate_workflow_resources(
         self,

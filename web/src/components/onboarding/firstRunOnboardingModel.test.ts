@@ -251,3 +251,13 @@ test("API error details are reduced to actionable copy", () => {
     "API Key 无效或无权读取模型列表",
   );
 });
+
+
+test("anonymous onboarding follows service catalog and defaults to auto before activation", async () => {
+  const { managedModelChoices } = await import("./firstRunOnboardingModel");
+  assert.deepEqual(managedModelChoices(null), ["auto"]);
+  const status = { signedIn: false, models: ["auto"] } as import("./firstRunOnboardingModel").ManagedModelStatus;
+  assert.deepEqual(managedModelChoices(status), ["auto"]);
+  assert.deepEqual(managedModelChoices({ ...status, models: ["new-server-model"] }), ["new-server-model"]);
+  assert.deepEqual(managedModelChoices({ ...status, signedIn: true, models: [] }), []);
+});

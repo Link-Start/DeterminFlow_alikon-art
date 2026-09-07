@@ -518,11 +518,40 @@ def prepare_plugin_resources(
     runtime_root: Path,
     resolver: ResourceIdResolver,
     revision: str = "",
+    read_only: bool = False,
 ) -> PreparedPluginResources:
     """Build an atomic, namespaced runtime projection for one Plugin."""
     plan = build_plugin_resource_plan(manifest, resource_paths)
     resolver.register(plan)
     runtime_root = Path(runtime_root).resolve()
+    destination = runtime_root / manifest.extension_id
+    marker_name = ".prepared-resources.json"
+    if read_only:
+        try:
+            marker = _read_json(destination / marker_name)
+            if (
+                marker.get("owner") != manifest.extension_id
+                or marker.get("revision") != revision
+                or marker.get("schema_version") != 1
+            ):
+                raise ValueError("Plugin prepared resource revision mismatch")
+            resolved_paths: dict[str, list[OwnedPath]] = {}
+            for resource_type, paths in resource_paths.items():
+                relatives = marker["paths"].get(resource_type, [])
+                if not isinstance(relatives, list) or len(relatives) != len(paths):
+                    raise ValueError("Plugin prepared resource list mismatch")
+                resolved_paths[resource_type] = []
+                for relative in relatives:
+                    path = (destination / relative).resolve()
+                    if not path.is_relative_to(destination) or not path.exists():
+                        raise ValueError("Plugin prepared resource path is unavailable")
+                    resolved_paths[resource_type].append(
+                        OwnedPath(manifest.extension_id, path, revision)
+                    )
+            return PreparedPluginResources(paths=resolved_paths, plan=plan)
+        except Exception:
+            resolver.unregister(manifest.extension_id)
+            raise
     runtime_root.mkdir(parents=True, exist_ok=True)
     staging = Path(
         tempfile.mkdtemp(
@@ -530,7 +559,6 @@ def prepare_plugin_resources(
             dir=runtime_root,
         )
     )
-    destination = runtime_root / manifest.extension_id
     prepared: dict[str, list[OwnedPath]] = {}
     try:
         for resource_type, owned_paths in resource_paths.items():
@@ -637,6 +665,21 @@ def prepare_plugin_resources(
                 prepared.setdefault(resource_type, []).append(
                     OwnedPath(manifest.extension_id, target, revision)
                 )
+        (staging / marker_name).write_text(
+            json.dumps({
+                "schema_version": 1,
+                "owner": manifest.extension_id,
+                "revision": revision,
+                "paths": {
+                    resource_type: [
+                        owned.path.relative_to(staging).as_posix()
+                        for owned in paths
+                    ]
+                    for resource_type, paths in prepared.items()
+                },
+            }, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         _atomic_replace_directory(staging, destination)
         resolved_paths = {
             resource_type: [
