@@ -9,6 +9,7 @@ import {
 } from "../components/extensions/PluginInstallForm.tsx";
 import { PluginLifecycleList } from "../components/extensions/PluginLifecycleList.tsx";
 import { PluginRepositoryDialog } from "../components/extensions/PluginRepositoryDialog.tsx";
+import { PluginRepositoryList } from "../components/extensions/PluginRepositoryList.tsx";
 import type {
   PluginCatalogEntry,
   PluginCatalogSource,
@@ -185,6 +186,44 @@ test("catalog installs pin the commit shown to the user", () => {
     resource_prefix: "demo",
     acknowledge_risk: false,
   });
+});
+
+test("repository list keeps saved sources visible while the catalog is still syncing", () => {
+  const pending = {
+    ...sources[0],
+    resolved_commit: "",
+    plugin_count: 0,
+    error: "",
+    selected_url: "",
+    transport: "" as const,
+  };
+  const syncingMarkup = renderToStaticMarkup(createElement(PluginRepositoryList, {
+    sources: [pending],
+    loading: false,
+    busyAction: "",
+    readOnly: false,
+    onBrowse: noop,
+    onEdit: noop,
+    onDeleteRequest: noop,
+    onRefresh: noop,
+  }));
+  assert.match(syncingMarkup, /DeterminFlow 官方插件/);
+  assert.match(syncingMarkup, /同步中/);
+  assert.doesNotMatch(syncingMarkup, /还没有可用的插件仓库/);
+  assert.doesNotMatch(syncingMarkup, /0 个插件/);
+
+  const loadingMarkup = renderToStaticMarkup(createElement(PluginRepositoryList, {
+    sources: [],
+    loading: true,
+    busyAction: "",
+    readOnly: false,
+    onBrowse: noop,
+    onEdit: noop,
+    onDeleteRequest: noop,
+    onRefresh: noop,
+  }));
+  assert.match(loadingMarkup, /正在加载仓库/);
+  assert.doesNotMatch(loadingMarkup, /还没有可用的插件仓库/);
 });
 
 test("installed plugins expose one dedicated description column", () => {

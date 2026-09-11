@@ -187,6 +187,46 @@ def test_catalog_service_returns_immediately_during_first_refresh(
     assert worker.is_alive() is False
 
 
+def test_catalog_service_keeps_configured_sources_during_first_refresh(
+    monkeypatch,
+):
+    started = threading.Event()
+    release = threading.Event()
+    source = PluginSourceConfig(
+        id="official-demo",
+        name="Local Official",
+        url="https://example.invalid/plugins.git",
+        ref="main",
+        kind="official",
+        builtin=True,
+    )
+
+    def fetch(sources):
+        started.set()
+        assert release.wait(timeout=2)
+        return {"sources": [], "plugins": []}
+
+    monkeypatch.setattr(
+        "src.extension_host.source_config.fetch_plugin_catalog",
+        fetch,
+    )
+    service = PluginCatalogService((source,))
+    worker = threading.Thread(target=service.get)
+    worker.start()
+    assert started.wait(timeout=2)
+
+    concurrent = service.get()
+    release.set()
+    worker.join(timeout=2)
+
+    assert concurrent["refreshing"] is True
+    assert concurrent["plugins"] == []
+    assert concurrent["sources"][0]["id"] == "official-demo"
+    assert concurrent["sources"][0]["name"] == "Local Official"
+    assert concurrent["sources"][0]["resolved_commit"] == ""
+    assert worker.is_alive() is False
+
+
 def test_catalog_service_uses_frozen_canonical_source_snapshot(
     tmp_path: Path,
 ):

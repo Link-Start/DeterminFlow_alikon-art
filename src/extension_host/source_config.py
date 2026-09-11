@@ -191,6 +191,17 @@ def source_config_response(source: PluginSourceConfig) -> dict[str, Any]:
     }
 
 
+def catalog_source_placeholder(source: PluginSourceConfig) -> dict[str, Any]:
+    return {
+        **source_config_response(source),
+        "resolved_commit": "",
+        "plugin_count": 0,
+        "error": "",
+        "selected_url": "",
+        "transport": "",
+    }
+
+
 def _custom_source_document(source: PluginSourceConfig) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "id": source.id,
@@ -480,14 +491,7 @@ def fetch_plugin_catalog(
     plugins: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
     for source in tuple(configured_sources):
-        source_result: dict[str, Any] = {
-            **source_config_response(source),
-            "resolved_commit": "",
-            "plugin_count": 0,
-            "error": "",
-            "selected_url": "",
-            "transport": "",
-        }
+        source_result: dict[str, Any] = catalog_source_placeholder(source)
         source_plugins: list[dict[str, Any]] = []
         try:
             if source.registry is not None:
@@ -582,7 +586,14 @@ class PluginCatalogService:
             if self._refreshing:
                 if self._cache is not None:
                     return deepcopy(self._cache)
-                return {"sources": [], "plugins": [], "refreshing": True}
+                return {
+                    "sources": [
+                        catalog_source_placeholder(source)
+                        for source in self.sources
+                    ],
+                    "plugins": [],
+                    "refreshing": True,
+                }
             self._refreshing = True
             sources = self.sources
         try:

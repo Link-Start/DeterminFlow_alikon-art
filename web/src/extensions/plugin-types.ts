@@ -146,6 +146,7 @@ export interface PluginCatalogResponse {
   sources: PluginCatalogSource[];
   plugins: PluginCatalogEntry[];
   package_management_read_only?: boolean;
+  refreshing?: boolean;
 }
 
 export interface PluginMutationResponse {

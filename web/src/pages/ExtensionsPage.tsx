@@ -38,9 +38,15 @@ import type {
   PluginSourceRequest,
 } from "@/extensions/plugin-types";
 import {
+  catalogFromRepositorySources,
+  mergePluginCatalog,
+  pluginRepositoryCountLabel,
+} from "@/extensions/plugin-catalog-state";
+import {
   createPluginSource,
   deletePluginSource,
   fetchPluginCatalog,
+  fetchPluginSources,
   fetchPlugins,
   installPlugin,
   rollbackPlugin,
@@ -83,7 +89,10 @@ export default function ExtensionsPage() {
   const [adminToken, setAdminToken] = useState("");
   const [error, setError] = useState("");
   const [catalogError, setCatalogError] = useState("");
+  const [catalogKnown, setCatalogKnown] = useState(false);
   const operationInFlight = useRef(false);
+  const catalogAlive = useRef(true);
+  const catalogPollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [requestedPlugin, setRequestedPlugin] = useUrlParam("plugin");
   const [pluginSettingsIds, setPluginSettingsIds] = useState<Record<string, string>>({});
 
@@ -124,30 +133,65 @@ export default function ExtensionsPage() {
     return () => { active = false; };
   }, []);
 
-  const loadCatalog = useCallback(async (refresh = false) => {
-    setCatalogLoading(true);
+  const loadCatalog = useCallback(async (refresh = false, silent = false) => {
+    if (!silent) setCatalogLoading(true);
     setCatalogError("");
     try {
       const next = await fetchPluginCatalog(refresh);
-      setCatalog(next);
-      const sourceErrors = next.sources
+      if (!catalogAlive.current) return false;
+      let merged = next;
+      setCatalog((current) => {
+        merged = mergePluginCatalog(current, next);
+        return merged;
+      });
+      setCatalogKnown((known) => known || merged.sources.length > 0 || !next.refreshing);
+      const sourceErrors = merged.sources
         .filter((source) => source.error)
         .map((source) => `${source.name}: ${source.error}`)
         .join("；");
       setCatalogError(sourceErrors);
-      return true;
+      if (next.refreshing && catalogAlive.current) {
+        if (catalogPollTimer.current) clearTimeout(catalogPollTimer.current);
+        catalogPollTimer.current = setTimeout(() => {
+          void loadCatalog(false, true);
+        }, 800);
+      }
+      return !next.refreshing;
     } catch (loadError) {
+      if (!catalogAlive.current) return false;
       setCatalogError(loadError instanceof Error ? loadError.message : "插件仓库加载失败");
+      setCatalogKnown(true);
       return false;
     } finally {
-      setCatalogLoading(false);
+      if (!silent) setCatalogLoading(false);
+    }
+  }, []);
+
+  const seedCatalogSources = useCallback(async () => {
+    try {
+      const listed = await fetchPluginSources();
+      if (!catalogAlive.current) return;
+      setCatalog((current) => (
+        current.sources.length > 0
+          ? current
+          : catalogFromRepositorySources(listed.sources)
+      ));
+      setCatalogKnown(true);
+    } catch {
+      return;
     }
   }, []);
 
   useEffect(() => {
+    catalogAlive.current = true;
     void load(true);
+    void seedCatalogSources();
     void loadCatalog();
-  }, [load, loadCatalog]);
+    return () => {
+      catalogAlive.current = false;
+      if (catalogPollTimer.current) clearTimeout(catalogPollTimer.current);
+    };
+  }, [load, loadCatalog, seedCatalogSources]);
 
   useEffect(() => {
     if (
@@ -174,6 +218,7 @@ export default function ExtensionsPage() {
   const restartRequired = data.restart_required
     || data.plugins.some((plugin) => plugin.restart_required);
   const pendingCount = data.plugins.filter((plugin) => plugin.restart_required).length;
+  const repositoryCount = pluginRepositoryCountLabel(catalog.sources.length, catalogKnown);
 
   const runOperation = useCallback(async (
     key: string,
@@ -305,7 +350,8 @@ export default function ExtensionsPage() {
           <div>
             <h2 className="text-lg font-semibold">插件</h2>
             <p className="text-xs text-muted-foreground">
-              {data.plugins.length} 个已安装 · {catalog.sources.length} 个仓库
+              {data.plugins.length} 个已安装
+              {repositoryCount ? ` · ${repositoryCount} 个仓库` : ""}
             </p>
           </div>
         </div>
@@ -368,7 +414,7 @@ export default function ExtensionsPage() {
             className={`border-b-2 px-4 py-2 text-sm font-medium ${tab === "repositories" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
             onClick={() => setTab("repositories")}
           >
-            插件仓库 {catalog.sources.length}
+            插件仓库{repositoryCount ? ` ${repositoryCount}` : ""}
           </button>
         </div>
 
@@ -414,9 +460,20 @@ export default function ExtensionsPage() {
           </Card>
         ) : null}
 
-        {loading ? (
+        {tab === "repositories" ? (
+          <PluginRepositoryList
+            sources={catalog.sources}
+            loading={!catalogKnown && catalog.sources.length === 0}
+            busyAction={busyAction}
+            readOnly={data.package_management_read_only}
+            onBrowse={openCatalog}
+            onEdit={(source) => setRepositoryDialog({ source, view: "form" })}
+            onDeleteRequest={(source) => setRepositoryDialog({ source, view: "delete" })}
+            onRefresh={() => void refreshCatalog()}
+          />
+        ) : loading ? (
           <Card><CardContent className="flex min-h-48 items-center justify-center gap-2 p-6 text-sm text-muted-foreground" role="status"><Loader2 className="animate-spin" aria-hidden="true" />正在加载插件...</CardContent></Card>
-        ) : tab === "installed" ? (
+        ) : (
           <PluginLifecycleList
             plugins={data.plugins}
             catalog={catalog.plugins}
@@ -427,16 +484,6 @@ export default function ExtensionsPage() {
             }}
             onSetEnabled={setEnabled}
             onUpdate={update}
-          />
-        ) : (
-          <PluginRepositoryList
-            sources={catalog.sources}
-            busyAction={busyAction}
-            readOnly={data.package_management_read_only}
-            onBrowse={openCatalog}
-            onEdit={(source) => setRepositoryDialog({ source, view: "form" })}
-            onDeleteRequest={(source) => setRepositoryDialog({ source, view: "delete" })}
-            onRefresh={() => void refreshCatalog()}
           />
         )}
       </main>
