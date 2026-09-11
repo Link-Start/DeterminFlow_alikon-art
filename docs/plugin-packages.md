@@ -74,7 +74,7 @@ single-flight（单次并发刷新），避免一次页面刷新触发多个 Git
 ```json
 {
   "id": "determinflow-official",
-  "name": "DeterminFlow Official Plugins",
+  "name": "DeterminFlow 官方插件",
   "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git",
   "ref": "main",
   "mirrors": [

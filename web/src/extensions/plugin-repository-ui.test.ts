@@ -53,7 +53,7 @@ const sources: PluginCatalogSource[] = [
   },
   {
     id: "community",
-    name: "DeterminFlow Community Plugins",
+    name: "DeterminFlow 社区插件",
     url: "https://github.com/example/community-plugins.git",
     selected_url: "https://github.com/example/community-plugins.git",
     mirrors: [],
@@ -140,6 +140,11 @@ test("install drawer exposes repository controls without a search field", () => 
   assert.match(markup, /官方/);
   assert.match(markup, /社区/);
   assert.match(markup, /第三方/);
+  assert.match(markup, /DeterminFlow 官方插件/);
+  assert.match(markup, /DeterminFlow 社区插件/);
+  assert.doesNotMatch(markup, /Official Plugins|Community Plugins/);
+  assert.doesNotMatch(markup, /acknowledge-third-party-risk/);
+  assert.doesNotMatch(markup, /我已确认仓库来源可信/);
 });
 
 test("repository dialog keeps add, manage, and delete as distinct actions", () => {
@@ -186,6 +191,16 @@ test("catalog installs pin the commit shown to the user", () => {
     resource_prefix: "demo",
     acknowledge_risk: false,
   });
+  assert.equal(
+    buildCatalogInstallRequest({
+      ...catalog[0],
+      source_id: "community",
+      source_name: "DeterminFlow 社区插件",
+      source: sources[2].url,
+      source_kind: "community",
+    }, "", true).acknowledge_risk,
+    true,
+  );
 });
 
 test("repository list keeps saved sources visible while the catalog is still syncing", () => {
@@ -208,6 +223,18 @@ test("repository list keeps saved sources visible while the catalog is still syn
     onRefresh: noop,
   }));
   assert.match(syncingMarkup, /DeterminFlow 官方插件/);
+  const communityMarkup = renderToStaticMarkup(createElement(PluginRepositoryList, {
+    sources: [sources[2]],
+    loading: false,
+    busyAction: "",
+    readOnly: false,
+    onBrowse: noop,
+    onEdit: noop,
+    onDeleteRequest: noop,
+    onRefresh: noop,
+  }));
+  assert.match(communityMarkup, /DeterminFlow 社区插件/);
+  assert.match(communityMarkup, /内置社区/);
   assert.match(syncingMarkup, /同步中/);
   assert.doesNotMatch(syncingMarkup, /还没有可用的插件仓库/);
   assert.doesNotMatch(syncingMarkup, /0 个插件/);

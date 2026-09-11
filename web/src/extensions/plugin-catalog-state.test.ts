@@ -16,7 +16,7 @@ import type {
 
 const official: PluginRepositorySource = {
   id: "determinflow-official",
-  name: "DeterminFlow Official Plugins",
+  name: "DeterminFlow 官方插件",
   url: "https://github.com/alikon-art/DeterminFlow-Plugins.git",
   ref: "main",
   kind: "official",

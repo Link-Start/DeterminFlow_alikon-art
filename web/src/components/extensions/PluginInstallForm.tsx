@@ -12,12 +12,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   isOfficialPluginSource,
+  pluginInstallRiskCopy,
   pluginSourceKindLabel,
+  requiresPluginInstallRiskConfirmation,
 } from "@/extensions/plugin-source-kind";
 import type {
   InstallPluginRequest,
@@ -79,7 +81,7 @@ export function PluginInstallForm({
   const [sourceId, setSourceId] = useState(defaultSourceId);
   const [selectedKey, setSelectedKey] = useState("");
   const [resourcePrefix, setResourcePrefix] = useState("");
-  const [acknowledgeRisk, setAcknowledgeRisk] = useState(false);
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
 
   useEffect(() => {
     if (initialSourceId) setSourceId(initialSourceId);
@@ -89,7 +91,7 @@ export function PluginInstallForm({
     if (sources.some((source) => source.id === sourceId)) return;
     setSourceId(defaultSourceId);
     setSelectedKey("");
-    setAcknowledgeRisk(false);
+    setRiskDialogOpen(false);
   }, [defaultSourceId, sourceId, sources]);
 
   const selectedSource = sources.find((source) => source.id === sourceId) ?? null;
@@ -100,17 +102,27 @@ export function PluginInstallForm({
   const selected = catalog.find((entry) => (
     `${entry.source_id}:${entry.id}` === selectedKey
   )) ?? null;
-  const thirdParty = !isOfficialPluginSource(selectedSource?.kind);
+  const thirdParty = requiresPluginInstallRiskConfirmation(selectedSource?.kind);
+  const riskCopy = pluginInstallRiskCopy(selectedSource?.kind);
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selected || (thirdParty && !acknowledgeRisk)) return;
+  const installSelected = async (acknowledgeRisk: boolean) => {
+    if (!selected) return;
     const installed = await onInstall(buildCatalogInstallRequest(
       selected,
       resourcePrefix,
       acknowledgeRisk,
     ));
     if (installed) onInstalled?.();
+  };
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selected) return;
+    if (thirdParty) {
+      setRiskDialogOpen(true);
+      return;
+    }
+    await installSelected(false);
   };
 
   if (readOnly) {
@@ -161,7 +173,7 @@ export function PluginInstallForm({
                   onClick={() => {
                     setSourceId(source.id);
                     setSelectedKey("");
-                    setAcknowledgeRisk(false);
+                    setRiskDialogOpen(false);
                   }}
                   disabled={busy || Boolean(source.error)}
                 >
@@ -284,25 +296,6 @@ export function PluginInstallForm({
                   />
                 </div>
               </details>
-              {thirdParty ? (
-                <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-                  <ShieldAlert className="mt-0.5 shrink-0 text-destructive" aria-hidden="true" />
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm font-medium">第三方代码与主进程同权限运行</p>
-                    <div className="flex items-start gap-2">
-                      <Checkbox
-                        id="acknowledge-third-party-risk"
-                        checked={acknowledgeRisk}
-                        onCheckedChange={(checked) => setAcknowledgeRisk(checked)}
-                        disabled={busy}
-                      />
-                      <Label htmlFor="acknowledge-third-party-risk" className="text-xs font-normal leading-5">
-                        我已确认仓库来源可信，并理解插件可以访问本机资源。
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
             </CardContent>
           </Card>
         ) : null}
@@ -313,13 +306,44 @@ export function PluginInstallForm({
         <p className="min-w-0 truncate text-xs text-muted-foreground">
           {selected ? `已选择：${selected.name}` : "请选择一个插件"}
         </p>
-        <Button type="submit" disabled={busy || !selected || (thirdParty && !acknowledgeRisk)}>
+        <Button type="submit" disabled={busy || !selected}>
           {busy
             ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden="true" />
             : <PackagePlus data-icon="inline-start" aria-hidden="true" />}
           安装所选插件
         </Button>
       </footer>
+      <Dialog
+        open={riskDialogOpen && Boolean(selected)}
+        title={riskCopy.title}
+        description={riskCopy.description}
+        onClose={() => setRiskDialogOpen(false)}
+      >
+        <div className="mt-6 flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => setRiskDialogOpen(false)}
+            disabled={busy}
+          >
+            取消
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="min-h-11"
+            data-dialog-autofocus
+            disabled={busy}
+            onClick={() => {
+              setRiskDialogOpen(false);
+              void installSelected(true);
+            }}
+          >
+            确认安装
+          </Button>
+        </div>
+      </Dialog>
     </form>
   );
 }

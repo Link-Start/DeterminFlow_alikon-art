@@ -19,6 +19,7 @@
 - 输入框 `@` 引用 Prompt、Agent、Skill、Rule、Workflow 和会话；加号插入 `@`。会话侧栏支持本机置顶。
 - 增加内置社区插件源：`https://github.com/alikon-art/DeterminFlow-Community-Plugins.git`，跟踪 `main`。来源标记为社区，安装仍按第三方信任并要求确认同机同权限风险。官方源、Gitee 镜像和 R2 Registry 保持原样。
 - Core 补齐长期记忆和工作区的宿主接口、设置项与注册方法。没有记忆插件或工作区插件时，这些接口保持空闲，不会假装已经提供存储或召回。对应插件本身不同步。
+- 官方和社区插件仓库显示名改为「DeterminFlow 官方插件」「DeterminFlow 社区插件」。从社区或第三方仓库安装插件时，先弹出风险确认对话框，确认后才提交安装。
 - 引导页、Windows 多 Executor、v1.1.0 发行包装和社区默认 Prompt/Rule/Skill 仍以社区已有修改为准。
 
 社区版的默认 Prompt、Rule、Skill、发行版本和官方插件锁独立维护。v1.0.10 的安装包、Tag 和签名保持不变；新版本以独立 Tag 和安装包发布。

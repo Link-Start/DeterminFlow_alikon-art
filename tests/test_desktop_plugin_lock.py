@@ -65,7 +65,7 @@ def test_full_plugin_catalog_must_match_the_exact_build_lock(
     lock = _write_official_plugin_lock_fixture(tmp_path)
     source = PluginSourceConfig(
         id="determinflow-official",
-        name="DeterminFlow Official Plugins",
+        name="DeterminFlow 官方插件",
         url=lock["source"]["url"],
         ref="main",
         mirrors=("https://gitee.com/alikon/DeterminFlow-Plugins.git",),
@@ -128,7 +128,7 @@ def test_full_plugin_lock_refresh_captures_latest_public_catalog(
                 "official_sources": [
                     {
                         "id": "determinflow-official",
-                        "name": "DeterminFlow Official Plugins",
+                        "name": "DeterminFlow 官方插件",
                         "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git",
                         "ref": "main",
                         "mirrors": ["https://gitee.com/alikon/DeterminFlow-Plugins.git"],

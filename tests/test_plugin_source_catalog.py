@@ -364,7 +364,7 @@ def test_community_source_is_builtin_third_party_and_not_official(
             "official_sources": [],
             "community_sources": [{
                 "id": "determinflow-community",
-                "name": "DeterminFlow Community Plugins",
+                "name": "DeterminFlow 社区插件",
                 "url": str(repository),
                 "ref": "main",
             }],

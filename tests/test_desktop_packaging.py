@@ -318,6 +318,7 @@ def test_stage_defaults_uses_sanitized_overrides(
         "mcpServers": {}
     }
     plugin_source = json.loads((output / "plugin-sources.json").read_text())
+    assert plugin_source["official_sources"][0]["name"] == "DeterminFlow 官方插件"
     assert plugin_source["official_sources"][0]["url"].startswith("https://github.com/")
     assert plugin_source["official_sources"][0]["mirrors"] == [
         "https://gitee.com/alikon/DeterminFlow-Plugins.git"
@@ -330,7 +331,7 @@ def test_stage_defaults_uses_sanitized_overrides(
     assert plugin_source["community_sources"] == [
         {
             "id": "determinflow-community",
-            "name": "DeterminFlow Community Plugins",
+            "name": "DeterminFlow 社区插件",
             "url": "https://github.com/alikon-art/DeterminFlow-Community-Plugins.git",
             "ref": "main",
         }

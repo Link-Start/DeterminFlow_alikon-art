@@ -36,7 +36,7 @@ DESKTOP_OVERRIDES: dict[str, Any] = {
         "official_sources": [
             {
                 "id": "determinflow-official",
-                "name": "DeterminFlow Official Plugins",
+                "name": "DeterminFlow 官方插件",
                 "url": "https://github.com/alikon-art/DeterminFlow-Plugins.git",
                 "mirrors": [
                     "https://gitee.com/alikon/DeterminFlow-Plugins.git"
@@ -53,7 +53,7 @@ DESKTOP_OVERRIDES: dict[str, Any] = {
         "community_sources": [
             {
                 "id": "determinflow-community",
-                "name": "DeterminFlow Community Plugins",
+                "name": "DeterminFlow 社区插件",
                 "url": "https://github.com/alikon-art/DeterminFlow-Community-Plugins.git",
                 "ref": "main",
             }
