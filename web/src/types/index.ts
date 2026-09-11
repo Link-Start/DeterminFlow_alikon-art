@@ -134,9 +134,47 @@ export interface CompressionEventData {
   compressed_count: number;
 }
 
-export interface MessageAttachment {
+export const MENTION_RESOURCE_TYPES = [
+  "prompt",
+  "agent",
+  "skill",
+  "rule",
+  "workflow",
+  "session",
+] as const;
+
+export type MentionResourceType = (typeof MENTION_RESOURCE_TYPES)[number];
+
+export interface FileMessageAttachment {
   name: string;
   absolute_path: string;
+}
+
+export interface ResourceMessageAttachment {
+  name: string;
+  resource_type: MentionResourceType;
+  resource_id: string;
+  reference_text: string;
+}
+
+export type MessageAttachment = FileMessageAttachment | ResourceMessageAttachment;
+
+export function isMentionResourceType(value: string): value is MentionResourceType {
+  return (MENTION_RESOURCE_TYPES as readonly string[]).includes(value);
+}
+
+export function isResourceMessageAttachment(
+  attachment: MessageAttachment,
+): attachment is ResourceMessageAttachment {
+  return "resource_type" in attachment
+    && "resource_id" in attachment
+    && "reference_text" in attachment;
+}
+
+export function isFileMessageAttachment(
+  attachment: MessageAttachment,
+): attachment is FileMessageAttachment {
+  return "absolute_path" in attachment && !isResourceMessageAttachment(attachment);
 }
 
 export interface Message {
@@ -155,7 +193,7 @@ export interface Message {
   strategy?: string;       // 压缩策略（"full" / "micro" / "reactive"，消息级别字段）
   injection_meta?: InjectionMeta[];  // 用户消息注入元信息
   model_context?: Record<string, unknown>; // 仅入模的产品上下文快照
-  attachments?: MessageAttachment[]; // UI 附件元数据；正文仍保留发给 LLM 的绝对路径
+  attachments?: MessageAttachment[]; // UI 附件元数据；文件正文保留绝对路径，资源正文保留 reference_text
   // Recursion Limit 相关字段
   tool_rounds?: number;              // recursion_limit_reached: 已执行工具轮数
   limit?: number;                    // recursion_limit_reached: 递归上限值

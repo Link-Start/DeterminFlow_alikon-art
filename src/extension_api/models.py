@@ -63,6 +63,10 @@ class ExtensionManifest:
     page: ExtensionPage | None = None
     header_status: ExtensionHeaderStatus | None = None
     processes: tuple[ExtensionProcess, ...] = ()
+    settings_title: str = ""
+    settings_description: str = ""
+    settings_order: int | None = None
+    settings_section_id: str = ""
 
 
 @dataclass
@@ -153,3 +157,10 @@ class PromptContextProvider(Protocol):
 @runtime_checkable
 class SessionLifecycleHook(Protocol):
     async def on_session_end(self, session: Any) -> None: ...
+
+
+@runtime_checkable
+class MemoryScopeAuthorizer(Protocol):
+    """Trusted owner callback that re-checks a persisted memory library scope."""
+
+    async def authorize(self, *, external_ref: str, memory_scope: str) -> bool: ...

@@ -50,6 +50,14 @@ DESKTOP_OVERRIDES: dict[str, Any] = {
                 },
             }
         ],
+        "community_sources": [
+            {
+                "id": "determinflow-community",
+                "name": "DeterminFlow Community Plugins",
+                "url": "https://github.com/alikon-art/DeterminFlow-Community-Plugins.git",
+                "ref": "main",
+            }
+        ],
         "custom_sources": [],
     },
 }

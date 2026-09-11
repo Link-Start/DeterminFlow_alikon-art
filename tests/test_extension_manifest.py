@@ -60,6 +60,37 @@ stop_timeout_seconds = 2
     assert parsed.processes[0].process_id == "api"
     assert parsed.processes[0].command[0] == "${PYTHON}"
     assert parsed.processes[0].start_timeout_seconds == 5
+    assert parsed.settings_title == ""
+    assert parsed.settings_section_id == ""
+    assert parsed.settings_order is None
+
+
+def test_plugin_manifest_parses_optional_settings_metadata(tmp_path: Path):
+    manifest = _write_manifest(
+        tmp_path / "demo",
+        """
+[extension]
+id = "demo-memory"
+name = "Demo Memory"
+version = "1.0.0"
+description = "Fallback description"
+
+[settings]
+schema = "settings.schema.json"
+title = "Demo"
+description = "Connection and retrieval parameters"
+section_id = "memory"
+order = 90
+""",
+    )
+
+    parsed = parse_extension_manifest(manifest)
+
+    assert parsed.settings_schema == "settings.schema.json"
+    assert parsed.settings_title == "Demo"
+    assert parsed.settings_description == "Connection and retrieval parameters"
+    assert parsed.settings_section_id == "memory"
+    assert parsed.settings_order == 90
 
 
 @pytest.mark.parametrize(
@@ -92,6 +123,26 @@ id = "demo"
 static_dir = "/tmp/ui"
 """,
             "page.static_dir 必须是",
+        ),
+        (
+            """
+[extension]
+id = "demo"
+[settings]
+schema = "settings.schema.json"
+order = true
+""",
+            "settings.order 必须是整数",
+        ),
+        (
+            """
+[extension]
+id = "demo"
+[settings]
+schema = "settings.schema.json"
+section_id = "Memory"
+""",
+            "settings.section_id 必须是",
         ),
     ],
 )

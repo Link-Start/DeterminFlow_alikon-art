@@ -5,6 +5,7 @@ import {
   PackageMinus,
   RefreshCw,
   RotateCcw,
+  Settings,
   ShieldCheck,
   ShieldAlert,
 } from "lucide-react";
@@ -14,22 +15,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getRuntimeStatusMeta } from "@/extensions/plugin-model";
-import type { PluginRecord, PluginSettings } from "@/extensions/plugin-types";
+import type { PluginRecord } from "@/extensions/plugin-types";
+import { patchSearchParams } from "@/hooks/useUrlParam";
+import { pluginSectionId } from "@/settings/section-model";
 
-import { PluginConfigForm } from "./PluginConfigForm";
 import { PluginStaticPage } from "./PluginStaticPage";
 
 interface PluginDetailsProps {
   plugin: PluginRecord;
   busyAction: string;
   packageManagementReadOnly: boolean;
+  settingsSectionId?: string;
   onUpdate: (plugin: PluginRecord, ref: string) => Promise<boolean>;
   onRollback: (plugin: PluginRecord) => Promise<boolean>;
   onUninstall: (plugin: PluginRecord) => Promise<boolean>;
-  onSaveConfig: (plugin: PluginRecord, settings: PluginSettings) => Promise<boolean>;
-  onResetConfig: (plugin: PluginRecord) => Promise<boolean>;
 }
 
 function shortIdentity(value: string): string {
@@ -40,11 +40,10 @@ export function PluginDetails({
   plugin,
   busyAction,
   packageManagementReadOnly,
+  settingsSectionId,
   onUpdate,
   onRollback,
   onUninstall,
-  onSaveConfig,
-  onResetConfig,
 }: PluginDetailsProps) {
   const [confirmUninstall, setConfirmUninstall] = useState(false);
   const [updateRef, setUpdateRef] = useState("");
@@ -52,8 +51,16 @@ export function PluginDetails({
   const busy = Boolean(busyAction);
   const hasConfig = plugin.settings_schema !== null;
   const hasPage = Boolean(plugin.page_url);
-  const contentTab = hasConfig ? "config" : "page";
   const packageManaged = plugin.source.url !== "bundled";
+  const openSettings = () => {
+    const nextSearch = patchSearchParams(window.location.search, {
+      tab: "settings",
+      section: settingsSectionId || pluginSectionId(plugin.id),
+      plugin: null,
+    });
+    window.history.pushState(window.history.state, "", `${window.location.pathname}${nextSearch}${window.location.hash}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -241,38 +248,15 @@ export function PluginDetails({
         ) : null}
       </Card>
 
-      {hasConfig && hasPage ? (
-        <Tabs key={plugin.id} defaultValue={contentTab}>
-          <TabsList>
-            <TabsTrigger value="config">配置</TabsTrigger>
-            <TabsTrigger value="page">插件页面</TabsTrigger>
-          </TabsList>
-          <TabsContent value="config">
-            <PluginConfigForm
-              pluginId={plugin.id}
-              schemaValue={plugin.settings_schema}
-              settings={plugin.settings}
-              configPresent={plugin.config_present}
-              busy={busy}
-              onSave={(settings) => onSaveConfig(plugin, settings)}
-              onReset={() => onResetConfig(plugin)}
-            />
-          </TabsContent>
-          <TabsContent value="page">
-            <PluginStaticPage pluginName={plugin.name} pageUrl={plugin.page_url!} />
-          </TabsContent>
-        </Tabs>
-      ) : hasConfig ? (
-        <PluginConfigForm
-          pluginId={plugin.id}
-          schemaValue={plugin.settings_schema}
-          settings={plugin.settings}
-          configPresent={plugin.config_present}
-          busy={busy}
-          onSave={(settings) => onSaveConfig(plugin, settings)}
-          onReset={() => onResetConfig(plugin)}
-        />
-      ) : hasPage ? (
+      {hasConfig ? (
+        <div>
+          <Button type="button" variant="outline" onClick={openSettings}>
+            <Settings data-icon="inline-start" aria-hidden="true" />
+            在配置中编辑
+          </Button>
+        </div>
+      ) : null}
+      {hasPage ? (
         <PluginStaticPage pluginName={plugin.name} pageUrl={plugin.page_url!} />
       ) : null}
     </div>

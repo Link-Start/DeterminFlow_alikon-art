@@ -23,6 +23,17 @@ export const BRAND_COLORS = {
   },
 } as const;
 
+/** Compact identity tints for referenced project resources, shared by editor and history. */
+export const RESOURCE_IDENTITY_STYLES = {
+  file: { chip: "border-border bg-muted/60", icon: "text-muted-foreground" },
+  prompt: { chip: "border-node-script/35 bg-node-script/10", icon: "text-node-script" },
+  agent: { chip: "border-node-agent/35 bg-node-agent/10", icon: "text-node-agent" },
+  skill: { chip: "border-node-tool/35 bg-node-tool/10", icon: "text-node-tool" },
+  rule: { chip: "border-node-approval/35 bg-node-approval/10", icon: "text-node-approval" },
+  workflow: { chip: "border-node-api/35 bg-node-api/10", icon: "text-node-api" },
+  session: { chip: "border-primary/35 bg-primary/10", icon: "text-primary" },
+} as const;
+
 export const AGENT_TYPE_COLORS: Record<string, string> = {
   coder: BRAND_COLORS.success,
   reviewer: BRAND_COLORS.info,

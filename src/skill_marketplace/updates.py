@@ -9,6 +9,7 @@ from typing import Any
 from src.skills.manager import SkillManager
 
 from .errors import LocalSkillError
+from .bundle import package_file_metadata, read_directory, unpack
 from .local_skills import replace_skill_file_atomically
 from .ownership import compare_semver
 from .packages import (
@@ -106,6 +107,7 @@ async def update_marketplace_skill(
                     "version": remote.version,
                     "sha256": expected_sha256,
                     "license": remote.license,
+                    **package_file_metadata(content),
                 },
                 installed_at=previous_provenance.get("installed_at")
                 if isinstance(previous_provenance.get("installed_at"), str)
@@ -117,11 +119,11 @@ async def update_marketplace_skill(
             if installed is None:
                 raise OSError("updated skill missing after reload")
             current = _trusted_marketplace_skill_path(manager, skill_id, installed)
-            if hashlib.sha256(current.read_bytes()).hexdigest() != expected_sha256:
-                raise OSError("updated skill bytes did not match the pinned digest")
+            if unpack(read_directory(current.parent)) != unpack(content):
+                raise OSError("updated skill files did not match the pinned package")
         except Exception:
             if file_replaced:
-                replace_skill_file_atomically(skill_path, previous_bytes)
+                replace_skill_file_atomically(skill_path, previous_bytes, check_types=False)
             if provenance_replaced:
                 manager.provenance_store.record(
                     "skill",
@@ -218,15 +220,6 @@ def _trusted_marketplace_skill_path(
             raise LocalSkillError("conflict", "Skill 安装路径无效", status_code=409)
     except OSError as exc:
         raise LocalSkillError("conflict", "无法验证 Skill 安装路径", status_code=409) from exc
-    for entry in resolved.iterdir():
-        if entry.name != "SKILL.md":
-            raise LocalSkillError(
-                "local_modified",
-                "本地 Skill 原文已修改，拒绝覆盖",
-                status_code=409,
-            )
-        if entry.is_symlink() or not entry.is_file():
-            raise LocalSkillError("conflict", "Skill 安装路径无效", status_code=409)
     skill_path = resolved / "SKILL.md"
     if skill_path.is_symlink() or not skill_path.is_file():
         raise LocalSkillError("conflict", "Skill 安装路径无效", status_code=409)
@@ -235,16 +228,18 @@ def _trusted_marketplace_skill_path(
 
 def _require_unmodified_original(skill_path: Path, package: dict[str, Any]) -> bytes:
     try:
-        current = skill_path.read_bytes()
-    except OSError as exc:
-        raise LocalSkillError("read_failed", "无法读取本地 SKILL.md") from exc
-    expected = package.get("sha256")
-    if not isinstance(expected, str) or hashlib.sha256(current).hexdigest() != expected:
-        raise LocalSkillError(
-            "local_modified",
-            "本地 Skill 原文已修改，拒绝覆盖",
-            status_code=409,
-        )
+        current = read_directory(skill_path.parent, check_types=False)
+    except LocalSkillError as exc:
+        raise LocalSkillError("local_modified", "本地 Skill 文件已修改，拒绝覆盖", status_code=409) from exc
+    expected_files = package.get("files")
+    if isinstance(expected_files, dict):
+        actual_files = {path: hashlib.sha256(data).hexdigest()
+                        for path, data in unpack(current, check_types=False).items()}
+        matches = actual_files == expected_files
+    else:
+        matches = hashlib.sha256(current).hexdigest() == package.get("sha256")
+    if not matches:
+        raise LocalSkillError("local_modified", "本地 Skill 文件已修改，拒绝覆盖", status_code=409)
     return current
 
 

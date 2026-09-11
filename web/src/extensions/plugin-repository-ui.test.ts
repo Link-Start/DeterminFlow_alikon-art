@@ -9,6 +9,7 @@ import {
 } from "../components/extensions/PluginInstallForm.tsx";
 import { PluginLifecycleList } from "../components/extensions/PluginLifecycleList.tsx";
 import { PluginRepositoryDialog } from "../components/extensions/PluginRepositoryDialog.tsx";
+import { PluginRepositoryList } from "../components/extensions/PluginRepositoryList.tsx";
 import type {
   PluginCatalogEntry,
   PluginCatalogSource,
@@ -47,6 +48,21 @@ const sources: PluginCatalogSource[] = [
     registry: null,
     resolved_commit: "abcdef1234567890",
     plugin_count: 2,
+    error: "",
+    transport: "git",
+  },
+  {
+    id: "community",
+    name: "DeterminFlow Community Plugins",
+    url: "https://github.com/example/community-plugins.git",
+    selected_url: "https://github.com/example/community-plugins.git",
+    mirrors: [],
+    ref: "main",
+    kind: "community",
+    builtin: true,
+    registry: null,
+    resolved_commit: "fedcba9876543210",
+    plugin_count: 0,
     error: "",
     transport: "git",
   },
@@ -122,6 +138,7 @@ test("install drawer exposes repository controls without a search field", () => 
   assert.match(markup, /管理/);
   assert.match(markup, /删除/);
   assert.match(markup, /官方/);
+  assert.match(markup, /社区/);
   assert.match(markup, /第三方/);
 });
 
@@ -169,6 +186,44 @@ test("catalog installs pin the commit shown to the user", () => {
     resource_prefix: "demo",
     acknowledge_risk: false,
   });
+});
+
+test("repository list keeps saved sources visible while the catalog is still syncing", () => {
+  const pending = {
+    ...sources[0],
+    resolved_commit: "",
+    plugin_count: 0,
+    error: "",
+    selected_url: "",
+    transport: "" as const,
+  };
+  const syncingMarkup = renderToStaticMarkup(createElement(PluginRepositoryList, {
+    sources: [pending],
+    loading: false,
+    busyAction: "",
+    readOnly: false,
+    onBrowse: noop,
+    onEdit: noop,
+    onDeleteRequest: noop,
+    onRefresh: noop,
+  }));
+  assert.match(syncingMarkup, /DeterminFlow 官方插件/);
+  assert.match(syncingMarkup, /同步中/);
+  assert.doesNotMatch(syncingMarkup, /还没有可用的插件仓库/);
+  assert.doesNotMatch(syncingMarkup, /0 个插件/);
+
+  const loadingMarkup = renderToStaticMarkup(createElement(PluginRepositoryList, {
+    sources: [],
+    loading: true,
+    busyAction: "",
+    readOnly: false,
+    onBrowse: noop,
+    onEdit: noop,
+    onDeleteRequest: noop,
+    onRefresh: noop,
+  }));
+  assert.match(loadingMarkup, /正在加载仓库/);
+  assert.doesNotMatch(loadingMarkup, /还没有可用的插件仓库/);
 });
 
 test("installed plugins expose one dedicated description column", () => {

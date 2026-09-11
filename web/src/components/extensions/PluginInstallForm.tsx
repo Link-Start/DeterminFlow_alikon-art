@@ -15,6 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  isOfficialPluginSource,
+  pluginSourceKindLabel,
+} from "@/extensions/plugin-source-kind";
 import type {
   InstallPluginRequest,
   PluginCatalogEntry,
@@ -68,6 +72,7 @@ export function PluginInstallForm({
 }: PluginInstallFormProps) {
   const hasInitialSource = sources.some((source) => source.id === initialSourceId);
   const defaultSourceId = (hasInitialSource ? initialSourceId : "")
+    || sources.find((source) => isOfficialPluginSource(source.kind) && !source.error)?.id
     || sources.find((source) => source.builtin && !source.error)?.id
     || sources.find((source) => !source.error)?.id
     || "";
@@ -95,7 +100,7 @@ export function PluginInstallForm({
   const selected = catalog.find((entry) => (
     `${entry.source_id}:${entry.id}` === selectedKey
   )) ?? null;
-  const thirdParty = selectedSource?.kind === "custom";
+  const thirdParty = !isOfficialPluginSource(selectedSource?.kind);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -161,7 +166,7 @@ export function PluginInstallForm({
                   disabled={busy || Boolean(source.error)}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
-                    {source.builtin
+                    {isOfficialPluginSource(source.kind)
                       ? <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
                       : <ShieldAlert className="size-4 shrink-0" aria-hidden="true" />}
                     <span className="truncate">{source.name}</span>
@@ -171,8 +176,8 @@ export function PluginInstallForm({
                   </span>
                 </button>
                 <div className="flex items-center gap-1">
-                  <Badge variant={source.builtin ? "secondary" : "outline"}>
-                    {source.builtin ? "官方" : "第三方"}
+                  <Badge variant={isOfficialPluginSource(source.kind) ? "secondary" : "outline"}>
+                    {pluginSourceKindLabel(source.kind)}
                   </Badge>
                   {!source.builtin ? (
                     <>
@@ -260,7 +265,7 @@ export function PluginInstallForm({
                   </CardDescription>
                 </div>
                 <Badge variant={thirdParty ? "destructive" : "secondary"}>
-                  {thirdParty ? "第三方" : "内置官方"}
+                  {pluginSourceKindLabel(selected.source_kind, "builtin")}
                 </Badge>
               </div>
             </CardHeader>

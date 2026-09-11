@@ -36,6 +36,7 @@ from .drafts import (
     normalize_expected_revision,
     require_local_identity,
 )
+from .bundle import root_document
 from .errors import LocalSkillError
 from .installs import install_marketplace_skill
 from .local_skills import (
@@ -259,7 +260,7 @@ class SkillMarketplaceService(CommunityOperations):
             except LocalSkillError:
                 continue
             try:
-                frontmatter, _body = SkillLoader._parse_skill_md(content.decode("utf-8"))
+                frontmatter, _body = SkillLoader._parse_skill_md(root_document(content).decode("utf-8"))
             except (UnicodeDecodeError, ValueError):
                 continue
             metadata = frontmatter.get("metadata")
@@ -292,7 +293,7 @@ class SkillMarketplaceService(CommunityOperations):
                     "sha256": hashlib.sha256(content).hexdigest(),
                     "preflight": [
                         {"id": "ownership", "label": "资源归属", "passed": True},
-                        {"id": "structure", "label": "单文件结构", "passed": True},
+                        {"id": "structure", "label": "Skill 包结构", "passed": True},
                         {"id": "encoding", "label": "UTF-8 编码", "passed": True},
                         {"id": "manifest", "label": "清单字段", "passed": True},
                         {"id": "size", "label": "文件大小", "passed": True},

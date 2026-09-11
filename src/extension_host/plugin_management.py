@@ -107,6 +107,34 @@ class PluginManagement:
                 return plugin
         raise PluginStoreError(f"plugin is not installed or discovered: {plugin_id}")
 
+    def iter_settings_section_manifests(self) -> list[tuple[str, ExtensionManifest]]:
+        """Installed plugins that declared a settings schema, including failed ones."""
+
+        records = self.store.read_lock()
+        statuses = {
+            item["id"]: item
+            for item in self.manager.get_statuses()
+        }
+        desired_enabled = self._desired_enabled()
+        plugin_ids = sorted({
+            *statuses,
+            *self._applied_records,
+            *records,
+            *desired_enabled,
+        })
+        result: list[tuple[str, ExtensionManifest]] = []
+        for plugin_id in plugin_ids:
+            try:
+                desired_manifest = self._try_desired_manifest(plugin_id)
+            except (OSError, ValueError, PluginStoreError):
+                desired_manifest = None
+            active_manifest = self.manager._manifests.get(plugin_id)
+            manifest = desired_manifest or active_manifest
+            if manifest is None or not str(manifest.settings_schema or "").strip():
+                continue
+            result.append((plugin_id, manifest))
+        return result
+
     def sources_response(self) -> dict[str, Any]:
         return {
             "sources": [

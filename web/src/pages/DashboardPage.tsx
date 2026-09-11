@@ -74,13 +74,13 @@ export default function DashboardPage() {
         </section>
 
         {/* Tool Stats & Prompt Timeline */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-3 lg:grid-rows-1">
           <div className="lg:col-span-2 max-h-[350px] overflow-y-auto rounded-lg" role="region" aria-label="工具调用统计">
             <ToolStatsPanel tools={tools} stats={status.event_bus_stats} />
           </div>
-          <div className="max-h-[350px] overflow-y-auto rounded-lg" role="region" aria-label="提示词历史时间线">
+          <div className="flex min-h-0 max-h-[350px] flex-col overflow-hidden rounded-lg" role="region" aria-label="提示词历史时间线">
             {historyError ? (
-              <div className="bg-secondary/80 border border-border/50 rounded-lg p-4 h-full flex flex-col items-center justify-center gap-2" role="alert">
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-border/50 bg-secondary/80 p-4" role="alert">
                 <span className="text-sm text-destructive">加载提示词历史失败</span>
                 <button
                   onClick={loadHistory}
@@ -97,11 +97,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Compression Monitor */}
-        <section className="bg-secondary/80 border border-border/50 rounded-lg p-5" aria-label="压缩状态监控">
-          <h3 className="text-xs font-semibold text-muted-foreground/70 mb-3">压缩状态监控</h3>
-          <div className="max-h-[300px] overflow-y-auto rounded">
-            <CompressionMonitorPanel compact={true} />
-          </div>
+        <section className="rounded-lg border border-border/50 bg-secondary/80 p-3" aria-label="压缩状态监控">
+          <h3 className="mb-2 text-xs font-semibold text-muted-foreground/70">压缩状态监控</h3>
+          <CompressionMonitorPanel compact={true} />
         </section>
 
         {/* Compression Logs */}

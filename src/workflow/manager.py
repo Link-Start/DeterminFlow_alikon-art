@@ -190,8 +190,8 @@ class WorkflowManager(
     # 工作流定义 CRUD
     # ============================================================
 
-    def list_workflows(self) -> list[dict]:
-        """列出所有工作流定义（概要）。"""
+    def list_workflows(self, *, include_task_status: bool = True) -> list[dict]:
+        """列出定义概要；资源选择器可跳过任务历史扫描。"""
         workflows = []
         if not WORKFLOWS_DIR.exists():
             return workflows
@@ -208,23 +208,27 @@ class WorkflowManager(
                 # 统计该工作流下运行中的任务数（预构建 running set，遍历目录）
                 tasks_dir = wf_dir / "tasks"
                 running_task_count = 0
-                if tasks_dir.exists():
+                if include_task_status and tasks_dir.exists():
                     for f in tasks_dir.iterdir():
                         task = self._load_task(wf_dir.name, f.stem)
                         if task and task.status in {
                             "running", "retry_waiting", "resume_pending",
                         }:
                             running_task_count += 1
-                workflows.append({
+                summary = {
                     "workflow_id": wf_def.workflow_id,
                     "name": wf_def.name,
                     "node_count": len(wf_def.nodes),
                     "version": wf_def.version,
                     "created_at": wf_def.created_at,
                     "updated_at": wf_def.updated_at,
-                    "status": "running" if running_task_count > 0 else "idle",
-                    "running_tasks": running_task_count,
-                })
+                }
+                if include_task_status:
+                    summary.update(
+                        status="running" if running_task_count > 0 else "idle",
+                        running_tasks=running_task_count,
+                    )
+                workflows.append(summary)
             except Exception:
                 logger.exception(f"加载工作流定义失败: {wf_dir.name}")
         return workflows

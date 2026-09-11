@@ -37,6 +37,8 @@ from src.extension_api import CoreRuntime
 from src.extension_host import ExtensionManager, LayeredJsonConfig
 from src.extension_host.gates import ExtensionMiddlewareGate, extension_route_guard
 from src.extension_host.plugin_routes import router as plugin_router
+from src.settings.routes import router as settings_router
+from src.workspace.routes import router as workspace_settings_router
 from src.extension_host.routes import router as extension_router
 from src.mcp.client import MCPClient
 from src.core.llm_client import create_startup_llm
@@ -53,6 +55,7 @@ from src.roundtable.routes import router as roundtable_router
 from src.web.workflow_routes import router as workflow_router, tasks_router
 from src.web.workflow_node_control_routes import router as workflow_node_control_router
 from src.web.attachment_routes import router as attachment_router
+from src.web.mention_routes import router as mention_router
 from src.web.ws_handlers import handle_chat_ws, handle_events_ws
 from src.account.routes import router as account_router
 from src.skill_marketplace.routes import router as resource_marketplace_router
@@ -104,6 +107,7 @@ async def lifespan(app: FastAPI):
     session_mgr = None
     roundtable_mgr = None
     cron_scheduler = None
+    memory_runtime = None
     workflow_mgr = None
     workflow_executor_pool = None
     inline_executor_leases = None
@@ -135,6 +139,15 @@ async def lifespan(app: FastAPI):
                 await cron_scheduler.stop()
             except Exception:
                 logger.debug("cron_scheduler 清理失败", exc_info=True)
+        if memory_runtime:
+            try:
+                await memory_runtime.stop()
+            except Exception:
+                logger.debug("memory_runtime 清理失败", exc_info=True)
+        from src.memory.service import set_memory_runtime as _clear_memory_runtime
+        _clear_memory_runtime(None)
+        from src.workspace.service import set_workspace_runtime
+        set_workspace_runtime(None)
         if roundtable_mgr:
             try:
                 await roundtable_mgr.shutdown()
@@ -359,6 +372,21 @@ async def lifespan(app: FastAPI):
             prompt_manager=prompt_mgr,
             skill_manager=skill_mgr, rule_manager=rule_mgr,
             approval_manager=approval_mgr, llm_client=llm)
+        from src.memory.service import MemoryRuntimeService, set_memory_runtime
+        from src.memory.settings import MemorySettingsStore
+
+        memory_runtime = MemoryRuntimeService(
+            DATA_DIR / "memory",
+            settings_store=MemorySettingsStore(CONFIG_DIR / "memory_settings.json"),
+        )
+        set_memory_runtime(memory_runtime)
+        from src.workspace.service import WorkspaceRuntimeService, set_workspace_runtime
+        from src.workspace.settings import WorkspaceSettingsStore
+        workspace_runtime = WorkspaceRuntimeService(
+            settings_store=WorkspaceSettingsStore(CONFIG_DIR / "workspace_settings.json"),
+            cache_root=DATA_DIR / "workspace-cache",
+        )
+        set_workspace_runtime(workspace_runtime)
         runtime = CoreRuntime(
             app=app,
             session_manager=session_mgr,
@@ -370,12 +398,15 @@ async def lifespan(app: FastAPI):
                 "mcp_client": mcp,
                 "agent_config_manager": agent_config_mgr,
                 "prompt_manager": prompt_mgr,
+                "prompt_builder": prompt_builder,
                 "skill_manager": skill_mgr,
                 "rule_manager": rule_mgr,
                 "approval_manager": approval_mgr,
                 "workspace_manager": workspace_mgr,
                 "llm": llm,
                 "_official_account_session": account_service,
+                "memory": memory_runtime,
+                "workspace": workspace_runtime,
             },
         )
         if is_workflow_executor:
@@ -608,6 +639,8 @@ async def lifespan(app: FastAPI):
             )
             await cron_scheduler.start()
             logger.info("CronScheduler 已初始化并启动")
+            await memory_runtime.start()
+            logger.info("MemoryRuntime 已启动")
 
         # 挂载到 app.state（移除了 compiled_main 和 lc_messages）
         app.state.mcp_client = mcp
@@ -630,6 +663,8 @@ async def lifespan(app: FastAPI):
         app.state.cron_scheduler = cron_scheduler
         app.state.cron_job_manager = cron_job_mgr
         app.state.workflow_executor_pool = workflow_executor_pool
+        app.state.memory_runtime = memory_runtime
+        app.state.workspace_runtime = workspace_runtime
 
         # 将 skill_manager 和 rule_manager 注入到 session_manager（用于 create_main_session）
         session_mgr._skill_manager = skill_mgr
@@ -680,6 +715,8 @@ async def lifespan(app: FastAPI):
     ]
     if cron_scheduler is not None:
         shutdown_steps.insert(1, ("CronScheduler.stop", lambda: cron_scheduler.stop()))
+    if memory_runtime is not None:
+        shutdown_steps.insert(1, ("MemoryRuntime.stop", lambda: memory_runtime.stop()))
     if roundtable_mgr is not None:
         shutdown_steps.insert(
             -1,
@@ -694,6 +731,10 @@ async def lifespan(app: FastAPI):
             logger.warning(f"关闭 {name} 时忽略异常", exc_info=True)
     if inline_executor_leases:
         inline_executor_leases.release()
+    from src.memory.service import set_memory_runtime
+    set_memory_runtime(None)
+    from src.workspace.service import set_workspace_runtime
+    set_workspace_runtime(None)
     logger.info("Web 服务已关闭")
 
 
@@ -793,8 +834,11 @@ def create_app(extension_manager: ExtensionManager | None = None) -> FastAPI:
     application.include_router(tasks_router)
     application.include_router(workflow_node_control_router)
     application.include_router(attachment_router)
+    application.include_router(mention_router)
     application.include_router(account_router)
     application.include_router(resource_marketplace_router)
+    application.include_router(settings_router)
+    application.include_router(workspace_settings_router)
     application.include_router(extension_router)
     application.include_router(plugin_router)
     for owner, router in manager.routers:

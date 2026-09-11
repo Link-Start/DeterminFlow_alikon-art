@@ -1,3 +1,4 @@
+import React from "react";
 import {
   AlertTriangle,
   GitBranch,
@@ -12,10 +13,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { isPluginSourceCatalogReady } from "@/extensions/plugin-catalog-state";
+import {
+  isOfficialPluginSource,
+  pluginSourceKindLabel,
+} from "@/extensions/plugin-source-kind";
 import type { PluginCatalogSource } from "@/extensions/plugin-types";
 
 interface PluginRepositoryListProps {
   sources: PluginCatalogSource[];
+  loading?: boolean;
   busyAction: string;
   readOnly: boolean;
   onBrowse: (sourceId: string) => void;
@@ -30,6 +37,7 @@ function shortCommit(value: string): string {
 
 export function PluginRepositoryList({
   sources,
+  loading = false,
   busyAction,
   readOnly,
   onBrowse,
@@ -60,7 +68,11 @@ export function PluginRepositoryList({
         </Button>
       </CardHeader>
       <CardContent className="p-0">
-        {sources.length === 0 ? (
+        {loading && sources.length === 0 ? (
+          <div className="flex min-h-48 items-center justify-center gap-2 p-6 text-sm text-muted-foreground" role="status">
+            <Loader2 className="animate-spin" aria-hidden="true" />正在加载仓库
+          </div>
+        ) : sources.length === 0 ? (
           <div className="flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center">
             <GitBranch className="text-muted-foreground" aria-hidden="true" />
             <p className="text-sm font-medium">还没有可用的插件仓库</p>
@@ -81,11 +93,11 @@ export function PluginRepositoryList({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-sm font-medium">{source.name}</h3>
-                        <Badge variant={source.builtin ? "secondary" : "outline"}>
-                          {source.builtin
+                        <Badge variant={isOfficialPluginSource(source.kind) ? "secondary" : "outline"}>
+                          {isOfficialPluginSource(source.kind)
                             ? <ShieldCheck aria-hidden="true" />
                             : <ShieldAlert aria-hidden="true" />}
-                          {source.builtin ? "内置官方" : "第三方"}
+                          {pluginSourceKindLabel(source.kind, "builtin")}
                         </Badge>
                         {source.registry ? (
                           <Badge variant="outline">签名加速 · {source.registry.endpoints.length}</Badge>
@@ -101,17 +113,27 @@ export function PluginRepositoryList({
                   <div>
                     {source.error ? (
                       <Badge variant="destructive"><AlertTriangle aria-hidden="true" />同步失败</Badge>
-                    ) : (
+                    ) : isPluginSourceCatalogReady(source) ? (
                       <Badge variant="secondary">已同步</Badge>
+                    ) : (
+                      <Badge variant="outline">
+                        <Loader2 className="animate-spin" aria-hidden="true" />同步中
+                      </Badge>
                     )}
-                    <p className={`mt-1 line-clamp-1 text-xs ${source.error ? "text-destructive" : "text-muted-foreground"}`} title={source.error || source.resolved_commit}>
-                      {source.error || `${source.transport === "registry" ? "签名加速" : "Git"} · commit ${shortCommit(source.resolved_commit)}`}
-                    </p>
+                    {source.error || isPluginSourceCatalogReady(source) ? (
+                      <p className={`mt-1 line-clamp-1 text-xs ${source.error ? "text-destructive" : "text-muted-foreground"}`} title={source.error || source.resolved_commit}>
+                        {source.error || `${source.transport === "registry" ? "签名加速" : "Git"} · commit ${shortCommit(source.resolved_commit)}`}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium">{source.plugin_count} 个插件</p>
-                    <p className="mt-1 text-xs text-muted-foreground">目录索引</p>
+                    {isPluginSourceCatalogReady(source) ? (
+                      <>
+                        <p className="text-sm font-medium">{source.plugin_count} 个插件</p>
+                        <p className="mt-1 text-xs text-muted-foreground">目录索引</p>
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap justify-end gap-2">

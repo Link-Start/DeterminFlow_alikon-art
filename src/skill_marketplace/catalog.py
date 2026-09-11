@@ -9,6 +9,7 @@ from typing import Any
 from uuid import UUID
 
 from .errors import LocalSkillError
+from .bundle import unpack
 
 MAX_SKILL_BYTES = 256 * 1024
 DEFAULT_PAGE = 1
@@ -166,8 +167,7 @@ def verified_preview_payload(
         encoded = content.encode("utf-8")
     except UnicodeEncodeError as exc:
         raise LocalSkillError("invalid_encoding", "SKILL.md 必须是 UTF-8 文本") from exc
-    if not encoded or len(encoded) > MAX_SKILL_BYTES:
-        raise LocalSkillError("invalid_size", "SKILL.md 必须小于 256 KiB")
+    unpack(encoded)
     actual_digest = hashlib.sha256(encoded).hexdigest()
     if version_id != expected_version_id:
         raise LocalSkillError(

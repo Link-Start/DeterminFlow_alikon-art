@@ -78,6 +78,27 @@ color-literal rule.
 8. Dense workbenches may locally promote light-theme neutral separators to `Strong border`;
    dark-theme separators keep the default `Border` role.
 
+## Settings
+
+The settings page is a document-scrolling workbench under the app header.
+
+1. Preserve the centered, single-column collapsible-card layout. Categories come from one registry; registration and field consistency do not authorize replacing this layout with sidebar navigation. Appearance and models start expanded; other cards can open independently. Collapsing a card preserves its editor and draft.
+2. A sticky save/discard toolbar sits at the top of the page scroll container. Use a solid `background` bar with `border`; do not use blur or glass.
+3. Theme changes apply immediately and do not enter the dirty/save state.
+4. Provider create/delete/discover, desktop update, and clearing saved plugin config are explicit operations. Editable provider and plugin fields join the unified dirty/save state.
+5. Save outcomes are per category. Do not present a single success state when any category failed.
+6. Preserve the established category icon colors using semantic tokens: Agent uses `info`, roundtable `success`, coding `destructive`, and compression/system `warning`. These small identity accents do not indicate errors or change the neutral card, heading, and field backgrounds.
+7. Field lists share the parent card surface, using spacing and faint separators to pair labels with controls. Do not use zebra stripes or add an inner table-like frame; short labels and controls align vertically. Fields use the shared shadcn controls through the settings field renderer. Sensitive values use a password control; enums use a select; defaults appear as the current value, not helper copy.
+
+Background memory failures belong beside the memory settings, with the affected
+session, concise failure reason and retry action together. Refreshing operational
+status must not replace unsaved settings drafts.
+
+The optional persistent workspace category uses the same field renderer and unified
+save state. Its activation switch remains available for disabling during outages;
+enabling requires an active healthy registered provider. Conversation context details
+show loaded file references and empty/unavailable states without hidden binding IDs.
+
 ## Enforcement
 
 `npm run test:design` scans Core product TypeScript and TSX for raw Tailwind palette

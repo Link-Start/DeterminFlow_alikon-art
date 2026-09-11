@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 class GetSystemPromptArgs(BaseModel):
     agent_type: str = Field(default="main", description="Agent 提示词类型")
+    section_name: str | None = Field(default=None, description="可选：只读取指定名称的提示词片段")
 
 
 class UpdateSystemPromptArgs(BaseModel):
@@ -34,9 +35,13 @@ class ListAgentTypesArgs(BaseModel):
 def create_prompt_tools(prompt_manager: "PromptManager") -> list[StructuredTool]:
     """Create prompt tools over the same layered store used by agent runtime."""
 
-    def get_system_prompt(agent_type: str = "main") -> str:
+    def get_system_prompt(agent_type: str = "main", section_name: str | None = None) -> str:
         sections = prompt_manager.get_sections(agent_type)
-        preambles = prompt_manager.get_preambles(agent_type)
+        if section_name is not None:
+            sections = [section for section in sections if section.get("name") == section_name]
+            if not sections:
+                return json.dumps({"error": f"未找到提示词片段 {section_name}"}, ensure_ascii=False)
+        preambles = prompt_manager.get_preambles(agent_type) if section_name is None else {}
         return json.dumps(
             {
                 "message": f"当前 {agent_type} 提示词配置",

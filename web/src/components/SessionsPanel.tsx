@@ -1,12 +1,30 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, X, Plus, ChevronDown, ChevronRight, Zap } from "lucide-react";
+import { Pin, Trash2, X, Plus, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { Session } from "../types";
 import { getStatusConfig, formatRelativeTime, truncate } from "../lib/utils-helpers";
 import { useAgentTypes } from "../hooks/useAgentTypes";
+import {
+  collectPinnedItems,
+  prunePinnedSessionIds,
+  readPinnedSessionIds,
+  shouldShowRegularSessionHeading,
+  togglePinnedSessionId,
+  writePinnedSessionIds,
+} from "../lib/session-pins";
 import { canDeleteMainSession } from "./sessionPolicy";
 import { partitionSessions, type SessionCategory } from "../lib/session-catalog";
+
+type SessionGroup = {
+  main: Session;
+  category: SessionCategory;
+  subs: Session[];
+};
+
+type PinnableEntry =
+  | { id: string; kind: "group"; group: SessionGroup }
+  | { id: string; kind: "assistant"; session: Session };
 
 interface SessionsPanelProps {
   sessions: Session[];
@@ -26,6 +44,14 @@ function isWorkflowMain(session: Session): boolean {
   );
 }
 
+function SessionGroupHeading({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <h2 id={id} className="px-1 text-[13px] font-medium text-muted-foreground">
+      {children}
+    </h2>
+  );
+}
+
 const AGENT_TYPE_LABELS: Record<string, string> = {
   main: "通用助手",
   coder: "编码助手",
@@ -35,15 +61,51 @@ const AGENT_TYPE_LABELS: Record<string, string> = {
   default: "默认助手",
 };
 
+function SessionMetaAction({
+  label,
+  pressed,
+  tone = "neutral",
+  onClick,
+  children,
+}: {
+  label: string;
+  pressed?: boolean;
+  tone?: "neutral" | "danger" | "warning";
+  onClick: (event: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
+  const toneClass = tone === "danger"
+    ? "hover:text-destructive"
+    : tone === "warning"
+      ? "hover:text-warning"
+      : "hover:text-foreground";
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick(event);
+      }}
+      aria-label={label}
+      aria-pressed={pressed}
+      className={`flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted ${toneClass}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function SessionCard({
-  session, isViewing, isSub, isAssistant = false, canDelete, canKill,
-  onViewSession, onDeleteSession, onKillSession,
+  session, isViewing, isSub, isAssistant = false, canDelete, canKill, canPin = false, pinned = false,
+  onViewSession, onDeleteSession, onKillSession, onTogglePin,
 }: {
   session: Session; isViewing: boolean;
   isSub: boolean; isAssistant?: boolean; canDelete: boolean; canKill: boolean;
+  canPin?: boolean; pinned?: boolean;
   onViewSession: (id: string) => void;
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
   onKillSession: (id: string, e: React.MouseEvent) => void;
+  onTogglePin?: (id: string, e: React.MouseEvent) => void;
 }) {
   const cfg = getStatusConfig(session.status);
   const wfMain = isWorkflowMain(session);
@@ -71,62 +133,74 @@ function SessionCard({
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-primary rounded-r" />
       )}
 
-      <div className={`flex items-center justify-between ${isSub ? "mb-0.5" : "mb-1"}`}>
-        <div className="flex items-center gap-1.5">
-          <span className={`inline-block w-2 h-2 rounded-full ${cfg.dotColor}`} aria-hidden="true" />
-          <span className={`font-mono text-info text-xs`}>
+      <div className={`flex items-center justify-between gap-2 ${isSub ? "mb-0.5" : "mb-1"}`}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${cfg.dotColor}`} aria-hidden="true" />
+          <span className="truncate font-mono text-xs text-info">
             {session.session_id}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          {isViewing && (
-            <Badge variant="outline" className="text-xs text-primary border-primary/30">查看中</Badge>
-          )}
+        <div className="flex shrink-0 items-center gap-1">
+          {isViewing ? (
+            <Badge variant="outline" className="h-5 px-1.5 py-0 text-xs font-medium text-primary border-primary/30">查看中</Badge>
+          ) : null}
           <Badge
             variant="outline"
-            className={`text-xs ${wfMain ? "text-primary border-primary/30" : cfg.color} border-current/30`}
+            className={`h-5 px-1.5 py-0 text-xs font-medium ${wfMain ? "text-primary border-primary/30" : cfg.color} border-current/30`}
           >
             {label}
           </Badge>
         </div>
       </div>
 
-      <div className={`flex items-center gap-1.5 text-muted-foreground text-xs ${isSub ? "mb-0" : "mb-1"}`}>
-        {session.agent_type && session.agent_type !== "main" && (
-          <Badge variant="outline" className="text-xs text-info border-info/30">
-            {session.agent_type}
+      <div className="flex min-h-5 min-w-0 items-center gap-1.5">
+        <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {truncate(session.task || (session.type === "main" ? "主会话" : ""), isSub ? 30 : 60)}
+        </p>
+        {session.agent_type && session.agent_type !== "main" ? (
+          <Badge
+            variant="outline"
+            title={session.agent_type}
+            className="h-5 max-w-20 shrink-0 overflow-hidden px-1.5 py-0 text-xs font-medium text-info border-info/30"
+          >
+            <span className="truncate">{session.agent_type}</span>
           </Badge>
-        )}
+        ) : null}
       </div>
 
-      <p className={`text-muted-foreground text-xs`}>
-        {truncate(session.task || (session.type === "main" ? "主会话" : ""), isSub ? 30 : 60)}
-      </p>
-
-      <div className={`flex items-center justify-between text-muted-foreground text-xs ${isSub ? "mt-0.5" : "mt-1.5"}`}>
-        <span>{session.message_count} 条消息</span>
-        <div className="flex items-center gap-1">
+      <div className={`flex items-center justify-between gap-2 text-xs text-muted-foreground ${isSub ? "mt-0.5" : "mt-1.5"}`}>
+        <span className="min-w-0 truncate">{session.message_count} 条消息</span>
+        <div className="relative shrink-0">
           <span>{formatRelativeTime(session.updated_at)}</span>
-          {canKill && (
-            <button
-              type="button"
-              onClick={(e) => onKillSession(session.session_id, e)}
-              aria-label={`终止会话 ${session.session_id}`}
-              className="ml-1 p-0.5 rounded text-warning hover:bg-warning/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
-            >
-              <X size={12} />
-            </button>
-          )}
-          {canDelete && (
-            <button
-              type="button"
-              onClick={(e) => onDeleteSession(session.session_id, e)}
-              aria-label={`删除会话 ${session.session_id}`}
-              className="p-0.5 rounded text-destructive hover:bg-destructive/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
-            >
-              <Trash2 size={12} />
-            </button>
-          )}
+          <div className="pointer-events-none absolute inset-y-0 right-full z-10 mr-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+            {canPin && onTogglePin ? (
+              <SessionMetaAction
+                label={pinned ? `取消置顶 ${session.session_id}` : `置顶 ${session.session_id}`}
+                pressed={pinned}
+                onClick={(event) => onTogglePin(session.session_id, event)}
+              >
+                <Pin size={12} className={pinned ? "fill-current" : undefined} />
+              </SessionMetaAction>
+            ) : null}
+            {canKill ? (
+              <SessionMetaAction
+                label={`终止会话 ${session.session_id}`}
+                tone="warning"
+                onClick={(event) => onKillSession(session.session_id, event)}
+              >
+                <X size={12} />
+              </SessionMetaAction>
+            ) : null}
+            {canDelete ? (
+              <SessionMetaAction
+                label={`删除会话 ${session.session_id}`}
+                tone="danger"
+                onClick={(event) => onDeleteSession(session.session_id, event)}
+              >
+                <Trash2 size={12} />
+              </SessionMetaAction>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
@@ -182,7 +256,148 @@ export default function SessionsPanel({
     [catalog.groups, visibleCategories],
   );
   const assistants = visibleCategories.has("assistant") ? catalog.assistants : [];
+  const knownSessionIds = useMemo(
+    () => sessions.map((session) => session.session_id),
+    [sessions],
+  );
+  const [pinnedIds, setPinnedIds] = useState(readPinnedSessionIds);
+
+  useEffect(() => {
+    writePinnedSessionIds(pinnedIds);
+  }, [pinnedIds]);
+
+  useEffect(() => {
+    if (knownSessionIds.length === 0) return;
+    setPinnedIds((current) => {
+      const next = prunePinnedSessionIds(current, knownSessionIds);
+      return next.length === current.length && next.every((id, index) => id === current[index])
+        ? current
+        : next;
+    });
+  }, [knownSessionIds]);
+
+  const pinnableEntries = useMemo<PinnableEntry[]>(() => [
+    ...groups.map((group) => ({ id: group.main.session_id, kind: "group" as const, group })),
+    ...assistants.map((session) => ({ id: session.session_id, kind: "assistant" as const, session })),
+  ], [assistants, groups]);
+  const pinnedEntries = useMemo(
+    () => collectPinnedItems(pinnableEntries, (entry) => entry.id, pinnedIds),
+    [pinnableEntries, pinnedIds],
+  );
+  const pinnedIdSet = useMemo(
+    () => new Set(pinnedEntries.map((entry) => entry.id)),
+    [pinnedEntries],
+  );
+  const restGroups = groups.filter((group) => !pinnedIdSet.has(group.main.session_id));
+  const restAssistants = assistants.filter((session) => !pinnedIdSet.has(session.session_id));
+  const showRegularHeading = shouldShowRegularSessionHeading(pinnedEntries.length, restGroups.length);
   const displayedCount = groups.length + assistants.length;
+
+  const handleTogglePin = useCallback((sessionId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setPinnedIds((current) => togglePinnedSessionId(current, sessionId));
+  }, []);
+
+  const renderAssistant = (assistant: Session) => (
+    <SessionCard
+      key={assistant.session_id}
+      session={assistant}
+      isViewing={viewingSessionId === assistant.session_id}
+      isSub={false}
+      isAssistant
+      canDelete={assistant.status !== "running" && assistant.status !== "streaming"}
+      canKill={assistant.status === "running" || assistant.status === "waiting" || assistant.status === "streaming"}
+      canPin
+      pinned={pinnedIdSet.has(assistant.session_id)}
+      onViewSession={onViewSession}
+      onDeleteSession={onDeleteSession}
+      onKillSession={onKillSession}
+      onTogglePin={handleTogglePin}
+    />
+  );
+
+  const renderGroup = ({ main, subs }: SessionGroup) => {
+    const isViewing = viewingSessionId === main.session_id;
+    const canDelete = canDeleteMainSession(main, mainSessionId);
+    const isCollapsed = collapsedMains.has(main.session_id);
+
+    return (
+      <div key={main.session_id} className="space-y-1">
+        <div className="flex items-start gap-1">
+          <div className="flex w-4 shrink-0 justify-center pt-2.5">
+            {subs.length > 0 ? (
+              <button
+                type="button"
+                onClick={(e) => toggleCollapse(main.session_id, e)}
+                aria-expanded={!isCollapsed}
+                aria-label={isCollapsed ? `展开 ${subs.length} 个子会话` : "折叠子会话"}
+                className="relative flex h-4 w-4 items-center justify-center rounded hover:bg-secondary transition-colors cursor-pointer"
+              >
+                <span className="absolute -inset-3" aria-hidden="true" />
+                {isCollapsed
+                  ? <ChevronRight size={12} className="text-muted-foreground" />
+                  : <ChevronDown size={12} className="text-muted-foreground" />}
+              </button>
+            ) : null}
+          </div>
+          <div className="min-w-0 flex-1">
+            <SessionCard
+              session={main}
+              isViewing={isViewing}
+              isSub={false}
+              canDelete={canDelete}
+              canKill={false}
+              canPin
+              pinned={pinnedIdSet.has(main.session_id)}
+              onViewSession={onViewSession}
+              onDeleteSession={onDeleteSession}
+              onKillSession={onKillSession}
+              onTogglePin={handleTogglePin}
+            />
+          </div>
+        </div>
+
+        {isCollapsed && subs.length > 0 && (
+          <div
+            className="relative ml-4 cursor-pointer group"
+            role="button"
+            tabIndex={0}
+            onClick={(e) => toggleCollapse(main.session_id, e)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCollapse(main.session_id, e); } }}
+            aria-label={`展开 ${subs.length} 个子会话`}
+          >
+            <div className="relative h-6">
+              <div className="absolute inset-x-0 top-0 z-30 h-[20px] rounded-lg border border-primary/15 bg-secondary/60" />
+              <div className="absolute left-[3px] right-[3px] top-[2px] z-20 h-[18px] rounded-lg border border-primary/10 bg-secondary/40" />
+              <div className="absolute left-[6px] right-[6px] top-[4px] z-10 h-[16px] rounded-lg border border-primary/5 bg-secondary/20" />
+            </div>
+            <Badge variant="outline" className="absolute -right-1 top-1/2 -translate-y-1/2 text-xs text-primary border-primary/30 bg-card/80">
+              +{subs.length}
+            </Badge>
+          </div>
+        )}
+
+        {!isCollapsed && subs.map((sub) => {
+          const subViewing = viewingSessionId === sub.session_id;
+          const canKillSub = sub.status === "running" || sub.status === "waiting" || sub.status === "streaming";
+          const subCanDelete = sub.status !== "running";
+          return (
+            <SessionCard
+              key={sub.session_id}
+              session={sub}
+              isViewing={subViewing}
+              isSub={true}
+              canDelete={subCanDelete}
+              canKill={canKillSub}
+              onViewSession={onViewSession}
+              onDeleteSession={onDeleteSession}
+              onKillSession={onKillSession}
+            />
+          );
+        })}
+      </div>
+    );
+  };
 
   const toggleCollapse = (mainId: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
@@ -257,89 +472,25 @@ export default function SessionsPanel({
           )}
         </div>
 
-        {groups.map(({ main, subs }) => {
-          const isViewing = viewingSessionId === main.session_id;
-          const canDelete = canDeleteMainSession(main, mainSessionId);
-          const canKill = false; // main sessions not killable via this button
-          const isCollapsed = collapsedMains.has(main.session_id);
+        {pinnedEntries.length > 0 ? (
+          <section className="space-y-2" aria-labelledby="pinned-sessions-heading">
+            <SessionGroupHeading id="pinned-sessions-heading">置顶</SessionGroupHeading>
+            {pinnedEntries.map((entry) => (
+              entry.kind === "group"
+                ? renderGroup(entry.group)
+                : renderAssistant(entry.session)
+            ))}
+          </section>
+        ) : null}
 
-          return (
-            <div key={main.session_id} className="space-y-1">
-              {/* Main card with collapse toggle */}
-              <div className="flex items-start gap-1">
-                <button
-                  type="button"
-                  onClick={(e) => toggleCollapse(main.session_id, e)}
-                  aria-expanded={!isCollapsed}
-                  aria-label={isCollapsed ? `展开 ${subs.length} 个子会话` : "折叠子会话"}
-                  className="mt-2 p-0.5 rounded hover:bg-secondary transition-colors cursor-pointer flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                >
-                  {subs.length > 0 && (
-                    isCollapsed ? <ChevronRight size={12} className="text-muted-foreground" />
-                              : <ChevronDown size={12} className="text-muted-foreground" />
-                  )}
-                </button>
-                <div className="flex-1">
-                  <SessionCard
-                    session={main}
-                    isViewing={isViewing}
-                    isSub={false}
-                    canDelete={canDelete}
-                    canKill={canKill}
-                    onViewSession={onViewSession}
-                    onDeleteSession={onDeleteSession}
-                    onKillSession={onKillSession}
-                  />
-                </div>
-              </div>
+        {showRegularHeading ? (
+          <section className="space-y-2" aria-labelledby="regular-sessions-heading">
+            <SessionGroupHeading id="regular-sessions-heading">常规会话</SessionGroupHeading>
+            {restGroups.map((group) => renderGroup(group))}
+          </section>
+        ) : restGroups.map((group) => renderGroup(group))}
 
-              {/* Collapsed subs: 堆叠指示器 */}
-              {isCollapsed && subs.length > 0 && (
-                <div
-                  className="relative ml-4 cursor-pointer group"
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => toggleCollapse(main.session_id, e)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCollapse(main.session_id, e); } }}
-                  aria-label={`展开 ${subs.length} 个子会话`}
-                >
-                  {/* 3 层堆叠卡片 */}
-                  <div className="relative h-6">
-                    <div className="absolute inset-x-0 top-0 z-30 h-[20px] rounded-lg border border-primary/15 bg-secondary/60" />
-                    <div className="absolute left-[3px] right-[3px] top-[2px] z-20 h-[18px] rounded-lg border border-primary/10 bg-secondary/40" />
-                    <div className="absolute left-[6px] right-[6px] top-[4px] z-10 h-[16px] rounded-lg border border-primary/5 bg-secondary/20" />
-                  </div>
-                  {/* +N 徽章 */}
-                  <Badge variant="outline" className="absolute -right-1 top-1/2 -translate-y-1/2 text-xs text-primary border-primary/30 bg-card/80">
-                    +{subs.length}
-                  </Badge>
-                </div>
-              )}
-
-              {/* 展开的子会话 */}
-              {!isCollapsed && subs.map(sub => {
-                const subViewing = viewingSessionId === sub.session_id;
-                const canKillSub = sub.status === "running" || sub.status === "waiting" || sub.status === "streaming";
-                const subCanDelete = sub.status !== "running";
-                return (
-                  <SessionCard
-                    key={sub.session_id}
-                    session={sub}
-                    isViewing={subViewing}
-                    isSub={true}
-                    canDelete={subCanDelete}
-                    canKill={canKillSub}
-                    onViewSession={onViewSession}
-                    onDeleteSession={onDeleteSession}
-                    onKillSession={onKillSession}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
-
-        {assistants.length > 0 && (
+        {restAssistants.length > 0 && (
           <section className="space-y-1.5 pt-2" aria-labelledby="extension-sessions-heading">
             <div className="flex items-center justify-between border-t border-border/60 px-1 pt-3">
               <div>
@@ -349,23 +500,10 @@ export default function SessionsPanel({
                 <p className="text-[11px] text-muted-foreground">Extension Sessions</p>
               </div>
               <Badge variant="outline" className="text-xs text-info border-info/30">
-                {assistants.length}
+                {restAssistants.length}
               </Badge>
             </div>
-            {assistants.map((assistant) => (
-              <SessionCard
-                key={assistant.session_id}
-                session={assistant}
-                isViewing={viewingSessionId === assistant.session_id}
-                isSub={false}
-                isAssistant
-                canDelete={assistant.status !== "running" && assistant.status !== "streaming"}
-                canKill={assistant.status === "running" || assistant.status === "waiting" || assistant.status === "streaming"}
-                onViewSession={onViewSession}
-                onDeleteSession={onDeleteSession}
-                onKillSession={onKillSession}
-              />
-            ))}
+            {restAssistants.map((assistant) => renderAssistant(assistant))}
           </section>
         )}
 

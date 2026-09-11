@@ -1,3 +1,6 @@
+import type { PluginSourceKind } from "./plugin-source-kind";
+
+export type { PluginSourceKind };
 export type PluginTrust = "official" | "third_party";
 
 export type PluginRuntimeStatus =
@@ -33,6 +36,7 @@ export interface PluginProcess {
 }
 
 interface PluginSchemaAnnotations {
+  deprecated?: boolean;
   title?: string;
   description?: string;
   default?: unknown;
@@ -113,7 +117,7 @@ export interface PluginCatalogEntry {
   source_id: string;
   source_name: string;
   source: string;
-  source_kind: "official" | "custom";
+  source_kind: PluginSourceKind;
   ref: string;
   resolved_commit: string;
   subdirectory: string;
@@ -124,7 +128,7 @@ export interface PluginRepositorySource {
   name: string;
   url: string;
   ref: string;
-  kind: "official" | "custom";
+  kind: PluginSourceKind;
   builtin: boolean;
   mirrors: string[];
   registry: PluginDistributionConfig | null;
@@ -142,6 +146,7 @@ export interface PluginCatalogResponse {
   sources: PluginCatalogSource[];
   plugins: PluginCatalogEntry[];
   package_management_read_only?: boolean;
+  refreshing?: boolean;
 }
 
 export interface PluginMutationResponse {

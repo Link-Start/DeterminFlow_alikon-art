@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Loader2, Settings } from "lucide-react";
 import { getModelProviders, updateSessionModel } from "../lib/api";
+import { cn } from "../lib/utils";
 import type { ModelProvider, SessionDetail } from "../types";
 
 type MenuKey = "provider" | "model" | "effort";
@@ -31,29 +32,25 @@ function SelectionRow({
   label,
   value,
   active,
-  expandLabel = false,
   onClick,
 }: {
   label: string;
   value?: string;
   active: boolean;
-  expandLabel?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-9 items-center gap-2 rounded-lg px-2.5 text-left text-sm transition-colors ${
-        expandLabel ? "min-w-full w-max" : "w-full"
-      } ${
+      className={`flex w-full min-h-9 items-center gap-2 rounded-lg px-2.5 text-left text-sm transition-colors ${
         active
           ? "bg-primary/15 text-primary"
           : "text-foreground hover:bg-muted/70 hover:text-foreground"
       }`}
     >
-      <span className={`min-w-0 flex-1 ${expandLabel ? "whitespace-nowrap" : "truncate"}`}>{label}</span>
-      {value ? <span className="max-w-24 truncate text-[11px] text-muted-foreground">{value}</span> : null}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {value ? <span className="max-w-24 shrink-0 truncate text-[11px] text-muted-foreground">{value}</span> : null}
       {active ? <Check size={14} className="shrink-0 text-primary" /> : null}
     </button>
   );
@@ -74,8 +71,8 @@ export default function ModelSwitcher({
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProviders = useCallback(async () => {
-    setLoading(true);
+  const loadProviders = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     try {
       const result = await getModelProviders();
       setProviders(result.providers);
@@ -153,7 +150,6 @@ export default function ModelSwitcher({
           label={provider.name}
           value={`${provider.models.length} 个模型`}
           active={providerId === selectedProviderId}
-          expandLabel
           onClick={() => {
             const firstModel = provider.models[0];
             if (!firstModel) return;
@@ -208,66 +204,66 @@ export default function ModelSwitcher({
   return (
     <div ref={rootRef} className="relative shrink-0">
       {open ? (
-        <div className="absolute bottom-[calc(100%+0.65rem)] right-0 z-40 flex items-end gap-2">
-          <div className="w-60 overflow-hidden rounded-xl border border-border/80 bg-secondary p-1.5 shadow-2xl shadow-background/50">
-            {!hasModels && !loading ? (
-              <div className="p-2">
-                <p className="text-sm font-medium text-foreground">尚未配置模型</p>
-                <button
-                  type="button"
-                  onClick={onOpenSettings}
-                  className="mt-2 flex min-h-9 items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-primary hover:bg-primary/10"
-                >
-                  <Settings size={14} aria-hidden="true" />
-                  前往模型设置
-                </button>
-              </div>
-            ) : (
-              (Object.keys(MENU_LABELS) as MenuKey[]).map((menu) => (
-                <button
-                  key={menu}
-                  type="button"
-                  onMouseEnter={() => setActiveMenu(menu)}
-                  onFocus={() => setActiveMenu(menu)}
-                  onClick={() => setActiveMenu(menu)}
-                  className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm transition-colors ${
-                    activeMenu === menu
-                      ? "bg-muted/90 text-foreground"
-                      : "text-foreground hover:bg-muted/60"
-                  }`}
-                >
-                  <span className="flex-1">{MENU_LABELS[menu]}</span>
-                  <span className="max-w-24 truncate text-xs text-muted-foreground">{menuValues[menu]}</span>
-                  <ChevronRight size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                </button>
-              ))
-            )}
-            {(error || updating) ? (
-              <div className="mt-1 border-t border-border px-2.5 pt-2 text-xs text-muted-foreground">
-                {updating ? "正在切换模型" : error}
+        <div className="absolute bottom-[calc(100%+0.65rem)] right-1/2 z-40 origin-bottom animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 duration-150 motion-reduce:animate-none">
+          <div className="relative">
+            <div className="w-60 overflow-hidden rounded-xl border border-border/80 bg-secondary p-1.5 shadow-2xl shadow-background/50">
+              {!hasModels && !loading ? (
+                <div className="p-2">
+                  <p className="text-sm font-medium text-foreground">尚未配置模型</p>
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    className="mt-2 flex min-h-9 items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-primary hover:bg-primary/10"
+                  >
+                    <Settings size={14} aria-hidden="true" />
+                    前往模型设置
+                  </button>
+                </div>
+              ) : (
+                (Object.keys(MENU_LABELS) as MenuKey[]).map((menu) => (
+                  <button
+                    key={menu}
+                    type="button"
+                    onMouseEnter={() => setActiveMenu(menu)}
+                    onFocus={() => setActiveMenu(menu)}
+                    onClick={() => setActiveMenu(menu)}
+                    className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm transition-colors ${
+                      activeMenu === menu
+                        ? "bg-muted/90 text-foreground"
+                        : "text-foreground hover:bg-muted/60"
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{MENU_LABELS[menu]}</span>
+                    <span className="max-w-24 shrink-0 truncate text-xs text-muted-foreground">{menuValues[menu]}</span>
+                    <ChevronRight size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </button>
+                ))
+              )}
+              {(error || updating) ? (
+                <div className="mt-1 border-t border-border px-2.5 pt-2 text-xs text-muted-foreground">
+                  {updating ? "正在切换模型" : error}
+                </div>
+              ) : null}
+            </div>
+
+            {hasModels ? (
+              <div className="absolute bottom-0 left-full ml-2 w-60 max-h-64 overflow-y-auto rounded-xl border border-border/80 bg-secondary p-1.5 shadow-2xl shadow-background/50">
+                {loading ? (
+                  <div className="flex min-h-20 items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 size={15} className="animate-spin motion-reduce:animate-none" />
+                    加载中
+                  </div>
+                ) : renderSubmenu()}
               </div>
             ) : null}
           </div>
-
-          {hasModels ? (
-            <div className={`max-h-64 overflow-y-auto rounded-xl border border-border/80 bg-secondary p-1.5 shadow-2xl shadow-background/50 ${
-              activeMenu === "provider" ? "min-w-48 w-max max-w-72" : "w-48"
-            }`}>
-              {loading ? (
-                <div className="flex min-h-20 items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 size={15} className="animate-spin motion-reduce:animate-none" />
-                  加载中
-                </div>
-              ) : renderSubmenu()}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
       <button
         type="button"
         onClick={() => {
-          if (!open) void loadProviders();
+          if (!open) void loadProviders({ silent: Object.keys(providers).length > 0 });
           setOpen(!open);
         }}
         disabled={switchDisabled}
@@ -275,9 +271,12 @@ export default function ModelSwitcher({
         aria-expanded={open}
         aria-busy={loading || updating}
         aria-label="切换模型"
-        className="flex h-9 max-w-52 items-center gap-2 rounded-full bg-muted/75 px-3 text-xs text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-45"
+        className={cn(
+          "flex h-9 max-w-52 items-center gap-2 rounded-full px-3 text-xs text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-45",
+          open ? "bg-surface-hover" : "bg-muted hover:bg-surface-hover",
+        )}
       >
-        {updating || loading ? (
+        {updating || (loading && !selectedModelName) ? (
           <Loader2 size={13} className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         ) : null}
         <span className="truncate">{selectedModelName || (loading ? "加载模型" : "未配置模型")}</span>

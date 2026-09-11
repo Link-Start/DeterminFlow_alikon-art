@@ -10,6 +10,7 @@ Extension 可以贡献：
 - Agent Tool Factory 与 Tool Group
 - Prompt Context Provider
 - Session Lifecycle Hook
+- Memory provider 与 memory scope authorizer
 - Agent、Prompt、Skill/Rule Bundle、Workflow、Script Library 资源
 - Health Check 与 build-time Frontend 页面
 
@@ -76,30 +77,66 @@ Script Library 使用按 owner 合并的只读 Plugin 目录；重复 `(group, s
 启动时拒绝。Task 创建时冻结 owner、revision、entrypoint 与文件摘要，执行前再次
 核验，避免 Plugin 更新或文件漂移改变已创建 Task 的执行代码。
 
-### Workflow Executor Pool
+## 用户消息附加信息
 
-社区版默认以 Controller 加本机 Workflow Executor Pool 运行：
-`DETERMINFLOW_WORKFLOW_EXECUTOR_MODE=process`，
-`DETERMINFLOW_WORKFLOW_EXECUTOR_COUNT=4`。Controller 继续拥有 HTTP/WS、交互
-Chat Main、Cron、Roundtable、Plugin Controller 生命周期和 Task 创建/路由。普通
-detached Workflow Task 在活着且 `ready` 的成员之间轮询分配，并持久绑定
-`executor_id + executor_epoch`；节点重试、跳过、审批、取消和进程内恢复都回到
-同一 Executor 世代。`pre_running` 与 `main_takeover` 仍固定在 Controller。
+Core 可以在新一轮真实用户消息前附加 `config/user_injection_config.json` 中启用的
+Sections。`USER_MESSAGE_INJECTION_ENABLED` 是系统级总开关，默认开启以兼容现有行为；
+关闭后，Core 不读取或附加任何 Section，也不生成对应的注入元数据，但保留已有 Section
+配置供以后重新启用。
 
-成员状态为 `starting`、`ready`、`restarting`、`stopping`、`stopped`。新 Task
-只路由到 `ready` 成员；sticky 控制仍按持久 `executor_id` 返回原成员，不因临时
-未就绪改绑。Executor 通过有版本、白名单、世代校验和本机 loopback 令牌的 IPC
-转发事件并接收控制命令。`/api/system/status` 的 `workflow_executor` 字段只公开
-模式、配置数、成员/ready/可达数、PID/epoch/uptime、活跃 Task 数、重启和
-RPC/Event 计数；不暴露 endpoint、令牌、环境变量、凭据或 Task 正文。单成员
-不可达时返回降级快照，不把整个系统状态接口升级为 500。
+该开关只控制 Core 管理的用户消息附加信息。历史消息、工具调用结果、System Prompt，
+以及 Extension 通过 `model_context` 传入的产品上下文都不受影响。
 
-需要单进程回退时设置 `DETERMINFLOW_WORKFLOW_EXECUTOR_MODE=inline` 和
-`DETERMINFLOW_WORKFLOW_EXECUTOR_COUNT=1`。process/inline 切换前必须先证明上一
-执行所有者已经退出。当前不实现无状态迁移、跨主机执行或共享消息队列。Plugin
-可通过显式 `start_executor` / `stop_executor` hook 装载执行所需资源，但不得在
-Executor 进程重复启动 Cron、Roundtable、交互 Main、Plugin HTTP/lifecycle 或
-托管业务进程。
+### 用户原话与产品上下文
+
+`ExtensionSessionRuntime.invoke()`把一轮输入分成两个
+持久化通道：`content` 是展示与编辑权威，必须保存用户原话；可选 `model_context` 是调用
+产品提供的不可变 JSON 快照，保留显式 `null`，不得包含授权凭据。Core 只校验它是最大
+64 KiB 的 JSON 对象，不解释产品字段。供应商额度/鉴权/权限/非法请求属于永久性失败，
+Core 不在传输层重试；公开事件只给 `provider_error_code`，不回传原始供应商报文。取消
+调用必须结算持久状态并释放 detached listener，不能留下 `streaming`。
+
+detached 会话在接收下一条用户原话时重新组装当前 Agent 提示词，并保留历史消息。工具返回、
+审批恢复、无新原话的操作观察和仍阻塞新消息的待确认轮次沿用已有提示词；不在一轮中途切换。
+
+调用模型前，Core 临时把快照放进 `<PRODUCT_CONTEXT>`，把原话放进 `<USER_MESSAGE>`；
+Core 自己的附加 Section 仍位于 `<SYSTEM_INJECTION>`。这些标记只存在于 LangChain 入模消息，
+不会覆盖 `record` 或 `context.messages` 中的原始 `content`。重启、冷加载和未压缩上下文恢复时，
+Core 根据持久化的 `model_context` 与 `injection_meta` 重建相同入模消息。
+
+已安装、启用且 Agent opt-in 的 memory provider 可以把按真实用户回合召回的低信任记忆
+合并进 `model_context`，不改展示原文。会话沉寂或未处理长度触发的异步抽取由 Core
+持久任务状态驱动，供应商适配仍留在插件；详见
+[memory-contracts.md](memory-contracts.md)。
+
+Web 会话默认只在用户气泡显示 `content`，并把产品上下文与系统附加信息放入默认折叠的“系统注入信息”。
+旧 detached 会话仍可读取历史伪用户 JSON 包装；前端只提取其中的 `user_message` 作为气泡正文，
+其余字段进入系统注入信息，不批量改写历史会话文件。
+
+Prompt 检查面板优先展示热会话已经绑定的工具。detached 会话冷卸载后不再保留
+`session.tools`；检查面板只根据当前 AgentDefinition 与工具注册表重新解析工具清单，
+不创建模型客户端、不编译 Graph，也不改变会话驻留状态。检查面板的“入模消息”直接从当前
+`lc_messages` 生成，只保留模型协议实际接收的字段；不得使用展示权威 `record` 或 Core 内部追踪
+元数据冒充入模上下文。工具定义保留与 `bind_tools` 相同转换路径产生的完整 Schema。
+独立“系统提示词”页面只展示选中会话的 System Prompt 与其工具定义，不重复展示会话元信息、
+入模消息或原始工具 JSON。工具展开区把 `bind_tools` 的标准 JSON Schema 转译为工具用途、
+action 语义、参数类型、必填状态、允许值和约束；产品特定说明仍由 Plugin 的 Schema 提供，
+Core 不猜测参数含义。工具清单使用紧凑的通用折叠行，折叠态只承担工具识别与契约数量摘要，
+展开态再呈现结构化操作和参数；Core 不按工具名、Plugin 或产品来源切换专属展示。
+
+工具调用的入参校验失败由 ToolNode 返回结构化字段规则，不回显原始输入、内部注入参数或
+自定义异常正文。模型可以修正后重试；同一用户轮次重复相同工具与相同无效参数时，Core 仅在
+ToolNode 入口跳过该次调用并返回 `tool_arguments_repeated`，同批其他调用继续执行并保留各自结果。
+整批均被重复参数保护拦截时，下一次模型请求不再提供工具，让模型根据已有结果总结完成与未完成项；
+若模型仍输出调用，配对记录 `tool_recovery_stopped` 并结束，避免空转。新用户轮次不继承该限制，业务失败也不按参数
+错误去重。工具执行期异常（网关拒绝、超时等）保持原异常传播和会话安全失败，不得误分类为
+字段反馈，也不得在错误处理中二次抛出 AttributeError 遮盖原因；取消不得被吞掉。
+最后一个模型轮次只用于回答，不再提供工具；模型仍输出调用时，配对记录“未执行”。
+等待外部确认的工具维持 pending 状态，不进入失败收尾。
+
+流式工具参数按协议字典读取调用 ID、索引及参数片段。工具回调、图节点返回的跳过结果和
+中断收尾共同保证一个调用只有一个终态；前端展示及持久化记录均不能将未知结果标为完成。
+检查面板的参数摘要从正式 Schema 生成，保留联合类型、可空性、数组元素及约束。
 
 ## 前端
 
@@ -112,6 +149,10 @@ Core 根据 `settings.schema.json` 生成的通用表单。复杂产品工作台
 `extensions/*/frontend/index.tsx`，但不会预先执行模块。浏览器请求
 `/api/extensions` 后只动态加载后端处于 `running` 的页面和 Agent Editor
 contribution，并拒绝 Extension ID、页面 ID 或 Core Tab ID 冲突。
+
+Core Web Shell 为每个顶层页面声明唯一滚动模式：工作台页面使用 `contained`，只允许页面内部面板
+滚动；文档页面使用 `document`，由 Shell 提供唯一页面滚动容器。顶层页面不得重复计算视口高度。
+共享 `ScrollArea` 负责收敛 Radix 内层固有尺寸和滚动链，页面不得再复制相同的内部选择器补丁。
 
 Core 的 Extensions 页面展示 manifest、依赖、能力、运行状态和降级原因；第一版不提供运行时启停。
 

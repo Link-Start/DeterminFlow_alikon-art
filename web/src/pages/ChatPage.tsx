@@ -662,6 +662,7 @@ export default function ChatPage() {
                     onOpenSettings={() => {
                       const search = patchSearchParams(window.location.search, {
                         tab: "settings",
+                        section: "models",
                         session_id: null,
                       });
                       window.history.pushState(

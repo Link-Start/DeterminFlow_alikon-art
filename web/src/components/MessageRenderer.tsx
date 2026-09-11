@@ -9,7 +9,10 @@ import ContentSafetyWarningMsg from "./ContentSafetyWarningMsg";
 import ContentSafetyDiagnosticMsg from "./ContentSafetyDiagnosticMsg";
 import RecursionLimitMsg from "./RecursionLimitMsg";
 import { splitUserMessageAttachments } from "./conversation/messageAttachmentModel";
+import { mentionTypeLabel } from "./conversation/mentionCatalog";
+import { ResourceIdentityIcon, resourceChipClass } from "./conversation/resourceIdentity";
 import { userMessageView } from "./conversation/userMessageContext";
+import ModelContextDetails from "./conversation/ModelContextDetails";
 
 // ============================================================
 // MessageRenderer — 全类型消息注册表 + 统一路由组件
@@ -37,20 +40,37 @@ function UserMessageContent({ message, content }: { message: Message; content: s
   const parts = splitUserMessageAttachments(content, message.attachments);
   return (
     <p className="min-w-0 max-w-full text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">
-      {parts.map((part, index) => part.type === "text" ? (
-        <span key={`text-${index}`}>{part.value}</span>
-      ) : (
-        <span
-          key={`file-${index}-${part.absolutePath}`}
-          data-message-attachment=""
-          title={part.absolutePath}
-          aria-label={`文件 ${part.name}`}
-          className="mx-1 inline-flex max-w-[min(18rem,75vw)] items-center gap-1 rounded-full border border-primary/35 bg-primary/15 px-2 py-0.5 align-baseline text-xs leading-5 text-primary"
-        >
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-          <span className="truncate">{part.name}</span>
-        </span>
-      ))}
+      {parts.map((part, index) => {
+        if (part.type === "text") {
+          return <span key={`text-${index}`}>{part.value}</span>;
+        }
+        if (part.type === "resource") {
+          return (
+            <span
+              key={`resource-${index}-${part.resourceId}`}
+              data-message-resource=""
+              title={part.referenceText}
+              aria-label={`${mentionTypeLabel(part.resourceType)} ${part.name}`}
+              className={resourceChipClass(part.resourceType)}
+            >
+              <ResourceIdentityIcon type={part.resourceType} />
+              <span className="truncate">@{part.name}</span>
+            </span>
+          );
+        }
+        return (
+          <span
+            key={`file-${index}-${part.absolutePath}`}
+            data-message-attachment=""
+            title={part.absolutePath}
+            aria-label={`文件 ${part.name}`}
+            className={resourceChipClass("file")}
+          >
+            <ResourceIdentityIcon type="file" />
+            <span className="truncate">{part.name}</span>
+          </span>
+        );
+      })}
     </p>
   );
 }
@@ -158,14 +178,7 @@ const UserMsg: MsgComponent = ({ message, onEdit, editable, streaming, readonly 
                     <span className="font-medium">{meta.name}:</span> {meta.content}
                   </div>
                 ))}
-                {productContext && (
-                  <div className="min-w-0 py-0.5 text-xs text-muted-foreground/50" role="listitem">
-                    <div className="font-medium">产品上下文</div>
-                    <pre className="mt-1 max-w-full whitespace-pre-wrap break-words font-mono text-[11px] leading-5">
-                      {JSON.stringify(productContext, null, 2)}
-                    </pre>
-                  </div>
-                )}
+                {productContext && <ModelContextDetails context={productContext} />}
               </div>
             )}
           </div>

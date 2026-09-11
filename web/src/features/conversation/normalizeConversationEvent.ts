@@ -3,6 +3,7 @@ import type {
   TokenUsage,
   ToolCallState,
 } from "../../types";
+import { normalizeMessageAttachment } from "../../components/conversation/messageAttachmentModel";
 import type {
   FailedTurnState,
   ConversationServerEvent,
@@ -53,12 +54,8 @@ export function normalizeFailedTurn(value: unknown): FailedTurnState | null {
   }
   const attachments = Array.isArray(failedTurn.attachments)
     ? failedTurn.attachments.flatMap((value) => {
-        const attachment = asRecord(value);
-        const name = asString(attachment?.name);
-        const absolutePath = asString(attachment?.absolute_path);
-        return name && absolutePath
-          ? [{ name, absolute_path: absolutePath }]
-          : [];
+        const attachment = normalizeMessageAttachment(value);
+        return attachment ? [attachment] : [];
       })
     : [];
   const error = asRecord(failedTurn.error);
