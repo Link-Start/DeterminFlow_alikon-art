@@ -196,6 +196,16 @@ user workspace; it does not require a database, separate API service, or migrati
 The optional [`public-api`](https://github.com/alikon-art/DeterminFlow-Plugins/tree/main/plugins/public-api)
 plugin provides the public model service on Windows and macOS and shares the Core account session.
 
+### Community plugins
+
+Community submissions live in the separate
+[`DeterminFlow-Community-Plugins`](https://github.com/alikon-art/DeterminFlow-Community-Plugins)
+repository, not the official plugin repo. Core ships that community source so you can browse and
+install from the Plugins page. Listing only means the package passed structural checks; it is not an
+official security endorsement or a maintenance promise. Community plugins run with the same
+privileges as the DeterminFlow process and are not sandboxed. Confirm the risk before installing.
+You can also add your own Git repository.
+
 > [!NOTE]
 > Plugins compose Workflows from existing Core Nodes. Developers who need a new node type can fork
 > Core and extend the general Node abstraction.
@@ -215,8 +225,8 @@ Node.js, and Git are not required to start the desktop app.
 
 | Platform | Core | Full |
 |---|---|---|
-| Windows x64 | `DeterminFlow_1.1.0_x64-setup.exe` | `DeterminFlow_1.1.0_x64-full-setup.exe` |
-| macOS Apple Silicon | `DeterminFlow_1.1.0_aarch64.dmg` | `DeterminFlow_1.1.0_aarch64-full.dmg` |
+| Windows x64 | `DeterminFlow_1.1.1_x64-setup.exe` | `DeterminFlow_1.1.1_x64-full-setup.exe` |
+| macOS Apple Silicon | `DeterminFlow_1.1.1_aarch64.dmg` | `DeterminFlow_1.1.1_aarch64-full.dmg` |
 
 Core bundles no plugins. Full includes `bishu-novel 0.2.2` and `public-api 0.1.37`.
 Use the first-run guide to configure your own model API or try the public model service.

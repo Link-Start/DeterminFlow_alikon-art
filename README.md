@@ -191,6 +191,12 @@ DeterminFlow 解决流程怎么执行，Plugin 则把它和运行所需的能力
 公益模型 Plugin。Windows 和 macOS 桌面版可在首次引导或 Plugin 页面安装；未安装或未启用时，
 Core 不加载公益模型服务逻辑。
 
+### 社区插件
+
+社区投稿发布在独立仓库
+[`DeterminFlow-Community-Plugins`](https://github.com/alikon-art/DeterminFlow-Community-Plugins)，
+与官方插件仓库分开。Core 内置该社区源，可在插件页浏览并安装。进入目录只表示结构与既定检查通过，不是官方安全背书或持续维护承诺。社区插件与 DeterminFlow 主进程以相同权限运行，没有沙箱；安装前需要确认风险。也可以自行添加 Git 仓库。
+
 > [!NOTE]
 > Plugin 使用现有 Core Node 组合 Workflow。需要新节点类型时，可以 Fork Core 并扩展
 > 通用 Node 抽象。
@@ -206,8 +212,8 @@ Core 不加载公益模型服务逻辑。
 
 | 平台 | Core | Full |
 |---|---|---|
-| Windows x64 | `DeterminFlow_1.1.0_x64-setup.exe` | `DeterminFlow_1.1.0_x64-full-setup.exe` |
-| macOS Apple Silicon（M 系列芯片） | `DeterminFlow_1.1.0_aarch64.dmg` | `DeterminFlow_1.1.0_aarch64-full.dmg` |
+| Windows x64 | `DeterminFlow_1.1.1_x64-setup.exe` | `DeterminFlow_1.1.1_x64-full-setup.exe` |
+| macOS Apple Silicon（M 系列芯片） | `DeterminFlow_1.1.1_aarch64.dmg` | `DeterminFlow_1.1.1_aarch64-full.dmg` |
 
 Core 不捆绑插件；Full 预装 `bishu-novel 0.2.2` 和 `public-api 0.1.37`。
 首次启动按引导配置自有模型 API，或选择公益模型体验。

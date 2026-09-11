@@ -6,7 +6,7 @@ import type {
   MemorySettingsResponse,
 } from "./types";
 
-const MEMORY_KEYS = [
+export const MEMORY_KEYS = [
   "enabled",
   "external_enabled",
   "provider_id",
