@@ -7,6 +7,7 @@ from .models import (
     ExtensionPage,
     ExtensionProcess,
     HealthCheckResult,
+    MemoryScopeAuthorizer,
     PromptContextRequest,
     PromptContribution,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "ExtensionProcess",
     "ExtensionRegistrar",
     "HealthCheckResult",
+    "MemoryScopeAuthorizer",
     "PromptContextRequest",
     "PromptContribution",
     "WorkflowRuntime",

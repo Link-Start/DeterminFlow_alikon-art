@@ -1,4 +1,5 @@
 import type { StreamingSegment, ToolCallState } from "../../types";
+import { attachmentsRemainingInContent } from "../../components/conversation/messageAttachmentModel";
 import { normalizeMessages } from "./normalizeMessages";
 import type {
   ConversationAction,
@@ -499,6 +500,10 @@ export function conversationReducer(
           message.id === action.messageId && message.type === "user",
       );
       if (targetIndex < 0) return state;
+      const attachments = attachmentsRemainingInContent(
+        state.messages[targetIndex].attachments,
+        action.content,
+      );
       return {
         ...state,
         messages: normalizeMessages([
@@ -506,13 +511,7 @@ export function conversationReducer(
           {
             type: "user",
             content: action.content,
-            ...(state.messages[targetIndex].attachments?.length
-              ? {
-                  attachments: state.messages[targetIndex].attachments?.filter(
-                    (attachment) => action.content.includes(attachment.absolute_path),
-                  ),
-                }
-              : {}),
+            ...(attachments ? { attachments } : {}),
           },
         ]),
       };

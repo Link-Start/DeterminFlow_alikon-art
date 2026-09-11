@@ -561,6 +561,9 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
 
     def _set_state(self, extension_id: str, status: str, error: str = "") -> None:
         self._states[extension_id] = {"status": status, "error": error}
+        if getattr(self, "_runtime", None) is not None:
+            from src.workspace.host import sync_workspace_runtime
+            sync_workspace_runtime(self, self._runtime)
 
     def _dependency_error(
         self,
@@ -591,6 +594,14 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
         )
         self.contributions.session_hooks.extend(pending.session_hooks)
         self.contributions.health_checks.extend(pending.health_checks)
+        self.contributions.memory_scope_authorizers.extend(
+            pending.memory_scope_authorizers
+        )
+        self.contributions.memory_providers.extend(pending.memory_providers)
+        self.contributions.workspace_providers.extend(pending.workspace_providers)
+        self.contributions.workspace_scope_authorizers.extend(
+            pending.workspace_scope_authorizers
+        )
         for resource_type, paths in pending.resource_paths.items():
             self.contributions.resource_paths.setdefault(resource_type, []).extend(paths)
 
@@ -892,6 +903,9 @@ class ExtensionManager(ExtensionExecutorPlaneMixin):
                     self, extension_id, EXTENSION_RUNNING, EXTENSION_BLOCKED
                 )
                 self._set_state(extension_id, EXTENSION_RUNNING)
+                from src.memory.host import sync_memory_runtime
+
+                sync_memory_runtime(self, runtime)
             except RuntimeStartBlocked:
                 await cleanup_blocked_start(
                     self, extension_id, runtime, EXTENSION_BLOCKED

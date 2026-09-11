@@ -169,7 +169,7 @@ def test_marketplace_client_validates_list_and_publish_contract() -> None:
     assert requests[1].headers["authorization"] == "Bearer access"
 
 
-def test_only_user_owned_single_file_skills_are_shareable(tmp_path: Path) -> None:
+def test_only_user_owned_allowed_file_types_are_shareable(tmp_path: Path) -> None:
     service = _service(tmp_path, account=FakeAccount("access"))
     eligible = asyncio.run(service.eligible_local_skills())
     assert [item["id"] for item in eligible] == ["shared-skill"]
@@ -188,7 +188,7 @@ def test_only_user_owned_single_file_skills_are_shareable(tmp_path: Path) -> Non
         account=FakeAccount("access"),
     )
     assert asyncio.run(attached_service.eligible_local_skills()) == []
-    with pytest.raises(LocalSkillError, match="带附件"):
+    with pytest.raises(LocalSkillError, match="白名单"):
         asyncio.run(
             attached_service.publish(
                 skill_id="shared-skill",

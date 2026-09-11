@@ -112,6 +112,7 @@ class AgentDefinition:
 ALL_AGENT_DISALLOWED_TOOLS: set[str] = {
     "create_sub_session",       # 防止 Sub Agent 递归创建子会话
     "check_sub_progress",       # Sub Agent 不应查看其他子会话
+    "get_session_messages",     # 会话引用不扩大 Sub Agent 的历史访问范围
     "delete_session",           # Sub Agent 不应删除会话
 }
 

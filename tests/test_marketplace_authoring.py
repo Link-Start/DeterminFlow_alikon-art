@@ -174,7 +174,7 @@ def test_saving_a_draft_requires_a_shareable_skill_and_stable_identity(tmp_path:
                 fields=DRAFT_FIELDS,
             )
         )
-    assert blocked.value.code == "attachments_not_allowed"
+    assert blocked.value.code == "file_type_not_allowed"
 
 
 def test_local_preview_reads_shareable_bytes_and_refuses_foreign_skills(
@@ -201,7 +201,7 @@ def test_local_preview_reads_shareable_bytes_and_refuses_foreign_skills(
     )
     with pytest.raises(LocalSkillError) as error:
         asyncio.run(attached.preview_local_skill("shared-skill"))
-    assert error.value.code == "attachments_not_allowed"
+    assert error.value.code == "file_type_not_allowed"
 
 
 def test_pinned_publish_compares_the_same_bytes_and_keeps_unpinned_compat(

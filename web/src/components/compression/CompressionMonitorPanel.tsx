@@ -55,7 +55,7 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8" role="status" aria-label="正在加载压缩监控数据">
+      <div className={`flex items-center justify-center ${compact ? "py-3" : "py-8"}`} role="status" aria-label="正在加载压缩监控数据">
         <div className="flex items-center gap-2 text-muted-foreground animate-pulse">
           <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
           加载监控数据...
@@ -66,7 +66,7 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 gap-3" role="alert" aria-live="polite">
+      <div className={`flex flex-col items-center justify-center gap-3 ${compact ? "py-3" : "py-8"}`} role="alert" aria-live="polite">
         <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" size="sm" type="button" onClick={loadData} className="min-h-[44px] cursor-pointer">
           <RefreshCw size={14} className="mr-2" aria-hidden="true" />
@@ -76,11 +76,43 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
     );
   }
 
+  if (compact && stats) {
+    const usagePercent = stats.usage_ratio * 100;
+    return (
+      <section aria-label="压缩状态概览" className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <CompactMetric
+          label="上下文使用率"
+          value={`${usagePercent.toFixed(1)}%`}
+          detail={`${formatNumber(stats.current_tokens)} / ${formatNumber(stats.max_tokens)} tokens`}
+          progress={usagePercent}
+          ariaLabel={`上下文使用率: ${usagePercent.toFixed(1)}%`}
+        />
+        <CompactMetric
+          label="消息数量"
+          value={stats.message_count}
+          ariaLabel={`消息数量: ${stats.message_count}`}
+        />
+        <CompactMetric
+          label="工具结果"
+          value={stats.tool_result_count}
+          detail={`${formatNumber(stats.tool_result_tokens)} tokens`}
+          ariaLabel={`工具结果: ${stats.tool_result_count}, 占用 ${formatNumber(stats.tool_result_tokens)} tokens`}
+        />
+        <CompactMetric
+          label="当前模型"
+          value={stats.model_info.model || "—"}
+          detail={`${stats.model_info.provider} · ${formatNumber(stats.model_info.maxContextTokens)} tokens`}
+          ariaLabel={`当前模型: ${stats.model_info.model || "未指定"}`}
+        />
+      </section>
+    );
+  }
+
   return (
     <div className="space-y-4" role="main" aria-label="压缩监控面板">
       {/* 当前状态概览 */}
       {stats && (
-        <section aria-label="压缩状态概览" className={`grid gap-4 ${compact ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"}`}>
+        <section aria-label="压缩状态概览" className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card role="article" aria-label={`上下文使用率: ${(stats.usage_ratio * 100).toFixed(1)}%`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">上下文使用率</CardTitle>
@@ -206,6 +238,45 @@ export default function CompressionMonitorPanel({ compact = false }: Props) {
           </Card>
         </section>
       )}
+    </div>
+  );
+}
+
+function CompactMetric({
+  label,
+  value,
+  detail,
+  progress,
+  ariaLabel,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  progress?: number;
+  ariaLabel: string;
+}) {
+  return (
+    <div
+      role="article"
+      aria-label={ariaLabel}
+      className="min-w-0 rounded-md border border-border/50 bg-card/40 px-3 py-2"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-xs text-muted-foreground">{label}</span>
+        <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">{value}</span>
+      </div>
+      {progress !== undefined ? (
+        <Progress
+          value={progress}
+          className="mt-1.5 h-1.5"
+          aria-label={ariaLabel}
+        />
+      ) : null}
+      {detail ? (
+        <p className="mt-1 truncate text-xs text-muted-foreground tabular-nums" title={detail}>
+          {detail}
+        </p>
+      ) : null}
     </div>
   );
 }

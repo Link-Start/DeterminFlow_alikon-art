@@ -48,6 +48,78 @@ test("composer message keeps UI attachment metadata beside absolute-path content
   );
 });
 
+test("resource mentions expand to reference_text and keep resource metadata", () => {
+  assert.deepEqual(
+    formatComposerMessage([
+      { type: "text", value: "用" },
+      {
+        type: "resource",
+        name: "搜索",
+        resource_type: "skill",
+        resource_id: "skill-a",
+        reference_text: "[skill:skill-a] 搜索",
+      },
+      { type: "text", value: "处理" },
+    ]),
+    {
+      content: "用 [skill:skill-a] 搜索 处理",
+      attachments: [
+        {
+          name: "搜索",
+          resource_type: "skill",
+          resource_id: "skill-a",
+          reference_text: "[skill:skill-a] 搜索",
+        },
+      ],
+    },
+  );
+});
+
+test("mixed files and resources keep text order and do not copy resource into absolute_path", () => {
+  const message = formatComposerMessage([
+    { type: "file", name: "notes.md", path: "/tmp/notes.md" },
+    { type: "text", value: "对照" },
+    {
+      type: "resource",
+      name: "搜索",
+      resource_type: "skill",
+      resource_id: "skill-a",
+      reference_text: "[skill:skill-a] 搜索",
+    },
+    { type: "text", value: "与" },
+    {
+      type: "resource",
+      name: "搜索",
+      resource_type: "skill",
+      resource_id: "skill-b",
+      reference_text: "[skill:skill-b] 搜索",
+    },
+  ]);
+  assert.equal(
+    message.content,
+    "/tmp/notes.md 对照 [skill:skill-a] 搜索 与 [skill:skill-b] 搜索",
+  );
+  assert.deepEqual(message.attachments, [
+    { name: "notes.md", absolute_path: "/tmp/notes.md" },
+    {
+      name: "搜索",
+      resource_type: "skill",
+      resource_id: "skill-a",
+      reference_text: "[skill:skill-a] 搜索",
+    },
+    {
+      name: "搜索",
+      resource_type: "skill",
+      resource_id: "skill-b",
+      reference_text: "[skill:skill-b] 搜索",
+    },
+  ]);
+  assert.equal(
+    message.attachments.every((attachment) => !("absolute_path" in attachment && "resource_type" in attachment)),
+    true,
+  );
+});
+
 test("dropped file names support Unix and Windows paths", () => {
   assert.equal(getDroppedFileName("/Users/me/report.md"), "report.md");
   assert.equal(getDroppedFileName("C:\\Users\\me\\report.md"), "report.md");

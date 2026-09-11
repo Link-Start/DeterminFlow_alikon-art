@@ -327,6 +327,14 @@ def test_stage_defaults_uses_sanitized_overrides(
         "endpoints": ["https://downloads.determinflow.com/plugins/v1"],
         "public_key": "C4oDxekhIr8Czlx0zpkRx46k26KK3d1T3HIZGsIxIr0=",
     }
+    assert plugin_source["community_sources"] == [
+        {
+            "id": "determinflow-community",
+            "name": "DeterminFlow Community Plugins",
+            "url": "https://github.com/alikon-art/DeterminFlow-Community-Plugins.git",
+            "ref": "main",
+        }
+    ]
     assert (output / "models_config.json").read_text() == (
         output / "models_config.example.json"
     ).read_text()
@@ -374,6 +382,13 @@ def test_desktop_refreshes_only_core_owned_official_plugin_sources(
                         "ref": "main",
                     }
                 ],
+                "community_sources": [
+                    {
+                        "id": "determinflow-community",
+                        "url": "https://github.com/alikon-art/DeterminFlow-Community-Plugins.git",
+                        "ref": "main",
+                    }
+                ],
                 "custom_sources": [],
             }
         ),
@@ -403,6 +418,13 @@ def test_desktop_refreshes_only_core_owned_official_plugin_sources(
     assert refresh_official_plugin_sources(user_root, defaults) is True
     refreshed = json.loads(user_config.read_text(encoding="utf-8"))
     assert refreshed["official_sources"][0]["ref"] == "main"
+    assert refreshed["community_sources"] == [
+        {
+            "id": "determinflow-community",
+            "url": "https://github.com/alikon-art/DeterminFlow-Community-Plugins.git",
+            "ref": "main",
+        }
+    ]
     assert refreshed["custom_sources"] == [custom]
     assert refresh_official_plugin_sources(user_root, defaults) is False
 

@@ -89,6 +89,14 @@ def _make_llm_node(llm: BaseChatModel, tools: list[BaseTool]):
         messages = state["messages"]
         session_id = state.get("session_id", "unknown")
         agent_type = state.get("agent_type", "unknown")
+        # Optional workspace definitions follow live integration gates. All other
+        # tools retain the existing whitelist and graph behavior.
+        from src.workspace.tools import TOOL_NAMES, available_workspace_tools
+        current_llm_with_tools = llm_with_tools
+        if any(instance.name in TOOL_NAMES for instance in tools):
+            current_tools = available_workspace_tools(tools, agent_type)
+            if len(current_tools) != len(tools):
+                current_llm_with_tools = llm.bind_tools(current_tools, strict=True) if current_tools else llm
 
         # [防御层] 调用 LLM 前清理不完整的 tool_calls/tool 配对。
         # 注意：_sanitize_tool_pairs 仅处理「全局 ID 匹配」——即 AIMessage 的 tool_call_id
@@ -153,7 +161,7 @@ def _make_llm_node(llm: BaseChatModel, tools: list[BaseTool]):
                 # Reserve the last model round for an answer, without advertising
                 # tools that the graph no longer has budget to execute.
                 selected_llm = (
-                    llm if recovery_final or (state.get("remaining_rounds") or 0) <= 1 else llm_with_tools
+                    llm if recovery_final or (state.get("remaining_rounds") or 0) <= 1 else current_llm_with_tools
                 )
                 response = await selected_llm.ainvoke(request_messages)
                 break

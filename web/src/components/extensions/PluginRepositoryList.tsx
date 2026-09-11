@@ -12,6 +12,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  isOfficialPluginSource,
+  pluginSourceKindLabel,
+} from "@/extensions/plugin-source-kind";
 import type { PluginCatalogSource } from "@/extensions/plugin-types";
 
 interface PluginRepositoryListProps {
@@ -81,11 +85,11 @@ export function PluginRepositoryList({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-sm font-medium">{source.name}</h3>
-                        <Badge variant={source.builtin ? "secondary" : "outline"}>
-                          {source.builtin
+                        <Badge variant={isOfficialPluginSource(source.kind) ? "secondary" : "outline"}>
+                          {isOfficialPluginSource(source.kind)
                             ? <ShieldCheck aria-hidden="true" />
                             : <ShieldAlert aria-hidden="true" />}
-                          {source.builtin ? "内置官方" : "第三方"}
+                          {pluginSourceKindLabel(source.kind, "builtin")}
                         </Badge>
                         {source.registry ? (
                           <Badge variant="outline">签名加速 · {source.registry.endpoints.length}</Badge>

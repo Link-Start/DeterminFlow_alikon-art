@@ -58,7 +58,7 @@ def refresh_official_plugin_sources(
     user_root: Path,
     defaults_dir: Path | None = None,
 ) -> bool:
-    """Refresh Core-owned official sources while preserving every custom source."""
+    """Refresh Core-owned official and community sources; keep user custom sources."""
     source_dir = defaults_dir or default_config_dir()
     packaged_path = source_dir / "plugin-sources.json"
     user_path = user_root / "config" / "plugin-sources.json"
@@ -67,12 +67,18 @@ def refresh_official_plugin_sources(
     packaged = json.loads(packaged_path.read_text(encoding="utf-8"))
     current = json.loads(user_path.read_text(encoding="utf-8"))
     official = packaged.get("official_sources")
+    community = packaged.get("community_sources", [])
     custom = current.get("custom_sources", [])
-    if not isinstance(official, list) or not isinstance(custom, list):
+    if (
+        not isinstance(official, list)
+        or not isinstance(community, list)
+        or not isinstance(custom, list)
+    ):
         raise RuntimeError("plugin-sources.json 的仓库列表无效")
     updated = {
         "schema_version": 1,
         "official_sources": official,
+        "community_sources": community,
         "custom_sources": custom,
     }
     if updated == current:

@@ -207,6 +207,18 @@ class ToolRegistry:
         for tool_name in registered.get("tool_ids", []):
             self._tool_group_map[tool_name] = group_id
 
+    def unregister_tools(self, names, *, owner: str) -> None:
+        """Remove selected runtime definitions only when their owner still matches.
+
+        Preserve configured group membership so a later registration can reuse it.
+        """
+        for name in names:
+            if self._tool_owners.get(name) != owner:
+                continue
+            self._tools.pop(name, None)
+            self._factories.pop(name, None)
+            self._tool_owners.pop(name, None)
+
     def unregister_owner(self, owner: str) -> None:
         """回滚指定扩展注册的工具和工具分组。"""
         tool_names = [
@@ -512,6 +524,20 @@ def register_all_tool_factories(registry: ToolRegistry, *,
                     if current.name == _name
                 ),
             )
+
+    from src.tools.resource_reference_tools import create_resource_reference_tools
+
+    for tool in create_resource_reference_tools(session_manager):
+        registry.register_from_structured_tool(
+            tool,
+            factory=lambda _name=tool.name, **deps: next(
+                current
+                for current in create_resource_reference_tools(
+                    deps.get("session_manager", session_manager)
+                )
+                if current.name == _name
+            ),
+        )
 
     # ── 2. 外部 MCP 工具（排除 coding 工具名）──
     for tool_def in mcp_client.get_tools():

@@ -33,6 +33,7 @@ _SCHEMA_KEYS = frozenset({
     "title",
     "type",
     "description",
+    "deprecated",
     "properties",
     "required",
     "default",
@@ -62,6 +63,8 @@ def _validate_schema(schema: Any, path: str = "$") -> None:
             f"{path} 包含不支持的 Schema 关键字: {', '.join(unsupported)}"
         )
     schema_type = schema.get("type")
+    if "deprecated" in schema and not isinstance(schema["deprecated"], bool):
+        raise ValueError(f"{path}.deprecated 必须是 boolean")
     if schema_type not in _SUPPORTED_TYPES:
         raise ValueError(f"{path}.type 不受支持: {schema_type!r}")
     if "enum" in schema:

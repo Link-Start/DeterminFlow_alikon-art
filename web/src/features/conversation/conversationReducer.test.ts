@@ -385,6 +385,154 @@ test("a retried failed turn remains visible while the new stream starts", () => 
   assert.equal(state.failedTurn?.failureId, "failure-retry-2");
 });
 
+test("failed turns keep resource attachments instead of dropping them as files", () => {
+  const state = dispatchWire(createConversationState("main-session"), {
+    type: "snapshot",
+    session_id: "main-session",
+    status: "running",
+    revision: 2,
+    active_stream: null,
+    messages: [],
+    failed_turn: {
+      failure_id: "failure-resource",
+      content: "用 [skill:skill-a] 搜索",
+      attachments: [
+        {
+          name: "搜索",
+          resource_type: "skill",
+          resource_id: "skill-a",
+          reference_text: "[skill:skill-a] 搜索",
+        },
+      ],
+      retryable: true,
+      retry_block_reason: null,
+      tool_started: false,
+      attempt_count: 1,
+      error: { message: "模型服务暂时不可用，请稍后再试" },
+    },
+  });
+
+  assert.deepEqual(state.failedTurn?.attachments, [{
+    name: "搜索",
+    resource_type: "skill",
+    resource_id: "skill-a",
+    reference_text: "[skill:skill-a] 搜索",
+  }]);
+});
+
+test("retrying a failed turn with resources keeps attachment metadata on the new user message", () => {
+  let state = createConversationState("main-session");
+  state = dispatchWire(state, {
+    type: "snapshot",
+    session_id: "main-session",
+    status: "running",
+    revision: 3,
+    active_stream: null,
+    messages: [{ type: "assistant", content: "stable answer" }],
+    failed_turn: {
+      failure_id: "failure-resource-retry",
+      content: "用 [skill:skill-a] 搜索",
+      attachments: [{
+        name: "搜索",
+        resource_type: "skill",
+        resource_id: "skill-a",
+        reference_text: "[skill:skill-a] 搜索",
+      }],
+      retryable: true,
+      retry_block_reason: null,
+      tool_started: false,
+      attempt_count: 1,
+      error: { message: "模型服务暂时不可用，请稍后再试" },
+    },
+  });
+  state = conversationReducer(state, {
+    type: "retry_requested",
+    sessionId: "main-session",
+    failureId: "failure-resource-retry",
+  });
+  state = dispatchWire(state, {
+    type: "stream_start",
+    session_id: "main-session",
+    generation_id: "generation-resource",
+    revision: 4,
+  });
+  const user = state.messages.find((message) => message.type === "user");
+  assert.equal(user?.content, "用 [skill:skill-a] 搜索");
+  assert.deepEqual(user?.attachments, [{
+    name: "搜索",
+    resource_type: "skill",
+    resource_id: "skill-a",
+    reference_text: "[skill:skill-a] 搜索",
+  }]);
+});
+
+test("optimistic user messages keep mixed file and resource attachments", () => {
+  let state = createConversationState("session-a");
+  state = conversationReducer(state, {
+    type: "append_optimistic_message",
+    sessionId: "session-a",
+    message: {
+      type: "user",
+      content: "/tmp/notes.md 对照 [skill:skill-a] 搜索",
+      attachments: [
+        { name: "notes.md", absolute_path: "/tmp/notes.md" },
+        {
+          name: "搜索",
+          resource_type: "skill",
+          resource_id: "skill-a",
+          reference_text: "[skill:skill-a] 搜索",
+        },
+      ],
+    },
+  });
+  assert.deepEqual(state.messages[0].attachments, [
+    { name: "notes.md", absolute_path: "/tmp/notes.md" },
+    {
+      name: "搜索",
+      resource_type: "skill",
+      resource_id: "skill-a",
+      reference_text: "[skill:skill-a] 搜索",
+    },
+  ]);
+});
+
+test("optimistic edit keeps remaining resource attachments by reference_text", () => {
+  let state = createConversationState("session-a");
+  state = dispatchWire(state, {
+    type: "snapshot",
+    session_id: "session-a",
+    status: "completed",
+    revision: 1,
+    messages: [{
+      id: "user-1",
+      type: "user",
+      content: "/tmp/notes.md 对照 [skill:skill-a] 搜索",
+      attachments: [
+        { name: "notes.md", absolute_path: "/tmp/notes.md" },
+        {
+          name: "搜索",
+          resource_type: "skill",
+          resource_id: "skill-a",
+          reference_text: "[skill:skill-a] 搜索",
+        },
+      ],
+    }],
+    active_stream: null,
+  });
+  state = conversationReducer(state, {
+    type: "edit_optimistic_message",
+    sessionId: "session-a",
+    messageId: "user-1",
+    content: "只问 [skill:skill-a] 搜索",
+  });
+  assert.deepEqual(state.messages[0].attachments, [{
+    name: "搜索",
+    resource_type: "skill",
+    resource_id: "skill-a",
+    reference_text: "[skill:skill-a] 搜索",
+  }]);
+});
+
 test("optimistic edit truncates later messages only after the command was accepted", () => {
   let state = createConversationState("session-a");
   state = dispatchWire(state, {

@@ -13,7 +13,10 @@ from src.extension_api.models import (
     ExtensionPage,
     ExtensionProcess,
 )
-from src.plugin_system.models import validate_plugin_id, validate_resource_prefix
+from src.plugin_system.models import (
+    validate_plugin_id,
+    validate_resource_prefix,
+)
 
 from .lifecycle import parse_extension_lifecycle
 
@@ -58,6 +61,26 @@ def _positive_number(
     if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"{context}.{field_name} 必须是正数")
     return float(value)
+
+
+def _optional_int(
+    table: dict[str, Any],
+    field_name: str,
+    *,
+    context: str,
+    minimum: int,
+    maximum: int,
+) -> int | None:
+    if field_name not in table:
+        return None
+    value = table[field_name]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{context}.{field_name} 必须是整数")
+    if not minimum <= value <= maximum:
+        raise ValueError(
+            f"{context}.{field_name} 必须在 {minimum} 到 {maximum} 之间"
+        )
+    return value
 
 
 def _validate_relative_path(value: str, *, field_name: str) -> str:
@@ -281,6 +304,23 @@ def parse_extension_manifest(manifest_path: Path) -> ExtensionManifest:
             settings_schema,
             field_name="settings.schema",
         )
+    settings_title = _string(settings, "title", context="settings")
+    settings_description = _string(settings, "description", context="settings")
+    settings_order = _optional_int(
+        settings,
+        "order",
+        context="settings",
+        minimum=0,
+        maximum=10000,
+    )
+    settings_section_id = _string(settings, "section_id", context="settings")
+    if settings_section_id:
+        try:
+            settings_section_id = validate_plugin_id(settings_section_id)
+        except ValueError as exc:
+            raise ValueError(
+                "settings.section_id 必须是小写 kebab-case，且不超过 128 个字符"
+            ) from exc
 
     parse_extension_lifecycle(data.get("lifecycle"))
 
@@ -372,4 +412,8 @@ def parse_extension_manifest(manifest_path: Path) -> ExtensionManifest:
         page=page,
         header_status=header_status,
         processes=_parse_processes(data.get("processes")),
+        settings_title=settings_title,
+        settings_description=settings_description,
+        settings_order=settings_order,
+        settings_section_id=settings_section_id,
     )

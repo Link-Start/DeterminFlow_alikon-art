@@ -51,7 +51,7 @@ def estimate_tokens(text: str) -> int:
     快速估算文本的 token 数量（不引入额外 tokenizer 依赖）。
 
     规则：
-    - 中文字符（Unicode CJK）：每字约 1.5 token
+    - 中文字符（Unicode CJK）：每 1.5 字约 1 token
     - 其他字符：每 4 个字符约 1 token
     """
     if not text:

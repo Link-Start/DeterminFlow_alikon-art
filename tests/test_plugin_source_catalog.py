@@ -14,6 +14,7 @@ from src.extension_host.source_config import (
     PluginSourceConfig,
     PluginSourceStore,
     fetch_plugin_catalog,
+    load_official_sources,
     load_plugin_sources,
 )
 from src.web_server import create_app
@@ -249,7 +250,7 @@ def test_custom_source_store_rejects_builtin_mutation_and_duplicate_url(
     store = PluginSourceStore(source_file)
     official = store.list()[0]
 
-    with pytest.raises(ValueError, match="内置官方"):
+    with pytest.raises(ValueError, match="内置仓库"):
         store.delete(official.id)
     with pytest.raises(ValueError, match="已存在"):
         store.create(name="Duplicate", url=str(repository), ref="main")
@@ -309,6 +310,51 @@ def test_catalog_service_replaces_sources_and_forces_refresh(monkeypatch):
     service.get(refresh=True)
 
     assert seen == [(), ("Custom",)]
+
+
+def test_community_source_is_builtin_third_party_and_not_official(
+    tmp_path: Path,
+):
+    repository = _repository(tmp_path)
+    source_file = tmp_path / "config" / "plugin-sources.json"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text(
+        json.dumps({
+            "schema_version": 1,
+            "official_sources": [],
+            "community_sources": [{
+                "id": "determinflow-community",
+                "name": "DeterminFlow Community Plugins",
+                "url": str(repository),
+                "ref": "main",
+            }],
+            "custom_sources": [],
+        }),
+        encoding="utf-8",
+    )
+
+    sources = load_plugin_sources(source_file)
+    assert [source.kind for source in sources] == ["community"]
+    assert sources[0].builtin is True
+    assert load_official_sources(source_file) == []
+
+    catalog = fetch_plugin_catalog(sources)
+    assert catalog["plugins"][0]["source_kind"] == "community"
+
+    store = PluginSourceStore(source_file)
+    with pytest.raises(ValueError, match="内置仓库"):
+        store.delete(sources[0].id)
+    with pytest.raises(ValueError, match="已存在"):
+        store.create(name="Duplicate Community", url=str(repository), ref="main")
+
+    manager = ExtensionManager(
+        tmp_path,
+        config_file=tmp_path / "config" / "extensions.json",
+        enabled=[],
+        discover_entry_points=False,
+    )
+    community_url = manager.plugin_store.canonicalize_source(str(repository))[0]
+    assert community_url not in manager.plugin_store._official_sources
 
 
 def test_source_config_rejects_inline_http_credentials(tmp_path: Path):

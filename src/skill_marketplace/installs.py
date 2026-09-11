@@ -6,6 +6,7 @@ import shutil
 from typing import Any
 
 from .errors import LocalSkillError
+from .bundle import package_file_metadata
 from .local_skills import install_skill_atomically
 from .packages import (
     pin_remote_skill,
@@ -77,6 +78,7 @@ async def install_marketplace_skill(
                     "version": remote.version,
                     "sha256": actual_sha256,
                     "license": remote.license,
+                    **package_file_metadata(content),
                 },
             )
             provenance_recorded = True

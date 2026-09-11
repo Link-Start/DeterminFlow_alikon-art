@@ -457,3 +457,23 @@ def test_in_process_runtime_rejects_unsafe_setting_file(tmp_path: Path) -> None:
             {},
             environ={"SECRET_FILE": str(link)},
         )
+
+
+def test_deprecated_settings_remain_valid_for_legacy_migration(tmp_path):
+    from src.extension_host.plugin_config import validate_sparse_plugin_settings
+
+    schema = {"type": "object", "properties": {
+        "endpoint": {"type": "string"},
+        "old_mode": {"type": "string", "deprecated": True},
+    }}
+    (tmp_path / "settings.json").write_text(json.dumps(schema))
+    loaded = load_settings_schema(tmp_path, "settings.json")
+    legacy = {"endpoint": "local", "old_mode": "first"}
+    assert validate_sparse_plugin_settings(loaded, legacy) == legacy
+    store = PluginConfigStore(tmp_path / "config")
+    store.save("demo", loaded, legacy)
+    assert store.load("demo") == legacy
+    schema["properties"]["old_mode"]["deprecated"] = "yes"
+    (tmp_path / "settings.json").write_text(json.dumps(schema))
+    with pytest.raises(ValueError, match="deprecated"):
+        load_settings_schema(tmp_path, "settings.json")

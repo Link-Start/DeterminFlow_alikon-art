@@ -1,4 +1,4 @@
-"""User-owned single-file Skill reads used by publish, preview, and drafts."""
+"""User-owned Skill package reads used by publish, preview, and drafts."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from src.skills.loader import SkillLoader
 from src.skills.manager import SkillManager
 
 from .catalog import MAX_SKILL_BYTES
+from .bundle import pack, unpack, root_document, read_directory
 from .errors import LocalSkillError
 from .ownership import SKILL_ID_PATTERN
 
@@ -34,6 +35,7 @@ _FRONTMATTER_CLOSE = re.compile(r"\r?\n---[ \t]*\r?\n")
 
 
 def validate_skill_content(content: bytes) -> str:
+    content = root_document(content)
     if not content or len(content) > _MAX_SKILL_BYTES:
         raise LocalSkillError("invalid_size", "SKILL.md 必须小于 256 KiB")
     if b"\x00" in content:
@@ -80,18 +82,8 @@ def read_shareable_skill(skill_manager: SkillManager, skill_id: str) -> tuple[Pa
     if not isinstance(raw_dir, str) or not raw_dir:
         raise LocalSkillError("invalid_local_skill", "无法定位本地 Skill")
     skill_dir = Path(raw_dir)
-    if skill_dir.is_symlink() or not skill_dir.is_dir():
-        raise LocalSkillError("attachments_not_allowed", "只允许单文件 SKILL.md")
-    entries = list(skill_dir.iterdir())
-    if len(entries) != 1 or entries[0].name != "SKILL.md" or entries[0].is_symlink():
-        raise LocalSkillError("attachments_not_allowed", "带附件的 Skill 不允许上传")
-    skill_path = entries[0]
-    if not skill_path.is_file():
-        raise LocalSkillError("attachments_not_allowed", "只允许单文件 SKILL.md")
-    try:
-        content = skill_path.read_bytes()
-    except OSError as exc:
-        raise LocalSkillError("read_failed", "无法读取本地 SKILL.md") from exc
+    content = read_directory(skill_dir)
+    skill_path = skill_dir / "SKILL.md"
     parsed_id = validate_skill_content(content)
     if parsed_id != skill_id:
         raise LocalSkillError("identity_mismatch", "Skill 目录与 SKILL.md 标识不一致")
@@ -135,14 +127,15 @@ def require_publish_license(license_id: str, *, content: bytes) -> str:
 def prepare_skill_upload(content: bytes, *, name: str, version: str) -> bytes:
     target_name = require_skill_id(name)
     publication_version = require_publication_version(version)
-    raw = _decode_skill_text(content)
+    files = unpack(content)
+    raw = _decode_skill_text(files["SKILL.md"])
     frontmatter, body = _split_skill_document(raw)
     current_name = frontmatter.get("name")
     current_version = _read_version(frontmatter)
     if current_name == target_name and current_version == publication_version:
         prepared = raw.encode("utf-8")
         validate_skill_content(prepared)
-        return prepared
+        return content if content.lstrip().startswith(b"{") else prepared
     next_frontmatter = dict(frontmatter)
     next_frontmatter["name"] = target_name
     _write_version(next_frontmatter, publication_version)
@@ -162,7 +155,8 @@ def prepare_skill_upload(content: bytes, *, name: str, version: str) -> bytes:
     prepared_name, prepared_version = skill_identity(prepared)
     if prepared_name != target_name or prepared_version != publication_version:
         raise LocalSkillError("identity_mismatch", "准备投稿副本后的 Skill 标识不一致")
-    return prepared
+    files["SKILL.md"] = prepared
+    return pack(files)
 
 
 def local_skill_preview(
@@ -220,6 +214,7 @@ def require_skill_id(skill_id: str) -> str:
 
 
 def _decode_skill_text(content: bytes) -> str:
+    content = root_document(content)
     if not content or len(content) > _MAX_SKILL_BYTES:
         raise LocalSkillError("invalid_size", "SKILL.md 必须小于 256 KiB")
     if b"\x00" in content:
@@ -274,32 +269,51 @@ def _write_version(frontmatter: dict, version: str) -> None:
     frontmatter["metadata"] = {"version": version}
 
 
-def install_skill_atomically(target: Path, content: bytes) -> None:
+def install_skill_atomically(target: Path, content: bytes, *, check_types: bool = True) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".marketplace-", dir=target.parent))
     try:
-        skill_path = staging / "SKILL.md"
-        descriptor = os.open(
-            skill_path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o600,
-        )
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
+        for relative, data in unpack(content, check_types=check_types).items():
+            skill_path = staging / relative
+            skill_path.parent.mkdir(parents=True, exist_ok=True)
+            descriptor = os.open(skill_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
         os.replace(staging, target)
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise
 
 
-def replace_skill_file_atomically(skill_path: Path, content: bytes) -> None:
+def replace_skill_file_atomically(skill_path: Path, content: bytes, *, check_types: bool = True) -> None:
+    # Stage a complete tree before touching an existing install. Keeping the
+    # previous directory until the swap succeeds also removes obsolete files.
+    files = unpack(content, check_types=check_types)
+    if set(files) != {"SKILL.md"} or set(skill_path.parent.iterdir()) != {skill_path}:
+        target = skill_path.parent
+        holding = Path(tempfile.mkdtemp(prefix=".marketplace-update-", dir=target.parent))
+        replacement = holding / "replacement"
+        backup = holding / "previous"
+        try:
+            install_skill_atomically(replacement, content, check_types=check_types)
+            os.replace(target, backup)
+            try:
+                os.replace(replacement, target)
+            except Exception:
+                os.replace(backup, target)
+                raise
+        finally:
+            # If restoration itself failed, retain the backup for recovery.
+            if target.exists():
+                shutil.rmtree(holding, ignore_errors=True)
+        return
     descriptor, name = tempfile.mkstemp(prefix=".marketplace-", suffix=".tmp", dir=skill_path.parent)
     temporary = Path(name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
-            handle.write(content)
+            handle.write(files["SKILL.md"])
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, skill_path)

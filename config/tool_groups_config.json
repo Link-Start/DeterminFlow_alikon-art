@@ -25,6 +25,7 @@
         "create_sub_session",
         "check_sub_progress",
         "check_main_progress",
+        "get_session_messages",
         "send_message",
         "delete_session"
       ]
@@ -38,7 +39,8 @@
         "set_temperature",
         "get_system_prompt",
         "update_system_prompt",
-        "list_agent_types"
+        "list_agent_types",
+        "get_agent_definition"
       ]
     },
     {

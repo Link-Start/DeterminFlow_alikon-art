@@ -24,6 +24,10 @@ class ExtensionContributions:
     prompt_context_providers: list[tuple[str, Any]] = field(default_factory=list)
     session_hooks: list[tuple[str, Any]] = field(default_factory=list)
     health_checks: list[tuple[str, Callable]] = field(default_factory=list)
+    memory_scope_authorizers: list[tuple[str, Any]] = field(default_factory=list)
+    memory_providers: list[tuple[str, Any]] = field(default_factory=list)
+    workspace_providers: list[tuple[str, Any]] = field(default_factory=list)
+    workspace_scope_authorizers: list[tuple[str, Any]] = field(default_factory=list)
     resource_paths: dict[str, list[OwnedPath]] = field(default_factory=dict)
 
 
@@ -59,6 +63,35 @@ class ExtensionRegistrar:
 
     def add_health_check(self, check: Callable) -> None:
         self._contributions.health_checks.append((self.owner, check))
+
+    def add_memory_scope_authorizer(self, authorizer: Any) -> None:
+        """Register a trusted async callback that re-validates memory_scope."""
+
+        if authorizer is None:
+            raise ValueError("memory scope authorizer 不能为空")
+        authorize = getattr(authorizer, "authorize", None)
+        if not callable(authorize):
+            raise TypeError("memory scope authorizer 必须提供 authorize()")
+        self._contributions.memory_scope_authorizers.append((self.owner, authorizer))
+
+    def add_memory_provider(self, provider: Any) -> None:
+        """Register a provider-neutral long-term memory backend."""
+
+        if provider is None:
+            raise ValueError("memory provider 不能为空")
+        self._contributions.memory_providers.append((self.owner, provider))
+
+    def add_workspace_provider(self, provider: Any) -> None:
+        """Register optional persistent storage; registration never enables it."""
+        if not callable(getattr(provider, "execute", None)) or not callable(getattr(provider, "health", None)):
+            raise TypeError("workspace provider 必须提供 execute() 和 health()")
+        self._contributions.workspace_providers.append((self.owner, provider))
+
+    def add_workspace_scope_authorizer(self, authorizer: Any) -> None:
+        """Register product-owned authorization for every workspace operation."""
+        if not callable(getattr(authorizer, "authorize", None)):
+            raise TypeError("workspace authorizer 必须提供 authorize()")
+        self._contributions.workspace_scope_authorizers.append((self.owner, authorizer))
 
     def add_resource_path(self, resource_type: str, path: str | Path) -> None:
         base_path = self.manifest.base_path

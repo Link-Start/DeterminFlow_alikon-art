@@ -11,7 +11,6 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-
 MAX_MODEL_CONTEXT_BYTES = 64 * 1024
 
 
@@ -49,6 +48,16 @@ def compose_user_model_content(
 ) -> str:
     """Compose model input without changing the display-authoritative content."""
     normalized_context = normalize_model_context(model_context)
+    # Routing markers stay in persisted metadata for scope-change cleanup.
+    # They are not part of the reference material sent to the model.
+    if normalized_context is not None:
+        memory = normalized_context.get("long_term_memory")
+        if isinstance(memory, dict):
+            memory.pop("bank_id", None)
+            memory.pop("memory_scope", None)
+        workspace = normalized_context.get("workspace")
+        if isinstance(workspace, dict):
+            workspace.pop("_binding", None)
     injections = [
         str(item.get("content", ""))
         for item in (injection_meta or [])

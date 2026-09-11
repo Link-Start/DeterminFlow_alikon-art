@@ -130,6 +130,65 @@ test("legacy workspace attachment lines render as bubbles without metadata", () 
   assert.match(html, /普通文本 \/tmp\/not-an-attachment\.md/);
 });
 
+test("historical resource mentions restore @name chips and expose reference text", () => {
+  const html = renderToStaticMarkup(createElement(MessageBubble, {
+    message: {
+      id: "user-resource-1",
+      type: "user",
+      content: "用 [skill:skill-a] 搜索 对照 [skill:skill-b] 搜索",
+      attachments: [
+        {
+          name: "搜索",
+          resource_type: "skill",
+          resource_id: "skill-a",
+          reference_text: "[skill:skill-a] 搜索",
+        },
+        {
+          name: "搜索",
+          resource_type: "skill",
+          resource_id: "skill-b",
+          reference_text: "[skill:skill-b] 搜索",
+        },
+      ],
+    },
+    readonly: true,
+  }));
+
+  assert.match(html, /data-message-resource/);
+  assert.match(html, /@搜索/);
+  assert.match(html, /title="\[skill:skill-a\] 搜索"/);
+  assert.match(html, /title="\[skill:skill-b\] 搜索"/);
+  assert.doesNotMatch(html, />\[skill:skill-a\] 搜索</);
+  assert.doesNotMatch(html, /<button/);
+});
+
+test("mixed file and resource history keeps both chip types", () => {
+  const html = renderToStaticMarkup(createElement(MessageBubble, {
+    message: {
+      id: "user-mixed-1",
+      type: "user",
+      content: "检查 /tmp/notes.md 和 [prompt:p1] 写作",
+      attachments: [
+        { name: "notes.md", absolute_path: "/tmp/notes.md" },
+        {
+          name: "写作",
+          resource_type: "prompt",
+          resource_id: "p1",
+          reference_text: "[prompt:p1] 写作",
+        },
+      ],
+    },
+    readonly: true,
+  }));
+
+  assert.match(html, /data-message-attachment/);
+  assert.match(html, /data-message-resource/);
+  assert.match(html, />notes\.md</);
+  assert.match(html, /data-resource-icon="file"/);
+  assert.match(html, /data-resource-icon="prompt"/);
+  assert.match(html, /@写作/);
+});
+
 test("legacy inline workspace paths with simple filenames render as bubbles", () => {
   const path = "/private/tmp/workspaces/session/attachments/README.en.md";
   const html = renderToStaticMarkup(createElement(MessageBubble, {

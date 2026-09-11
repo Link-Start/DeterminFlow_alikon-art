@@ -32,6 +32,13 @@ from src.plugin_system.registry import (
 )
 from src.plugin_system.source_selection import select_git_source
 
+SOURCE_LIST_KEYS = {
+    "official": "official_sources",
+    "community": "community_sources",
+    "custom": "custom_sources",
+}
+BUILTIN_SOURCE_KINDS = frozenset({"official", "community"})
+
 
 @dataclass(frozen=True)
 class PluginSourceConfig:
@@ -58,7 +65,10 @@ def _source_id(kind: str, name: str, url: str) -> str:
 
 
 def _parse_source(item: Any, *, kind: str) -> PluginSourceConfig:
-    label = "official_sources" if kind == "official" else "custom_sources"
+    try:
+        label = SOURCE_LIST_KEYS[kind]
+    except KeyError as exc:
+        raise ValueError(f"未知 Plugin 仓库类型: {kind}") from exc
     if not isinstance(item, dict) or not isinstance(item.get("url"), str):
         raise ValueError(f"{label} 项必须包含字符串 url")
     raw_url = item["url"].strip()
@@ -109,7 +119,7 @@ def _parse_source(item: Any, *, kind: str) -> PluginSourceConfig:
         url=url,
         ref=normalized_ref,
         kind=kind,
-        builtin=kind == "official",
+        builtin=kind in BUILTIN_SOURCE_KINDS,
         mirrors=tuple(mirrors),
         registry=registry,
     )
@@ -120,6 +130,7 @@ def _load_source_document(path: Path) -> dict[str, Any]:
         return {
             "schema_version": 1,
             "official_sources": [],
+            "community_sources": [],
             "custom_sources": [],
         }
     with path.open("r", encoding="utf-8") as handle:
@@ -128,7 +139,7 @@ def _load_source_document(path: Path) -> dict[str, Any]:
         raise ValueError("plugin-sources.json 必须是 object")
     if document.get("schema_version") != 1:
         raise ValueError("plugin-sources.json 版本不受支持")
-    for key in ("official_sources", "custom_sources"):
+    for key in SOURCE_LIST_KEYS.values():
         if key in document and not isinstance(document[key], list):
             raise ValueError(f"{key} 必须是数组")
     return document
@@ -138,12 +149,9 @@ def load_plugin_sources(path: Path) -> list[PluginSourceConfig]:
     document = _load_source_document(path)
     sources = [
         *(
-            _parse_source(item, kind="official")
-            for item in document.get("official_sources", [])
-        ),
-        *(
-            _parse_source(item, kind="custom")
-            for item in document.get("custom_sources", [])
+            _parse_source(item, kind=kind)
+            for kind, key in SOURCE_LIST_KEYS.items()
+            for item in document.get(key, [])
         ),
     ]
     seen_ids: set[str] = set()
@@ -280,7 +288,7 @@ class PluginSourceStore:
     @staticmethod
     def _ensure_mutable(source: PluginSourceConfig) -> None:
         if source.builtin:
-            raise ValueError("内置官方仓库不能编辑或删除")
+            raise ValueError("内置仓库不能编辑或删除")
 
     @staticmethod
     def _ensure_unique(
@@ -299,6 +307,9 @@ class PluginSourceStore:
 
     def _write_custom(self, custom_sources: list[PluginSourceConfig]) -> None:
         document = _load_source_document(self.path)
+        document["schema_version"] = 1
+        document["official_sources"] = document.get("official_sources", [])
+        document["community_sources"] = document.get("community_sources", [])
         document["custom_sources"] = [
             _custom_source_document(source) for source in custom_sources
         ]

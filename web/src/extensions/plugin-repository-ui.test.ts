@@ -50,6 +50,21 @@ const sources: PluginCatalogSource[] = [
     error: "",
     transport: "git",
   },
+  {
+    id: "community",
+    name: "DeterminFlow Community Plugins",
+    url: "https://github.com/example/community-plugins.git",
+    selected_url: "https://github.com/example/community-plugins.git",
+    mirrors: [],
+    ref: "main",
+    kind: "community",
+    builtin: true,
+    registry: null,
+    resolved_commit: "fedcba9876543210",
+    plugin_count: 0,
+    error: "",
+    transport: "git",
+  },
 ];
 
 const catalog: PluginCatalogEntry[] = [{
@@ -122,6 +137,7 @@ test("install drawer exposes repository controls without a search field", () => 
   assert.match(markup, /管理/);
   assert.match(markup, /删除/);
   assert.match(markup, /官方/);
+  assert.match(markup, /社区/);
   assert.match(markup, /第三方/);
 });
 

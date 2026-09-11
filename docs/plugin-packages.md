@@ -46,8 +46,11 @@ subdirectory = "plugins/example-plugin"
 ```
 
 安装时仍以 Plugin 根目录中的 `extension.toml` 为最终契约。
-Core 通过 `config/plugin-sources.json` 中的官方 Git 地址按需读取该索引，并在插件
+Core 通过 `config/plugin-sources.json` 中的仓库地址按需读取该索引，并在插件
 页面提供快捷安装入口；索引只负责发现，安装仍会重新预检清单并锁定精确 commit。
+`official_sources` 是内置官方来源。`community_sources` 是内置社区目录，信任等级仍是
+第三方，安装必须确认同机同权限风险；私有 Core 与生产配置保持空数组，社区版才写入
+公开社区仓库地址。`custom_sources` 是用户自行添加的第三方仓库。
 官方来源可以配置 `mirrors` 镜像地址数组。Core 会并行探测主地址与镜像：主地址可达时
 只允许返回同一 commit 的镜像参与传输，并按 `mirrors` 配置顺序优先使用镜像，避免镜像
 尚未同步时安装旧版本；首选镜像不可用时再回退其他镜像或主地址。Plugin 锁仍记录主地址，

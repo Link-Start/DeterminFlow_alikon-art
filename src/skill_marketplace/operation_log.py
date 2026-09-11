@@ -18,6 +18,8 @@ ALLOWED_ERROR_CODES = frozenset(
         "already_exists",
         "account_unavailable",
         "attachments_not_allowed",
+        "file_type_not_allowed",
+        "invalid_package",
         "authentication_failed",
         "conflict",
         "config_unavailable",

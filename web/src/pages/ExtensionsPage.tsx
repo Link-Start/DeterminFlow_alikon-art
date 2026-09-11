@@ -34,7 +34,6 @@ import type {
   PluginCatalogSource,
   PluginListResponse,
   PluginRecord,
-  PluginSettings,
   PluginSourceMutationResponse,
   PluginSourceRequest,
 } from "@/extensions/plugin-types";
@@ -44,14 +43,14 @@ import {
   fetchPluginCatalog,
   fetchPlugins,
   installPlugin,
-  resetPluginConfig,
   rollbackPlugin,
-  savePluginConfig,
   setPluginEnabled,
   uninstallPlugin,
   updatePlugin,
   updatePluginSource,
 } from "@/lib/plugin-api";
+import { fetchSettingsSections } from "@/settings/api";
+import { pluginSectionId } from "@/settings/section-model";
 
 type PluginOperation = () => Promise<unknown>;
 type PageTab = "installed" | "repositories";
@@ -86,6 +85,7 @@ export default function ExtensionsPage() {
   const [catalogError, setCatalogError] = useState("");
   const operationInFlight = useRef(false);
   const [requestedPlugin, setRequestedPlugin] = useUrlParam("plugin");
+  const [pluginSettingsIds, setPluginSettingsIds] = useState<Record<string, string>>({});
 
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -107,6 +107,21 @@ export default function ExtensionsPage() {
       if (initial) setLoading(false);
       else setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetchSettingsSections().then((sections) => {
+      if (!active) return;
+      const next: Record<string, string> = {};
+      for (const section of sections) {
+        if (section.kind === "plugin" && section.plugin_id && !next[section.plugin_id]) {
+          next[section.plugin_id] = section.id;
+        }
+      }
+      setPluginSettingsIds(next);
+    }).catch(() => undefined);
+    return () => { active = false; };
   }, []);
 
   const loadCatalog = useCallback(async (refresh = false) => {
@@ -250,17 +265,6 @@ export default function ExtensionsPage() {
     () => uninstallPlugin(plugin.id, adminToken),
     "插件将在重启后卸载",
   );
-  const saveConfig = (plugin: PluginRecord, settings: PluginSettings) => runOperation(
-    `${plugin.id}:config`,
-    () => savePluginConfig(plugin.id, settings, adminToken),
-    "插件配置已保存",
-  );
-  const resetConfig = (plugin: PluginRecord) => runOperation(
-    `${plugin.id}:config`,
-    () => resetPluginConfig(plugin.id, adminToken),
-    "插件配置已清空",
-  );
-
   const saveSource = (source: PluginCatalogSource | null, request: PluginSourceRequest) => runSourceOperation(
     source ? `${source.id}:source` : "source:create",
     () => source
@@ -468,7 +472,7 @@ export default function ExtensionsPage() {
       ) : null}
 
       {drawer === "details" && selectedPlugin ? (
-        <PluginDrawer title={selectedPlugin.name} description="来源、版本、配置与低频包管理操作。" onClose={() => setDrawer(null)}>
+        <PluginDrawer title={selectedPlugin.name} description="来源、版本与低频包管理操作。" onClose={() => setDrawer(null)}>
           <PluginDetails
             key={selectedPlugin.id}
             plugin={selectedPlugin}
@@ -477,8 +481,7 @@ export default function ExtensionsPage() {
             onUpdate={update}
             onRollback={rollback}
             onUninstall={uninstall}
-            onSaveConfig={saveConfig}
-            onResetConfig={resetConfig}
+            settingsSectionId={pluginSettingsIds[selectedPlugin.id] || pluginSectionId(selectedPlugin.id)}
           />
         </PluginDrawer>
       ) : null}

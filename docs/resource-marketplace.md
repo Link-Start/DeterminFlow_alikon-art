@@ -78,7 +78,7 @@ Bridge v1 通过新增的可选能力 `skill.installPinned` 承载这两个字�
 
 本地会话文件权限为 `0600`，接口只允许桌面模式下的 loopback（本机回环）请求。
 账号会话仅注入官方来源的内置能力；第三方 Plugin 无法通过 runtime service 读取。
-
+审核工具复用该会话，不另建账号库，也不接受令牌参数。
 
 登录后可在官网嵌入页查看发现目录与作者投稿。新宿主通过可选 bridge 能力
 `author.resources.page`、`author.versions.page` 代理按资源分页的作者工作台，以及
@@ -87,7 +87,7 @@ Bridge v1 通过新增的可选能力 `skill.installPinned` 承载这两个字�
 
 本机投稿草稿只存在于 `data/resource-marketplace/drafts`，按不可逆的账号与广场来源分区，
 文件权限 `0600`，通过 CAS 保存；不上传官网，也不经 bridge 暴露 token 或 subject。
-保存草稿和本地预览只允许用户自有单文件 `SKILL.md`。`GET /api/resource-marketplace/local-skills/:skill_id/preview`
+保存草稿和本地预览只允许用户自有 Skill 包。`GET /api/resource-marketplace/local-skills/:skill_id/preview`
 返回预览正文和精确字节 SHA-256。可选查询 `target_slug` 与 `publication_version` 会生成一份不改写本地文件的投稿副本，
 其 `name` 与版本分别对齐线上目标和发布版本；预览正文就是将要上传的字节。来源摘要继续用于发现本地文件变化，
 准备后的摘要必须与上传和安装一致。新宿主在声明 `resource.publishPrepared` 后才能把任意本地 Skill 更新到已有线上资源；
@@ -97,13 +97,41 @@ Bridge v1 通过新增的可选能力 `skill.installPinned` 承载这两个字�
 
 ## 投稿和版本
 
-资源契约预留 Skill、Prompt、Agent、Workflow 和 Rule；首期只接收一个 UTF-8 `SKILL.md`，
-不接受附件。其他类型在各自包格式、审核和运行权限边界确定前不开放投稿或安装。
+资源契约预留 Skill、Prompt、Agent、Workflow 和 Rule；当前支持单个 Skill 携带多个文件，
+根目录必须包含 UTF-8 `SKILL.md`，可包含 `references/` 等参考文件目录，不能包含其他 Skill。
+其他资源类型在各自包格式、审核和运行权限边界确定前不开放投稿或安装。
 已提交版本不可覆盖；修改内容或许可时须递增版本。
 新版本待审或被拒绝不会影响当前已上架版本。审核通过会切换公开版本，旧投稿不能覆盖更新的上架版本。
 下架后目录与下载停止公开，审核员可恢复上架并保留处理记录。首次安装默认启用并开启自动注入，用户可在 Skills 页关闭；更新保留本地启用及自动注入设置。
 安装内容写入 `data/skills/marketplace/`，与 `data/skills/local/` 中的用户作品隔离；
 同 ID 跨来源冲突时安装失败，不会覆盖本地或内置内容。
+
+### 多文件格式与文件类型配置
+
+只有 `SKILL.md` 时继续发送原始 Markdown 字节。多个文件使用 UTF-8 JSON 包：
+`{"format":"determinflow.skill-bundle.v1","files":[{"path":"SKILL.md","content":"<base64>"}]}`。
+`files` 按路径排序，每个文件使用标准 Base64；SHA-256 覆盖整个上传包，而不是只覆盖主文件。
+预览 API 的 `content` 保留完整包文本以便核验摘要，页面展示主文件与附件清单。
+准备发布副本只改根文件的名称和版本，不改本地文件或附件。更新检查所有已安装文件的摘要，
+附件被增删或修改时拒绝覆盖；成功更新移除新版不再包含的旧附件，失败时恢复原包与来源记录。
+
+Core 和官网 Worker 均提供环境配置：
+
+| 配置 | 默认值 | 行为 |
+| --- | --- | --- |
+| `MARKETPLACE_SKILL_FILE_TYPE_CHECK` | `true` | 只有明确设为 `false` 才关闭扩展名检查 |
+| `MARKETPLACE_SKILL_ALLOWED_EXTENSIONS` | `.md` | 逗号分隔、不区分大小写的扩展名白名单 |
+
+这两个配置属于运行环境，作者不能通过投稿参数绕过服务端检查。修改后需重启 Core、重新部署
+Worker 配置。放宽类型时两端都需相应配置；关闭类型检查不会自动执行附件中的程序。
+Markdown 文件始终要求 UTF-8 且不含 NUL；关闭类型检查后其他格式可按二进制字节打包。
+每包最多 64 个文件，每文件最多 256 KiB，展开后总计最多 1 MiB，传输包最多 2 MiB。
+路径最长 240 字符、最多 16 层，使用字母、数字、下划线、连字符和点组成的相对路径；
+拒绝软链接、特殊文件、绝对路径、路径越界、设备名、大小写冲突以及嵌套 `SKILL.md`。
+这些结构限制不受文件类型开关影响。
+
+官网和 Core 必须同时更新才能上传、安装多文件包；现有单文件资源继续兼容旧 Core。
+本改造不包含多个 Skill 的集合包，也不自动安装同级 Skill 依赖。
 
 投稿前由 Core 批量调用官网名称检查；这只提供即时反馈，最终重名约束仍由官网提交事务保证。
 发布页可编辑显示名称、作者笔名、简介、功能分类、主要语言、标签、更新记录、详细使用说明和使用授权。
@@ -143,6 +171,27 @@ Bridge v1 通过新增的可选能力 `skill.installPinned` 承载这两个字�
 审核与下架规则，以及 DeterminFlow 与笔枢相关资源市场之间的同步、镜像和溯源授权。
 
 详情中评分至少有 5 份后才公开展示均分，样本不足时只展示评分人数；资源卡始终只展示文字评论数量。收藏和评分按统一账号去重；公开身份使用稳定的匿名社区标签。下载同时记录总量与每日聚合，统计写入失败不会阻止已校验资源包下载。举报进入私有审核队列，不在公开目录暴露。
+
+## 审核工具
+
+轻量审核 CLI 只调用本机桌面 API，默认 `http://127.0.0.1:8020`。
+请先启动并登录桌面客户端。
+
+```bash
+python3 scripts/marketplace_review.py queue
+python3 scripts/marketplace_review.py show <version_id>
+python3 scripts/marketplace_review.py approve <version_id> --sha256 <64-lowerhex> --confirm
+python3 scripts/marketplace_review.py reject <version_id> --sha256 <64-lowerhex> --reason "原因" --confirm
+python3 scripts/marketplace_review.py suspend <slug> --version-id <version_id> --reason "原因" --confirm
+```
+
+约束：
+
+- `--endpoint` 或 `DETERMINFLOW_REVIEW_ENDPOINT` 只能是本机回环地址。
+- 通过、拒绝、下架必须带 `--confirm`；通过和拒绝必须提供内容 SHA-256。
+- 工具不读取、不输出访问令牌或刷新令牌。
+- 正文按纯文本显示，并去掉终端控制字符。
+- 审核账号由官网审核名单决定；没有权限时本机 API 返回 403。
 
 ## 运行前提
 

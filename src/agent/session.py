@@ -45,6 +45,7 @@ from openai import BadRequestError, ContentFilterFinishReasonError
 import src.config as config
 
 from src.config import SESSIONS_DIR, LANGGRAPH_RECURSION_LIMIT, USER_INJECTION_CONFIG_FILE
+from src.core.message_attachments import retain_message_attachments
 
 from src.core.utils import (
     trim_langchain_messages,
@@ -766,6 +767,8 @@ class AgentSession:
 
         from src.core.graph_builder import build_graph
 
+        from src.workspace.tools import filter_workspace_tools
+        tools = filter_workspace_tools(tools, self.agent_type)
         self.tools = tools
 
         graph = build_graph(llm=llm, tools=tools)
@@ -1444,14 +1447,9 @@ class AgentSession:
             original_model_context = deepcopy(
                 self.record[target_idx].get("model_context")
             )
-            retained_attachments = [
-                dict(attachment)
-                for attachment in original_attachments
-                if isinstance(attachment, dict)
-                and isinstance(attachment.get("name"), str)
-                and isinstance(attachment.get("absolute_path"), str)
-                and attachment["absolute_path"] in new_content
-            ] if isinstance(original_attachments, list) else []
+            retained_attachments = retain_message_attachments(
+                original_attachments, new_content
+            )
 
             # ---- 2. 对齐 lc_messages：统计 record 中到目标为止的 user 消息数 ----
             user_count = sum(1 for m in self.record[:target_idx + 1] if m.get("type") == "user")
@@ -1715,6 +1713,7 @@ class AgentSession:
         # 如果 await 等待发送完成，LLM 流式输出速度会被 WS 发送速度制约。
         # 事件通过 EventBus 队列投递（put_nowait），不再需要 gather 等待
         self._current_event_callback = event_callback
+        incoming_model_context = model_context
 
         self._logger.debug(
             "[SESSION] _invoke_graph 开始: session=%s, agent=%s, max_rounds=%s, source=%s",
@@ -1726,6 +1725,7 @@ class AgentSession:
         from src.session.context import set_session_context
         set_session_context(
             session_id=self.session_id,
+            session_type=self.session_type,
             workspace_path=self.workspace_path or "",
             parent_id=self.parent_id,
             agent_type=self.agent_type,
@@ -1764,6 +1764,21 @@ class AgentSession:
 
         # 用户消息注入：仅影响入模内容；展示正文始终保留用户原话。
         _injection_content, injection_meta = _build_injection_content() if append_input else ("", [])
+        if append_input:
+            from src.memory.hooks import prepare_turn_model_context
+            model_context = await prepare_turn_model_context(
+                session=self,
+                content=content,
+                source=source,
+                invocation_context=invocation_context,
+                model_context=model_context,
+            )
+        from src.workspace.context import prepare_workspace_context
+        model_context = await prepare_workspace_context(
+            session=self, content=content, source=source,
+            invocation_context=invocation_context, model_context=model_context,
+            append_input=append_input,
+        )
         normalized_model_context = (
             normalize_model_context(model_context) if append_input else None
         )
@@ -2488,7 +2503,15 @@ class AgentSession:
         else:
             await self.async_save()
 
-
+        from src.memory.hooks import record_completed_invocation
+        await record_completed_invocation(
+            session=self,
+            content=content,
+            source=source,
+            append_input=append_input,
+            invocation_context=invocation_context,
+            model_context=incoming_model_context,
+        )
 
         # 事件已通过非阻塞队列投递，各 WS 连接的独立消费者负责按序发送。
         # chain_end 在 stream_end 后推送，消费者 FIFO 保证顺序。
@@ -3732,16 +3755,7 @@ class AgentSession:
                 and attempt_count >= 1
             ):
                 raw_attachments = raw_failed_turn.get("attachments", [])
-                attachments = [
-                    {
-                        "name": attachment["name"],
-                        "absolute_path": attachment["absolute_path"],
-                    }
-                    for attachment in raw_attachments
-                    if isinstance(attachment, dict)
-                    and isinstance(attachment.get("name"), str)
-                    and isinstance(attachment.get("absolute_path"), str)
-                ] if isinstance(raw_attachments, list) else []
+                attachments = retain_message_attachments(raw_attachments)
                 raw_failed_error = raw_failed_turn.get("error")
                 failed_error = None
                 if isinstance(raw_failed_error, dict):

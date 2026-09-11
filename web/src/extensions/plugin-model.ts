@@ -89,7 +89,7 @@ const RUNTIME_STATUS_META: Record<string, RuntimeStatusMeta> = {
   exited: { label: "已退出", variant: "destructive" },
 };
 
-const BASE_KEYS = new Set(["type", "title", "description", "default"]);
+const BASE_KEYS = new Set(["type", "title", "description", "default", "deprecated"]);
 const STRING_FORMATS = new Set(["password", "uri", "multiline"]);
 const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -107,11 +107,13 @@ function rejectUnknownKeys(
 }
 
 function annotations(value: Record<string, unknown>): {
+  deprecated?: boolean;
   title?: string;
   description?: string;
   default?: unknown;
 } {
   return {
+    ...(typeof value.deprecated === "boolean" ? { deprecated: value.deprecated } : {}),
     ...(typeof value.title === "string" ? { title: value.title } : {}),
     ...(typeof value.description === "string" ? { description: value.description } : {}),
     ...("default" in value ? { default: value.default } : {}),
@@ -125,6 +127,9 @@ function parseSchemaNode(
 ): { ok: true; schema: PluginSettingsSchemaNode } | { ok: false; error: string } {
   if (!isRecord(value) || typeof value.type !== "string") {
     return { ok: false, error: `${path} 必须是带 type 的对象` };
+  }
+  if (value.deprecated !== undefined && typeof value.deprecated !== "boolean") {
+    return { ok: false, error: `${path}.deprecated 必须是布尔值` };
   }
   if (value.title !== undefined && typeof value.title !== "string") {
     return { ok: false, error: `${path}.title 必须是字符串` };
@@ -504,7 +509,9 @@ export function validatePluginSettings(
 }
 
 export function schemaHasConfigurableFields(schema: PluginSettingsSchema): boolean {
-  return Object.keys(schema.properties).length > 0;
+  return Object.values(schema.properties).some((field) => !field.deprecated && (
+    field.type !== "object" || schemaHasConfigurableFields(field)
+  ));
 }
 
 export function isStringArraySchema(

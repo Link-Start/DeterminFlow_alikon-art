@@ -642,6 +642,9 @@ class SessionManager(SessionLifecycleMixin):
 
     async def _notify_session_end(self, session: "AgentSession"):
         """Notify optional extensions after a session ends."""
+        from src.memory.hooks import note_session_end
+
+        await note_session_end(session)
         if self._extension_manager is not None:
             await self._extension_manager.notify_session_end(session)
 

@@ -18,48 +18,11 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from src.web.event_bus import event_bus
 from src.core.utils import is_visible_to_frontend
+from src.core.message_attachments import (
+    validate_message_attachments as _validate_message_attachments,
+)
 
 logger = logging.getLogger(__name__)
-
-_MAX_MESSAGE_ATTACHMENTS = 64
-_MAX_ATTACHMENT_NAME_LENGTH = 255
-_MAX_ATTACHMENT_PATH_LENGTH = 4096
-
-
-def _validate_message_attachments(raw_attachments, content: str) -> list[dict[str, str]]:
-    """校验 UI 附件元数据；正文中的绝对路径仍是 LLM 的唯一输入。"""
-    if raw_attachments is None:
-        return []
-    if not isinstance(raw_attachments, list):
-        raise ValueError("attachments 必须是数组")
-    if len(raw_attachments) > _MAX_MESSAGE_ATTACHMENTS:
-        raise ValueError(f"单条消息最多包含 {_MAX_MESSAGE_ATTACHMENTS} 个文件")
-
-    attachments: list[dict[str, str]] = []
-    for raw_attachment in raw_attachments:
-        if not isinstance(raw_attachment, dict):
-            raise ValueError("附件信息格式无效")
-        name = raw_attachment.get("name")
-        path = raw_attachment.get("absolute_path")
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError("附件名称无效")
-        if not isinstance(path, str) or not path:
-            raise ValueError("附件路径无效")
-        if len(name) > _MAX_ATTACHMENT_NAME_LENGTH:
-            raise ValueError("附件名称过长")
-        if len(path) > _MAX_ATTACHMENT_PATH_LENGTH:
-            raise ValueError("附件路径过长")
-        is_absolute = path.startswith("/") or (
-            len(path) >= 3
-            and path[0].isalpha()
-            and path[1] == ":"
-            and path[2] in ("/", "\\")
-        )
-        if not is_absolute or path not in content:
-            raise ValueError("附件绝对路径必须存在于消息正文中")
-        attachments.append({"name": name, "absolute_path": path})
-    return attachments
-
 
 # ============ 后台消息处理 ============
 
